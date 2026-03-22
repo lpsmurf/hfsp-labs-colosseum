@@ -110,16 +110,15 @@ async function sendMenu(chatId: number) {
   await sendMessage(
     chatId,
     [
-      'Welcome to HFSP Agent Provisioning (beta).',
+      'Hey — welcome. I’ll help you set up your personal agent in a couple of minutes.',
       '',
-      'This bot helps you create your own personal Telegram agent powered by OpenClaw.',
+      'What you’ll do:',
+      '1) Create a Telegram bot with @BotFather',
+      '2) Paste the bot token here (keep it private — it controls your bot)',
+      '3) Choose a template (Blank or Ops Starter)',
+      '4) Connect a model (OpenAI OAuth beta or API key)',
       '',
-      'How it works:',
-      '• You create a new Telegram bot in BotFather',
-      '• You paste the bot token here (like a password)',
-      '• We provision an isolated runtime for you + connect a model',
-      '',
-      'Tap a button to continue:'
+      'Ready when you are — tap a button below.'
     ].join('\n'),
     { reply_markup: keyboard }
   );
@@ -167,12 +166,14 @@ app.post('/telegram/webhook', async (req, res) => {
         await sendMessage(
           chatId,
           [
-            `Template selected: ${templateId === 'blank' ? 'Blank' : 'Ops Starter'}.`,
+            `Nice — template selected: ${templateId === 'blank' ? 'Blank' : 'Ops Starter'}.`,
             '',
-            'Next step (coming next commit):',
-            '- connect OpenAI (OAuth beta or API key)',
-            '- provision container',
-            '- pairing'
+            'Next we’ll connect a model so your agent can think.',
+            'You’ll be able to choose:',
+            '• OpenAI OAuth (beta)',
+            '• or API key (recommended)',
+            '',
+            'Then we provision your agent and finish pairing.'
           ].join('\n')
         );
         return;
@@ -226,16 +227,19 @@ app.post('/telegram/webhook', async (req, res) => {
       await sendMessage(
         chatId,
         [
-          'Great. Now let’s create your bot in Telegram (BotFather):',
+          'Awesome. Next: let’s create *your* Telegram bot (this will be the bot you chat with).',
           '',
+          'Step-by-step:',
           '1) Open @BotFather',
           '2) Send /newbot',
-          '3) Pick a name (display name)',
-          '4) Pick a username that ends with “bot” (example: my_hfsp_agent_bot)',
-          '5) BotFather will show you a token that looks like:',
+          '3) Bot name = anything (example: “Luis Agent”)',
+          '4) Username must end with “bot” (example: luis_agent_bot)',
+          '5) BotFather will give you a token that looks like:',
           '   123456789:AAAbbbCCCdddEEEfff...',
           '',
-          'Paste that token here.'
+          'Important: the token is like a password. Don’t share it.',
+          '',
+          'Now paste the token here.'
         ].join('\n')
       );
       return;
