@@ -110,9 +110,16 @@ async function sendMenu(chatId: number) {
   await sendMessage(
     chatId,
     [
-      'HFSP Agent Provisioning (beta)',
+      'Welcome to HFSP Agent Provisioning (beta).',
       '',
-      'Use the buttons below to create and manage your agent.'
+      'This bot helps you create your own personal Telegram agent powered by OpenClaw.',
+      '',
+      'How it works:',
+      '• You create a new Telegram bot in BotFather',
+      '• You paste the bot token here (like a password)',
+      '• We provision an isolated runtime for you + connect a model',
+      '',
+      'Tap a button to continue:'
     ].join('\n'),
     { reply_markup: keyboard }
   );
@@ -216,7 +223,21 @@ app.post('/telegram/webhook', async (req, res) => {
     if (w.step === 'await_agent_name') {
       const agentName = text.trim().slice(0, 60);
       setWizard(telegramUserId, 'await_bot_token', { ...w.data, agentName });
-      await sendMessage(chatId, 'Paste your BotFather token (looks like 123456:ABC...).');
+      await sendMessage(
+        chatId,
+        [
+          'Great. Now let’s create your bot in Telegram (BotFather):',
+          '',
+          '1) Open @BotFather',
+          '2) Send /newbot',
+          '3) Pick a name (display name)',
+          '4) Pick a username that ends with “bot” (example: my_hfsp_agent_bot)',
+          '5) BotFather will show you a token that looks like:',
+          '   123456789:AAAbbbCCCdddEEEfff...',
+          '',
+          'Paste that token here.'
+        ].join('\n')
+      );
       return;
     }
 
