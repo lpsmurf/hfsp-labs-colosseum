@@ -38,12 +38,19 @@ db.exec(`
 const BOT_TOKEN = readToken();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-type WizardStep = 'idle' | 'await_agent_name' | 'await_bot_token' | 'await_template';
+type WizardStep =
+  | 'idle'
+  | 'setup_intro'
+  | 'await_agent_name'
+  | 'botfather_helper'
+  | 'await_bot_token'
+  | 'await_template';
 
 type WizardData = {
   agentName?: string;
   botToken?: string;
   templateId?: 'blank' | 'ops_starter';
+  history?: WizardStep[];
 };
 
 function getOrCreateUser(telegramUserId: number) {
@@ -68,6 +75,19 @@ function setWizard(telegramUserId: number, step: WizardStep, data: WizardData) {
      VALUES (?, ?, ?)
      ON CONFLICT(telegram_user_id) DO UPDATE SET step=excluded.step, data_json=excluded.data_json, updated_at=datetime('now')`
   ).run(telegramUserId, step, JSON.stringify(data));
+}
+
+function transition(telegramUserId: number, from: WizardStep, to: WizardStep, data: WizardData) {
+  const history = Array.isArray(data.history) ? data.history : [];
+  const next: WizardData = { ...data, history: [...history, from] };
+  setWizard(telegramUserId, to, next);
+}
+
+function back(telegramUserId: number, current: WizardStep, data: WizardData): WizardStep {
+  const history = Array.isArray(data.history) ? [...data.history] : [];
+  const prev = history.pop();
+  setWizard(telegramUserId, prev ?? 'idle', { ...data, history });
+  return (prev ?? 'idle') as WizardStep;
 }
 
 function clearWizard(telegramUserId: number) {
@@ -98,6 +118,68 @@ async function answerCallbackQuery(callbackQueryId: string) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackQueryId })
   }).catch(() => undefined);
+}
+
+async function renderSetupIntro(chatId: number) {
+  await sendMessage(
+    chatId,
+    [
+      'Ready to set up your personal agent?',
+      '',
+      'You’ll create a new Telegram bot in BotFather, paste the token here, and choose a template.'
+    ].join('\n'),
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Start setup', callback_data: 'flow:start_setup' }],
+          [{ text: 'What is BotFather?', callback_data: 'flow:what_is_botfather' }],
+          [{ text: 'Cancel', callback_data: 'flow:cancel' }]
+        ]
+      }
+    }
+  );
+}
+
+async function renderBotFatherHelper(chatId: number) {
+  await sendMessage(
+    chatId,
+    'BotFather is Telegram\’s official bot creator. You use it once to create *your* bot and get a token.',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Open BotFather', url: 'https://t.me/BotFather' }],
+          [{ text: 'Show steps', callback_data: 'flow:botfather_steps' }],
+          [{ text: 'I created it → paste token', callback_data: 'flow:token_ready' }],
+          [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+        ]
+      }
+    }
+  );
+}
+
+async function renderBotFatherSteps(chatId: number) {
+  await sendMessage(
+    chatId,
+    [
+      'BotFather steps:',
+      '1) Open @BotFather',
+      '2) Send /newbot',
+      '3) Choose any display name',
+      '4) Choose a username that ends with “bot”',
+      '5) Copy the token it gives you (looks like 123456:AA...)',
+      '',
+      'When you have it, tap “I created it → paste token”.'
+    ].join('\n'),
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Open BotFather', url: 'https://t.me/BotFather' }],
+          [{ text: 'I created it → paste token', callback_data: 'flow:token_ready' }],
+          [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+        ]
+      }
+    }
+  );
 }
 
 async function sendMenu(chatId: number) {
@@ -155,6 +237,70 @@ app.post('/telegram/webhook', async (req, res) => {
       const data: string | undefined = cbq?.data;
       const w = getWizard(telegramUserId);
 
+      // Global callbacks
+      if (data === 'flow:cancel') {
+        clearWizard(telegramUserId);
+        await sendMessage(chatId, 'Cancelled. Use the menu buttons when you’re ready.');
+        await sendMenu(chatId);
+        return;
+      }
+
+      if (data === 'flow:back') {
+        const prev = back(telegramUserId, w.step, w.data);
+        if (prev === 'setup_intro' || prev === 'idle') {
+          await renderSetupIntro(chatId);
+          return;
+        }
+        if (prev === 'botfather_helper') {
+          await renderBotFatherHelper(chatId);
+          return;
+        }
+        if (prev === 'await_template') {
+          // Re-render template buttons
+          await sendMessage(chatId, 'Choose a template:', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Blank', callback_data: 'template:blank' }],
+                [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }],
+                [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+              ]
+            }
+          });
+          return;
+        }
+        await sendMenu(chatId);
+        return;
+      }
+
+      if (data === 'flow:start_setup') {
+        transition(telegramUserId, w.step, 'await_agent_name', w.data);
+        await sendMessage(chatId, 'What should we call your agent? (type a name)');
+        return;
+      }
+
+      if (data === 'flow:what_is_botfather') {
+        transition(telegramUserId, w.step, 'botfather_helper', w.data);
+        await renderBotFatherHelper(chatId);
+        return;
+      }
+
+      if (data === 'flow:botfather_steps') {
+        // Stay in botfather_helper but show steps
+        await renderBotFatherSteps(chatId);
+        return;
+      }
+
+      if (data === 'flow:token_ready') {
+        transition(telegramUserId, w.step, 'await_bot_token', w.data);
+        await sendMessage(chatId, 'Paste your BotFather token now:', {
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+          }
+        });
+        return;
+      }
+
+      // Template selection
       if (data?.startsWith('template:') && w.step === 'await_template') {
         const template = data.split(':')[1];
         const templateId = template === 'ops_starter' ? 'ops_starter' : template === 'blank' ? 'blank' : undefined;
@@ -176,6 +322,7 @@ app.post('/telegram/webhook', async (req, res) => {
             'Then we provision your agent and finish pairing.'
           ].join('\n')
         );
+        await sendMenu(chatId);
         return;
       }
 
@@ -206,7 +353,8 @@ app.post('/telegram/webhook', async (req, res) => {
 
     if (cmd === 'cancel') {
       clearWizard(telegramUserId);
-      await sendMessage(chatId, 'Cancelled. Use the menu to start again.');
+      await sendMessage(chatId, 'Cancelled. Use the menu buttons when you’re ready.');
+      await sendMenu(chatId);
       return;
     }
 
@@ -216,59 +364,44 @@ app.post('/telegram/webhook', async (req, res) => {
     }
 
     if (cmd === 'create' && w.step === 'idle') {
-      setWizard(telegramUserId, 'await_agent_name', {});
-      await sendMessage(chatId, 'Name your agent (e.g., "My Ops Assistant"):');
+      setWizard(telegramUserId, 'setup_intro', { history: [] });
+      await renderSetupIntro(chatId);
       return;
     }
 
     if (w.step === 'await_agent_name') {
       const agentName = text.trim().slice(0, 60);
-      setWizard(telegramUserId, 'await_bot_token', { ...w.data, agentName });
-      await sendMessage(
-        chatId,
-        [
-          'Awesome. Next: let’s create *your* Telegram bot (this will be the bot you chat with).',
-          '',
-          'Step-by-step:',
-          '1) Open @BotFather',
-          '2) Send /newbot',
-          '3) Bot name = anything (example: “Luis Agent”)',
-          '4) Username must end with “bot” (example: luis_agent_bot)',
-          '5) BotFather will give you a token that looks like:',
-          '   123456789:AAAbbbCCCdddEEEfff...',
-          '',
-          'Important: the token is like a password. Don’t share it.',
-          '',
-          'Now paste the token here.'
-        ].join('\n')
-      );
+      transition(telegramUserId, w.step, 'botfather_helper', { ...w.data, agentName });
+      await renderBotFatherHelper(chatId);
       return;
     }
 
     if (w.step === 'await_bot_token') {
       const token = text.trim();
       if (!token.includes(':') || token.length < 20) {
-        await sendMessage(chatId, 'That token does not look valid. Paste the full BotFather token.');
+        await sendMessage(chatId, 'That token does not look valid. Paste the full BotFather token.', {
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+          }
+        });
         return;
       }
-      setWizard(telegramUserId, 'await_template', { ...w.data, botToken: token });
-      await sendMessage(
-        chatId,
-        'Choose a template:',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Blank', callback_data: 'template:blank' }],
-              [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }]
-            ]
-          }
+      transition(telegramUserId, w.step, 'await_template', { ...w.data, botToken: token });
+      await sendMessage(chatId, 'Choose a template:', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Blank', callback_data: 'template:blank' }],
+            [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }],
+            [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+          ]
         }
-      );
+      });
       return;
     }
 
-    if (w.step === 'await_template') {
-      await sendMessage(chatId, 'Please choose a template using the buttons above.');
+    if (w.step === 'setup_intro' || w.step === 'botfather_helper' || w.step === 'await_template') {
+      // In these steps we expect button presses.
+      await sendMenu(chatId);
       return;
     }
 
