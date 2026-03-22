@@ -5,7 +5,7 @@ ARG OPENCLAW_VERSION=2026.3.13
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl gnupg git openssh-client jq tini \
+    ca-certificates curl gnupg git openssh-client jq tini psmisc lsof \
   && rm -rf /var/lib/apt/lists/*
 
 # Node.js 22
