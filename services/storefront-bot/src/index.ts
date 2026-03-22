@@ -139,8 +139,11 @@ async function sendDocument(chatId: number, filePath: string, filename: string, 
   const form = new FormData();
   form.set('chat_id', String(chatId));
   if (caption) form.set('caption', caption);
-  const blob = new Blob([fs.readFileSync(filePath)]);
-  form.set('document', blob, filename);
+
+  // Use File for better multipart behavior on Node.
+  const buf = fs.readFileSync(filePath);
+  const file = new File([buf], filename);
+  form.set('document', file);
 
   const res = await fetch(`${TELEGRAM_API}/sendDocument`, {
     method: 'POST',
@@ -512,72 +515,76 @@ app.post('/telegram/webhook', async (req, res) => {
 
       // Provision (v0): generate tenant id + dashboard tunnel key + instructions
       if (data === 'provision:start') {
-        const templateOk = Boolean(w.data.templateId);
-        const providerOk = Boolean(w.data.provider);
-        const presetOk = Boolean(w.data.modelPreset);
-        const keyOk = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
+        try {
+          await sendMessage(chatId, 'Provisioning… (creating tenant + dashboard key)');
 
-        if (!templateOk || !providerOk || !presetOk || !keyOk) {
-          await sendMessage(chatId, 'You’re missing some setup steps. Tap Status and finish the missing items.');
-          return;
-        }
+          const templateOk = Boolean(w.data.templateId);
+          const providerOk = Boolean(w.data.provider);
+          const presetOk = Boolean(w.data.modelPreset);
+          const keyOk = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
 
-        const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-        const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
+          if (!templateOk || !providerOk || !presetOk || !keyOk) {
+            await sendMessage(chatId, 'You’re missing some setup steps. Tap Status and finish the missing items.');
+            return;
+          }
 
-        db.prepare(
-          `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, template_id, provider, model_preset, dashboard_port)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).run(
-          tenantId,
-          telegramUserId,
-          w.data.agentName ?? null,
-          w.data.templateId ?? null,
-          w.data.provider ?? null,
-          w.data.modelPreset ?? null,
-          dashboardPort
-        );
+          const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+          const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
 
-        // Generate a one-time SSH key for dashboard tunnel
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hfsp-dash-'));
-        const keyBase = path.join(tmpDir, `hfsp_${tenantId}`);
-        execFileSync('ssh-keygen', ['-t', 'ed25519', '-C', tenantId, '-f', keyBase, '-N', ''], { stdio: 'ignore' });
-        const pub = fs.readFileSync(`${keyBase}.pub`, 'utf8').trim();
+          db.prepare(
+            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, template_id, provider, model_preset, dashboard_port)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          ).run(
+            tenantId,
+            telegramUserId,
+            w.data.agentName ?? null,
+            w.data.templateId ?? null,
+            w.data.provider ?? null,
+            w.data.modelPreset ?? null,
+            dashboardPort
+          );
 
-        await sendMessage(chatId, `Provisioning created tenant: ${tenantId}`);
+          // Generate a one-time SSH key for dashboard tunnel
+          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hfsp-dash-'));
+          const keyBase = path.join(tmpDir, `hfsp_${tenantId}`);
+          execFileSync('ssh-keygen', ['-t', 'ed25519', '-C', tenantId, '-f', keyBase, '-N', ''], { stdio: 'ignore' });
+          const pub = fs.readFileSync(`${keyBase}.pub`, 'utf8').trim();
 
-        // Send private key as a document (generate-once UX)
-        await sendDocument(
-          chatId,
-          keyBase,
-          `hfsp_${tenantId}.key`,
-          'Dashboard SSH key (download once). Keep it private.'
-        );
+          await sendMessage(chatId, `Tenant created: ${tenantId}`);
 
-        await sendMessage(
-          chatId,
-          [
-            'Next: run these commands on the TENANT VPS (187.124.173.69) as root to enable dashboard access for this tenant:',
-            '',
+          // Send private key as a document (generate-once UX)
+          await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (download once). Keep it private.');
+
+          // Important: keep this message short enough for Telegram.
+          const cmdBlock = [
+            'TENANT VPS (as root):',
             `PORT=${dashboardPort}`,
             `PUB='${pub.replace(/'/g, "'\\''")}'`,
-            '',
-            'mkdir -p /home/dash/.ssh',
-            'chmod 700 /home/dash/.ssh',
-            'touch /home/dash/.ssh/authorized_keys',
-            'chmod 600 /home/dash/.ssh/authorized_keys',
+            'mkdir -p /home/dash/.ssh && chmod 700 /home/dash/.ssh',
+            'touch /home/dash/.ssh/authorized_keys && chmod 600 /home/dash/.ssh/authorized_keys',
             'echo "permitopen=\"127.0.0.1:${PORT}\",no-pty,no-agent-forwarding,no-X11-forwarding ${PUB}" >> /home/dash/.ssh/authorized_keys',
-            'chown -R dash:dash /home/dash/.ssh',
-            '',
-            'Then the customer can tunnel their dashboard with:',
-            `ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@187.124.173.69`,
-            `and open: http://127.0.0.1:${dashboardPort}`,
-            '',
-            'Next milestone: we’ll automate these steps + start the OpenClaw container automatically.'
-          ].join('\n')
-        );
+            'chown -R dash:dash /home/dash/.ssh'
+          ].join('\n');
 
-        return;
+          await sendMessage(chatId, cmdBlock);
+
+          await sendMessage(
+            chatId,
+            [
+              'Customer tunnel command:',
+              `ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@187.124.173.69`,
+              `Open: http://127.0.0.1:${dashboardPort}`,
+              '',
+              'Next milestone: automate key install + start OpenClaw container automatically.'
+            ].join('\n')
+          );
+
+          return;
+        } catch (err) {
+          console.error('Provision error', err);
+          await sendMessage(chatId, `Provisioning failed: ${(err as Error)?.message ?? String(err)}`);
+          return;
+        }
       }
 
       // Unknown callback
