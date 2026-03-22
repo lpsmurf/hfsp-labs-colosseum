@@ -625,7 +625,7 @@ app.post('/telegram/webhook', async (req, res) => {
               telegram: {
                 enabled: true,
                 dmPolicy: 'pairing',
-                groupPolicy: 'deny',
+                groupPolicy: 'disabled',
                 accounts: {
                   tenant: {
                     enabled: true,
