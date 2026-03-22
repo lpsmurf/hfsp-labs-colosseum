@@ -44,12 +44,18 @@ type WizardStep =
   | 'await_agent_name'
   | 'botfather_helper'
   | 'await_bot_token'
-  | 'await_template';
+  | 'await_template'
+  | 'connect_openai'
+  | 'await_openai_api_key'
+  | 'await_model_preset';
 
 type WizardData = {
   agentName?: string;
   botToken?: string;
   templateId?: 'blank' | 'ops_starter';
+  openaiConnectMethod?: 'oauth_beta' | 'api_key';
+  openaiApiKey?: string;
+  modelPreset?: 'fast' | 'smart';
   history?: WizardStep[];
 };
 
@@ -175,6 +181,43 @@ async function renderBotFatherSteps(chatId: number) {
         inline_keyboard: [
           [{ text: 'Open BotFather', url: 'https://t.me/BotFather' }],
           [{ text: 'I created it → paste token', callback_data: 'flow:token_ready' }],
+          [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+        ]
+      }
+    }
+  );
+}
+
+async function renderConnectOpenAI(chatId: number) {
+  await sendMessage(
+    chatId,
+    [
+      'Connect OpenAI to power your agent.',
+      '',
+      'Choose one:',
+      '• OAuth (beta): may not work for everyone',
+      '• API key: recommended + reliable'
+    ].join('\n'),
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'OpenAI OAuth (beta)', callback_data: 'openai:oauth_beta' }],
+          [{ text: 'API key (recommended)', callback_data: 'openai:api_key' }],
+          [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+        ]
+      }
+    }
+  );
+}
+
+async function renderChoosePreset(chatId: number) {
+  await sendMessage(
+    chatId,
+    'Choose a model preset:',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Fast', callback_data: 'preset:fast' }, { text: 'Smart', callback_data: 'preset:smart' }],
           [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
         ]
       }
@@ -308,18 +351,61 @@ app.post('/telegram/webhook', async (req, res) => {
           await sendMessage(chatId, 'Invalid template selection.');
           return;
         }
-        setWizard(telegramUserId, 'idle', { ...w.data, templateId });
+        transition(telegramUserId, w.step, 'connect_openai', { ...w.data, templateId });
+        await sendMessage(chatId, `Nice — template selected: ${templateId === 'blank' ? 'Blank' : 'Ops Starter'}.`);
+        await renderConnectOpenAI(chatId);
+        return;
+      }
+
+      // OpenAI connect method selection
+      if (data === 'openai:api_key' && w.step === 'connect_openai') {
+        transition(telegramUserId, w.step, 'await_openai_api_key', { ...w.data, openaiConnectMethod: 'api_key' });
         await sendMessage(
           chatId,
           [
-            `Nice — template selected: ${templateId === 'blank' ? 'Blank' : 'Ops Starter'}.`,
+            'Paste your OpenAI API key.',
             '',
-            'Next we’ll connect a model so your agent can think.',
-            'You’ll be able to choose:',
-            '• OpenAI OAuth (beta)',
-            '• or API key (recommended)',
+            'It looks like: sk-... (keep it private — it’s a secret).'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+            }
+          }
+        );
+        return;
+      }
+
+      if (data === 'openai:oauth_beta' && w.step === 'connect_openai') {
+        // Best-effort: we don't have the web callback implemented yet.
+        setWizard(telegramUserId, 'connect_openai', { ...w.data, openaiConnectMethod: 'oauth_beta' });
+        await sendMessage(
+          chatId,
+          [
+            'OAuth (beta) is coming next.',
             '',
-            'Then we provision your agent and finish pairing.'
+            'For beta, please use API key so we can finish provisioning end-to-end.'
+          ].join('\n')
+        );
+        await renderConnectOpenAI(chatId);
+        return;
+      }
+
+      // Preset selection
+      if (data?.startsWith('preset:') && w.step === 'await_model_preset') {
+        const preset = data.split(':')[1];
+        const modelPreset = preset === 'fast' ? 'fast' : preset === 'smart' ? 'smart' : undefined;
+        if (!modelPreset) {
+          await sendMessage(chatId, 'Invalid preset.');
+          return;
+        }
+        setWizard(telegramUserId, 'idle', { ...w.data, modelPreset });
+        await sendMessage(
+          chatId,
+          [
+            `Saved: ${modelPreset === 'fast' ? 'Fast' : 'Smart'} preset.`,
+            '',
+            'Next step (coming next commit): provision your agent container + pairing.'
           ].join('\n')
         );
         await sendMenu(chatId);
@@ -399,9 +485,20 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
-    if (w.step === 'setup_intro' || w.step === 'botfather_helper' || w.step === 'await_template') {
+    if (w.step === 'setup_intro' || w.step === 'botfather_helper' || w.step === 'await_template' || w.step === 'connect_openai' || w.step === 'await_model_preset') {
       // In these steps we expect button presses.
       await sendMenu(chatId);
+      return;
+    }
+
+    if (w.step === 'await_openai_api_key') {
+      const key = text.trim();
+      if (key.length < 20) {
+        await sendMessage(chatId, 'That key looks too short. Paste the full OpenAI API key.');
+        return;
+      }
+      transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, openaiApiKey: key });
+      await renderChoosePreset(chatId);
       return;
     }
 
