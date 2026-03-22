@@ -666,7 +666,9 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
-    if (cmd === 'create' && w.step === 'idle') {
+    if (cmd === 'create') {
+      // Always restart the wizard from scratch to avoid getting stuck.
+      clearWizard(telegramUserId);
       setWizard(telegramUserId, 'setup_intro', { history: [] });
       await renderSetupIntro(chatId);
       return;
@@ -734,6 +736,13 @@ app.post('/telegram/webhook', async (req, res) => {
       }
       transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, anthropicApiKey: key });
       await renderChoosePreset(chatId);
+      return;
+    }
+
+    // If the user pasted a BotFather token out of sequence, guide them.
+    if (text.includes(':') && text.length > 30 && w.step === 'idle') {
+      await sendMessage(chatId, 'I see a bot token. Tap “Create agent” first so I know where to save it.');
+      await renderSetupIntro(chatId);
       return;
     }
 
