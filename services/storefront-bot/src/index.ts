@@ -616,7 +616,7 @@ app.post('/telegram/webhook', async (req, res) => {
             },
             gateway: {
               port: dashboardPort,
-              bind: '0.0.0.0',
+              bind: 'loopback',
               mode: 'local',
               auth: { mode: 'token', token: gatewayToken }
             },
