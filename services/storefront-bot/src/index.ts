@@ -12,7 +12,7 @@ const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'storefr
 // Tenant VPS provisioning (private-only)
 const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '187.124.173.69';
 const TENANT_VPS_USER = process.env.TENANT_VPS_USER ?? 'tenant';
-const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '/root/.ssh/id_ed25519_hfsp_provisioner';
+const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '/home/clawd/.ssh/id_ed25519_hfsp_provisioner';
 const TENANT_VPS_SSH_OPTS = ['-i', TENANT_VPS_SSH_KEY, '-o', 'StrictHostKeyChecking=accept-new'];
 
 function readToken(): string {
@@ -756,4 +756,5 @@ app.post('/telegram/webhook', async (req, res) => {
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Storefront bot webhook listening on http://127.0.0.1:${PORT}`);
   console.log(`DB: ${DB_PATH}`);
+  console.log(`Tenant VPS: ${TENANT_VPS_USER}@${TENANT_VPS_HOST} (key=${TENANT_VPS_SSH_KEY})`);
 });
