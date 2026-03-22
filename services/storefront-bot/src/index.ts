@@ -472,10 +472,28 @@ app.post('/telegram/webhook', async (req, res) => {
           [
             `Saved: ${modelPreset === 'fast' ? 'Fast' : 'Smart'} preset.`,
             '',
-            'Next step (coming next commit): provision your agent container + pairing.'
+            'Next: tap Status → Provision agent.'
           ].join('\n')
         );
         await sendMenu(chatId);
+        return;
+      }
+
+      // Provision (stub)
+      if (data === 'provision:start') {
+        await sendMessage(chatId, 'Provisioning started…');
+        await sendMessage(
+          chatId,
+          [
+            'Provisioning is not wired to Docker/OpenClaw yet (next milestone).',
+            '',
+            'What will happen here:',
+            '• create an isolated container',
+            '• write openclaw.json + secrets',
+            '• start gateway',
+            '• pairing step'
+          ].join('\n')
+        );
         return;
       }
 
@@ -512,7 +530,33 @@ app.post('/telegram/webhook', async (req, res) => {
     }
 
     if (cmd === 'status') {
-      await sendMessage(chatId, `Setup status: ${w.step}`);
+      const hasKey = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
+      const providerLabel = w.data.provider === 'openai' ? 'OpenAI' : w.data.provider === 'anthropic' ? 'Claude (Anthropic)' : w.data.provider === 'other' ? 'Other' : '—';
+      const templateLabel = w.data.templateId === 'blank' ? 'Blank' : w.data.templateId === 'ops_starter' ? 'Ops Starter' : '—';
+      const presetLabel = w.data.modelPreset ? (w.data.modelPreset === 'fast' ? 'Fast' : 'Smart') : '—';
+
+      await sendMessage(
+        chatId,
+        [
+          'Your setup so far:',
+          `• Agent name: ${w.data.agentName ?? '—'}`,
+          `• Template: ${templateLabel}`,
+          `• Provider: ${providerLabel}`,
+          `• Key: ${hasKey ? 'saved ✅' : 'missing'}`,
+          `• Preset: ${presetLabel}`,
+          `• Current step: ${w.step}`,
+          '',
+          'Next: Provision agent (this will create your isolated runtime + connect your bot).'
+        ].join('\n'),
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Provision agent', callback_data: 'provision:start' }],
+              [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+            ]
+          }
+        }
+      );
       return;
     }
 
