@@ -45,16 +45,20 @@ type WizardStep =
   | 'botfather_helper'
   | 'await_bot_token'
   | 'await_template'
+  | 'choose_provider'
   | 'connect_openai'
   | 'await_openai_api_key'
+  | 'await_anthropic_api_key'
   | 'await_model_preset';
 
 type WizardData = {
   agentName?: string;
   botToken?: string;
   templateId?: 'blank' | 'ops_starter';
+  provider?: 'openai' | 'anthropic' | 'other';
   openaiConnectMethod?: 'oauth_beta' | 'api_key';
   openaiApiKey?: string;
+  anthropicApiKey?: string;
   modelPreset?: 'fast' | 'smart';
   history?: WizardStep[];
 };
@@ -188,6 +192,23 @@ async function renderBotFatherSteps(chatId: number) {
   );
 }
 
+async function renderChooseProvider(chatId: number) {
+  await sendMessage(
+    chatId,
+    'Choose a model provider for your agent:',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'OpenAI', callback_data: 'provider:openai' }],
+          [{ text: 'Claude (Anthropic)', callback_data: 'provider:anthropic' }],
+          [{ text: 'Others (coming soon)', callback_data: 'provider:others' }],
+          [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+        ]
+      }
+    }
+  );
+}
+
 async function renderConnectOpenAI(chatId: number) {
   await sendMessage(
     chatId,
@@ -205,6 +226,22 @@ async function renderConnectOpenAI(chatId: number) {
           [{ text: 'API key (recommended)', callback_data: 'openai:api_key' }],
           [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
         ]
+      }
+    }
+  );
+}
+
+async function renderConnectAnthropic(chatId: number) {
+  await sendMessage(
+    chatId,
+    [
+      'Paste your Anthropic (Claude) API key.',
+      '',
+      'Keep it private — it’s a secret.'
+    ].join('\n'),
+    {
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
       }
     }
   );
@@ -311,6 +348,14 @@ app.post('/telegram/webhook', async (req, res) => {
           });
           return;
         }
+        if (prev === 'choose_provider') {
+          await renderChooseProvider(chatId);
+          return;
+        }
+        if (prev === 'connect_openai') {
+          await renderConnectOpenAI(chatId);
+          return;
+        }
         await sendMenu(chatId);
         return;
       }
@@ -351,9 +396,31 @@ app.post('/telegram/webhook', async (req, res) => {
           await sendMessage(chatId, 'Invalid template selection.');
           return;
         }
-        transition(telegramUserId, w.step, 'connect_openai', { ...w.data, templateId });
+        transition(telegramUserId, w.step, 'choose_provider', { ...w.data, templateId });
         await sendMessage(chatId, `Nice — template selected: ${templateId === 'blank' ? 'Blank' : 'Ops Starter'}.`);
+        await renderChooseProvider(chatId);
+        return;
+      }
+
+      // Provider selection
+      if (data === 'provider:openai' && w.step === 'choose_provider') {
+        transition(telegramUserId, w.step, 'connect_openai', { ...w.data, provider: 'openai' });
         await renderConnectOpenAI(chatId);
+        return;
+      }
+      if (data === 'provider:anthropic' && w.step === 'choose_provider') {
+        transition(telegramUserId, w.step, 'await_anthropic_api_key', { ...w.data, provider: 'anthropic' });
+        await renderConnectAnthropic(chatId);
+        return;
+      }
+      if (data === 'provider:others' && w.step === 'choose_provider') {
+        setWizard(telegramUserId, 'choose_provider', { ...w.data, provider: 'other' });
+        await sendMessage(
+          chatId,
+          'Other providers are coming soon. For beta, please choose OpenAI or Claude.',
+          { reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }]] } }
+        );
+        await renderChooseProvider(chatId);
         return;
       }
 
@@ -485,7 +552,14 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
-    if (w.step === 'setup_intro' || w.step === 'botfather_helper' || w.step === 'await_template' || w.step === 'connect_openai' || w.step === 'await_model_preset') {
+    if (
+      w.step === 'setup_intro' ||
+      w.step === 'botfather_helper' ||
+      w.step === 'await_template' ||
+      w.step === 'choose_provider' ||
+      w.step === 'connect_openai' ||
+      w.step === 'await_model_preset'
+    ) {
       // In these steps we expect button presses.
       await sendMenu(chatId);
       return;
@@ -498,6 +572,17 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
       transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, openaiApiKey: key });
+      await renderChoosePreset(chatId);
+      return;
+    }
+
+    if (w.step === 'await_anthropic_api_key') {
+      const key = text.trim();
+      if (key.length < 20) {
+        await sendMessage(chatId, 'That key looks too short. Paste the full Anthropic API key.');
+        return;
+      }
+      transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, anthropicApiKey: key });
       await renderChoosePreset(chatId);
       return;
     }
