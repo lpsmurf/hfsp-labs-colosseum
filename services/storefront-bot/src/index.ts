@@ -1,6 +1,8 @@
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -32,6 +34,17 @@ db.exec(`
     step TEXT NOT NULL,
     data_json TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS tenants (
+    tenant_id TEXT PRIMARY KEY,
+    telegram_user_id INTEGER NOT NULL,
+    agent_name TEXT,
+    template_id TEXT,
+    provider TEXT,
+    model_preset TEXT,
+    dashboard_port INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
 
@@ -119,6 +132,24 @@ async function sendMessage(chatId: number, text: string, opts: SendMessageOpts =
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error('sendMessage failed', res.status, body);
+  }
+}
+
+async function sendDocument(chatId: number, filePath: string, filename: string, caption?: string) {
+  const form = new FormData();
+  form.set('chat_id', String(chatId));
+  if (caption) form.set('caption', caption);
+  const blob = new Blob([fs.readFileSync(filePath)]);
+  form.set('document', blob, filename);
+
+  const res = await fetch(`${TELEGRAM_API}/sendDocument`, {
+    method: 'POST',
+    body: form as any
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('sendDocument failed', res.status, body);
   }
 }
 
@@ -479,21 +510,73 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
 
-      // Provision (stub)
+      // Provision (v0): generate tenant id + dashboard tunnel key + instructions
       if (data === 'provision:start') {
-        await sendMessage(chatId, 'Provisioning started…');
+        const templateOk = Boolean(w.data.templateId);
+        const providerOk = Boolean(w.data.provider);
+        const presetOk = Boolean(w.data.modelPreset);
+        const keyOk = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
+
+        if (!templateOk || !providerOk || !presetOk || !keyOk) {
+          await sendMessage(chatId, 'You’re missing some setup steps. Tap Status and finish the missing items.');
+          return;
+        }
+
+        const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
+
+        db.prepare(
+          `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, template_id, provider, model_preset, dashboard_port)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          tenantId,
+          telegramUserId,
+          w.data.agentName ?? null,
+          w.data.templateId ?? null,
+          w.data.provider ?? null,
+          w.data.modelPreset ?? null,
+          dashboardPort
+        );
+
+        // Generate a one-time SSH key for dashboard tunnel
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hfsp-dash-'));
+        const keyBase = path.join(tmpDir, `hfsp_${tenantId}`);
+        execFileSync('ssh-keygen', ['-t', 'ed25519', '-C', tenantId, '-f', keyBase, '-N', ''], { stdio: 'ignore' });
+        const pub = fs.readFileSync(`${keyBase}.pub`, 'utf8').trim();
+
+        await sendMessage(chatId, `Provisioning created tenant: ${tenantId}`);
+
+        // Send private key as a document (generate-once UX)
+        await sendDocument(
+          chatId,
+          keyBase,
+          `hfsp_${tenantId}.key`,
+          'Dashboard SSH key (download once). Keep it private.'
+        );
+
         await sendMessage(
           chatId,
           [
-            'Provisioning is not wired to Docker/OpenClaw yet (next milestone).',
+            'Next: run these commands on the TENANT VPS (187.124.173.69) as root to enable dashboard access for this tenant:',
             '',
-            'What will happen here:',
-            '• create an isolated container',
-            '• write openclaw.json + secrets',
-            '• start gateway',
-            '• pairing step'
+            `PORT=${dashboardPort}`,
+            `PUB='${pub.replace(/'/g, "'\\''")}'`,
+            '',
+            'mkdir -p /home/dash/.ssh',
+            'chmod 700 /home/dash/.ssh',
+            'touch /home/dash/.ssh/authorized_keys',
+            'chmod 600 /home/dash/.ssh/authorized_keys',
+            'echo "permitopen=\"127.0.0.1:${PORT}\",no-pty,no-agent-forwarding,no-X11-forwarding ${PUB}" >> /home/dash/.ssh/authorized_keys',
+            'chown -R dash:dash /home/dash/.ssh',
+            '',
+            'Then the customer can tunnel their dashboard with:',
+            `ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@187.124.173.69`,
+            `and open: http://127.0.0.1:${dashboardPort}`,
+            '',
+            'Next milestone: we’ll automate these steps + start the OpenClaw container automatically.'
           ].join('\n')
         );
+
         return;
       }
 
