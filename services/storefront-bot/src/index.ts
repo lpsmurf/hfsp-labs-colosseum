@@ -65,22 +65,27 @@ type WizardStep =
   | 'await_agent_name'
   | 'botfather_helper'
   | 'await_bot_token'
+  | 'await_bot_username'
   | 'await_template'
   | 'choose_provider'
   | 'connect_openai'
   | 'await_openai_api_key'
   | 'await_anthropic_api_key'
-  | 'await_model_preset';
+  | 'await_model_preset'
+  | 'await_pairing_code';
 
 type WizardData = {
   agentName?: string;
   botToken?: string;
+  botUsername?: string; // without @
   templateId?: 'blank' | 'ops_starter';
   provider?: 'openai' | 'anthropic' | 'other';
   openaiConnectMethod?: 'oauth_beta' | 'api_key';
   openaiApiKey?: string;
   anthropicApiKey?: string;
   modelPreset?: 'fast' | 'smart';
+  lastTenantId?: string;
+  lastDashboardPort?: number;
   history?: WizardStep[];
 };
 
@@ -616,9 +621,13 @@ app.post('/telegram/webhook', async (req, res) => {
             },
             gateway: {
               port: dashboardPort,
-              bind: 'loopback',
+              bind: 'lan',
               mode: 'local',
-              auth: { mode: 'token', token: gatewayToken }
+              auth: { mode: 'token', token: gatewayToken },
+              controlUi: {
+                enabled: true,
+                allowedOrigins: [`http://localhost:${dashboardPort}`, `http://127.0.0.1:${dashboardPort}`]
+              }
             },
             plugins: { entries: { telegram: { enabled: true } } },
             channels: {
@@ -655,28 +664,48 @@ app.post('/telegram/webhook', async (req, res) => {
             '--restart unless-stopped',
             `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
             `-v ${workspaceDir}:/tenant/workspace`,
-            `-v ${secretsDir}:/tenant/secrets`,
-            `-v ${tenantDir}/openclaw.json:/tenant/openclaw.json:ro`,
+            `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
+            `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
             TENANT_RUNTIME_IMAGE
           ].join(' ');
 
           sshTenant(runCmd);
 
           // Send private key as a document (generate-once UX)
-          await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (download once). Keep it private.');
+          // Save last tenant info for pairing step
+          setWizard(telegramUserId, 'await_pairing_code', { ...w.data, lastTenantId: tenantId, lastDashboardPort: dashboardPort });
+
+          // Send dashboard key (advanced)
+          await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (advanced, download once). Keep it private.');
+
+          const botLink = w.data.botUsername ? `https://t.me/${w.data.botUsername}` : undefined;
 
           await sendMessage(
             chatId,
             [
-              'Your OpenClaw dashboard is now running (private-only).',
+              'Provisioned ✅',
               '',
-              'Dashboard access (customer):',
-              `1) Save key file as: hfsp_${tenantId}.key`,
-              `2) chmod 600 hfsp_${tenantId}.key`,
-              `3) Tunnel: ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@${TENANT_VPS_HOST}`,
-              `4) Open: http://127.0.0.1:${dashboardPort}`,
-              '',
-              'Next milestone: hook up pairing + agent live chat (Telegram) end-to-end.'
+              'Next: Pair your bot (required).',
+              '1) Open your bot and send /start',
+              '2) It will show a pairing code',
+              '3) Paste the pairing code here'
+            ].join('\n'),
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  botLink ? [{ text: 'Open your bot', url: botLink }] : [{ text: 'Open your bot', callback_data: 'noop' }],
+                  [{ text: 'Cancel', callback_data: 'flow:cancel' }]
+                ]
+              }
+            }
+          );
+
+          await sendMessage(
+            chatId,
+            [
+              'Dashboard (Advanced):',
+              `• Tunnel: ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@${TENANT_VPS_HOST}`,
+              `• Open: http://127.0.0.1:${dashboardPort}`
             ].join('\n')
           );
 
@@ -776,7 +805,30 @@ app.post('/telegram/webhook', async (req, res) => {
         });
         return;
       }
-      transition(telegramUserId, w.step, 'await_template', { ...w.data, botToken: token });
+      transition(telegramUserId, w.step, 'await_bot_username', { ...w.data, botToken: token });
+      await sendMessage(
+        chatId,
+        'What is your bot username? (example: @my_agent_bot or t.me/my_agent_bot)',
+        {
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+          }
+        }
+      );
+      return;
+    }
+
+    if (w.step === 'await_bot_username') {
+      const raw = text.trim();
+      const cleaned = raw
+        .replace(/^https?:\/\/t\.me\//i, '')
+        .replace(/^@/, '')
+        .trim();
+      if (!/^[A-Za-z0-9_]{5,}$/.test(cleaned)) {
+        await sendMessage(chatId, 'That doesn’t look like a Telegram bot username. Paste something like @my_agent_bot.');
+        return;
+      }
+      transition(telegramUserId, w.step, 'await_template', { ...w.data, botUsername: cleaned });
       await sendMessage(chatId, 'Choose a template:', {
         reply_markup: {
           inline_keyboard: [
@@ -821,6 +873,34 @@ app.post('/telegram/webhook', async (req, res) => {
       }
       transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, anthropicApiKey: key });
       await renderChoosePreset(chatId);
+      return;
+    }
+
+    if (w.step === 'await_pairing_code') {
+      const code = text.trim().replace(/\s+/g, '').toUpperCase();
+      if (!/^[A-Z0-9-]{6,20}$/.test(code)) {
+        await sendMessage(chatId, 'That pairing code doesn’t look right. Paste the code exactly as shown by your bot.');
+        return;
+      }
+      const tenantId = w.data.lastTenantId;
+      if (!tenantId) {
+        await sendMessage(chatId, 'Missing tenant context. Tap Status → Provision agent again.');
+        return;
+      }
+
+      await sendMessage(chatId, 'Pairing…');
+      try {
+        const containerName = `hfsp_${tenantId}`;
+        // approve pairing inside tenant container
+        const cmd = `docker exec ${containerName} bash -lc ${shSingleQuote(`openclaw pairing approve telegram ${code}`)}`;
+        const out = sshTenant(cmd);
+        await sendMessage(chatId, `Paired ✅\n${out ? out : ''}`.trim());
+        setWizard(telegramUserId, 'idle', { ...w.data });
+        await sendMenu(chatId);
+      } catch (err) {
+        console.error('pairing approve failed', err);
+        await sendMessage(chatId, `Pairing failed: ${(err as Error)?.message ?? String(err)}`);
+      }
       return;
     }
 
