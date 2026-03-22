@@ -9,6 +9,12 @@ const PORT = Number(process.env.PORT ?? 3000);
 const TOKEN_FILE = process.env.TELEGRAM_BOT_TOKEN_FILE ?? '/home/clawd/.openclaw/secrets/hfsp_agent_bot.token';
 const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'storefront.sqlite');
 
+// Tenant VPS provisioning (private-only)
+const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '187.124.173.69';
+const TENANT_VPS_USER = process.env.TENANT_VPS_USER ?? 'tenant';
+const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '/root/.ssh/id_ed25519_hfsp_provisioner';
+const TENANT_VPS_SSH_OPTS = ['-i', TENANT_VPS_SSH_KEY, '-o', 'StrictHostKeyChecking=accept-new'];
+
 function readToken(): string {
   const t = fs.readFileSync(TOKEN_FILE, 'utf8').trim();
   if (!t || !t.includes(':')) throw new Error(`Invalid telegram token file: ${TOKEN_FILE}`);
@@ -279,6 +285,19 @@ async function renderConnectAnthropic(chatId: number) {
       }
     }
   );
+}
+
+function shSingleQuote(s: string): string {
+  // Wrap string for safe single-quoted shell usage.
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+function sshTenant(command: string): string {
+  return execFileSync(
+    'ssh',
+    [...TENANT_VPS_SSH_OPTS, `${TENANT_VPS_USER}@${TENANT_VPS_HOST}`, command],
+    { encoding: 'utf8' }
+  ).trim();
 }
 
 async function renderChoosePreset(chatId: number) {
@@ -552,32 +571,29 @@ app.post('/telegram/webhook', async (req, res) => {
 
           await sendMessage(chatId, `Tenant created: ${tenantId}`);
 
+          // Install dash tunnel key automatically on tenant VPS via restricted sudo helper.
+          // This avoids showing root commands inside the app.
+          const remote = `sudo /usr/local/bin/hfsp_dash_allow_key ${dashboardPort} ${shSingleQuote(pub)}`;
+          const out = sshTenant(remote);
+          if (!out.includes('OK')) {
+            throw new Error(`Tenant VPS key install unexpected output: ${out}`);
+          }
+
           // Send private key as a document (generate-once UX)
           await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (download once). Keep it private.');
-
-          // Important: keep this message short enough for Telegram.
-          const cmdBlock = [
-            'TENANT VPS (as root):',
-            `PORT=${dashboardPort}`,
-            `PUB='${pub.replace(/'/g, "'\\''")}'`,
-            'mkdir -p /home/dash/.ssh && chmod 700 /home/dash/.ssh',
-            'touch /home/dash/.ssh/authorized_keys && chmod 600 /home/dash/.ssh/authorized_keys',
-            'echo "permitopen=\"127.0.0.1:${PORT}\",no-pty,no-agent-forwarding,no-X11-forwarding ${PUB}" >> /home/dash/.ssh/authorized_keys',
-            'chown -R dash:dash /home/dash/.ssh'
-          ].join('\n');
-
-          await sendMessage(chatId, cmdBlock);
 
           await sendMessage(
             chatId,
             [
-              'Customer tunnel command:',
-              `ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@187.124.173.69`,
-              `Open: http://127.0.0.1:${dashboardPort}`,
-              '',
-              'Next milestone: automate key install + start OpenClaw container automatically.'
+              'Dashboard access (customer):',
+              `1) Save the key file as: hfsp_${tenantId}.key`,
+              `2) chmod 600 hfsp_${tenantId}.key`,
+              `3) Run tunnel: ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@${TENANT_VPS_HOST}`,
+              `4) Open: http://127.0.0.1:${dashboardPort}`
             ].join('\n')
           );
+
+          await sendMessage(chatId, 'Next milestone: start the tenant OpenClaw container automatically + pairing.');
 
           return;
         } catch (err) {
