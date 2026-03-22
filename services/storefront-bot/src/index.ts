@@ -74,11 +74,17 @@ function clearWizard(telegramUserId: number) {
   db.prepare('DELETE FROM wizard_state WHERE telegram_user_id = ?').run(telegramUserId);
 }
 
-async function sendMessage(chatId: number, text: string) {
+type ReplyMarkup = Record<string, unknown>;
+
+type SendMessageOpts = {
+  reply_markup?: ReplyMarkup;
+};
+
+async function sendMessage(chatId: number, text: string, opts: SendMessageOpts = {}) {
   const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text })
+    body: JSON.stringify({ chat_id: chatId, text, ...opts })
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -86,17 +92,29 @@ async function sendMessage(chatId: number, text: string) {
   }
 }
 
+async function answerCallbackQuery(callbackQueryId: string) {
+  await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId })
+  }).catch(() => undefined);
+}
+
 async function sendMenu(chatId: number) {
+  const keyboard = {
+    keyboard: [[{ text: 'Create agent' }], [{ text: 'Status' }, { text: 'Cancel' }]],
+    resize_keyboard: true,
+    one_time_keyboard: false
+  };
+
   await sendMessage(
     chatId,
     [
       'HFSP Agent Provisioning (beta)',
       '',
-      'Reply with:',
-      '1) create  — create a new agent',
-      '2) status  — show where you are in setup',
-      '3) cancel  — cancel the current setup'
-    ].join('\n')
+      'Use the buttons below to create and manage your agent.'
+    ].join('\n'),
+    { reply_markup: keyboard }
   );
 }
 
@@ -112,9 +130,12 @@ app.post('/telegram/webhook', async (req, res) => {
   res.status(200).json({ ok: true });
 
   const update = req.body as any;
+
   const msg = update?.message;
-  const chatId: number | undefined = msg?.chat?.id;
-  const telegramUserId: number | undefined = msg?.from?.id;
+  const cbq = update?.callback_query;
+
+  const chatId: number | undefined = msg?.chat?.id ?? cbq?.message?.chat?.id;
+  const telegramUserId: number | undefined = msg?.from?.id ?? cbq?.from?.id;
   const text: string | undefined = msg?.text;
 
   if (!chatId || !telegramUserId) return;
@@ -122,32 +143,71 @@ app.post('/telegram/webhook', async (req, res) => {
   getOrCreateUser(telegramUserId);
 
   try {
+    // Handle callback buttons
+    if (cbq?.id) {
+      await answerCallbackQuery(cbq.id);
+      const data: string | undefined = cbq?.data;
+      const w = getWizard(telegramUserId);
+
+      if (data?.startsWith('template:') && w.step === 'await_template') {
+        const template = data.split(':')[1];
+        const templateId = template === 'ops_starter' ? 'ops_starter' : template === 'blank' ? 'blank' : undefined;
+        if (!templateId) {
+          await sendMessage(chatId, 'Invalid template selection.');
+          return;
+        }
+        setWizard(telegramUserId, 'idle', { ...w.data, templateId });
+        await sendMessage(
+          chatId,
+          [
+            `Template selected: ${templateId === 'blank' ? 'Blank' : 'Ops Starter'}.`,
+            '',
+            'Next step (coming next commit):',
+            '- connect OpenAI (OAuth beta or API key)',
+            '- provision container',
+            '- pairing'
+          ].join('\n')
+        );
+        return;
+      }
+
+      // Unknown callback
+      await sendMenu(chatId);
+      return;
+    }
+
     if (!text) {
       await sendMenu(chatId);
       return;
     }
 
     const norm = text.trim().toLowerCase();
-    if (norm.startsWith('/start')) {
+    const w = getWizard(telegramUserId);
+
+    // Map button labels to commands
+    const cmd =
+      norm === 'create agent' ? 'create' :
+      norm === 'status' ? 'status' :
+      norm === 'cancel' ? 'cancel' :
+      norm;
+
+    if (cmd.startsWith('/start')) {
       await sendMenu(chatId);
       return;
     }
 
-    if (norm === 'cancel') {
+    if (cmd === 'cancel') {
       clearWizard(telegramUserId);
-      await sendMessage(chatId, 'Cancelled. Type "create" to start again.');
+      await sendMessage(chatId, 'Cancelled. Use the menu to start again.');
       return;
     }
 
-    if (norm === 'status') {
-      const w = getWizard(telegramUserId);
+    if (cmd === 'status') {
       await sendMessage(chatId, `Setup status: ${w.step}`);
       return;
     }
 
-    const w = getWizard(telegramUserId);
-
-    if (norm === 'create' && w.step === 'idle') {
+    if (cmd === 'create' && w.step === 'idle') {
       setWizard(telegramUserId, 'await_agent_name', {});
       await sendMessage(chatId, 'Name your agent (e.g., "My Ops Assistant"):');
       return;
@@ -169,32 +229,21 @@ app.post('/telegram/webhook', async (req, res) => {
       setWizard(telegramUserId, 'await_template', { ...w.data, botToken: token });
       await sendMessage(
         chatId,
-        [
-          'Choose a template (reply with 1 or 2):',
-          '1) Blank — minimal general assistant',
-          '2) Ops Starter — tasks/notes/ops defaults (general-purpose)'
-        ].join('\n')
+        'Choose a template:',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Blank', callback_data: 'template:blank' }],
+              [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }]
+            ]
+          }
+        }
       );
       return;
     }
 
     if (w.step === 'await_template') {
-      const choice = norm;
-      const templateId = choice === '2' ? 'ops_starter' : choice === '1' ? 'blank' : undefined;
-      if (!templateId) {
-        await sendMessage(chatId, 'Reply with 1 or 2.');
-        return;
-      }
-      setWizard(telegramUserId, 'idle', { ...w.data, templateId });
-      await sendMessage(
-        chatId,
-        [
-          'Saved. Next step (coming next commit):',
-          '- connect OpenAI (OAuth beta or API key)',
-          '- provision container',
-          '- pairing'
-        ].join('\n')
-      );
+      await sendMessage(chatId, 'Please choose a template using the buttons above.');
       return;
     }
 
