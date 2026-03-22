@@ -13,6 +13,8 @@ const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'storefr
 const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '187.124.173.69';
 const TENANT_VPS_USER = process.env.TENANT_VPS_USER ?? 'tenant';
 const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '/home/clawd/.ssh/id_ed25519_hfsp_provisioner';
+const TENANT_VPS_BASEDIR = process.env.TENANT_VPS_BASEDIR ?? '/opt/hfsp/tenants';
+const TENANT_RUNTIME_IMAGE = process.env.TENANT_RUNTIME_IMAGE ?? 'hfsp/openclaw-runtime:stable';
 const TENANT_VPS_SSH_OPTS = ['-i', TENANT_VPS_SSH_KEY, '-o', 'StrictHostKeyChecking=accept-new'];
 
 function readToken(): string {
@@ -572,12 +574,93 @@ app.post('/telegram/webhook', async (req, res) => {
           await sendMessage(chatId, `Tenant created: ${tenantId}`);
 
           // Install dash tunnel key automatically on tenant VPS via restricted sudo helper.
-          // This avoids showing root commands inside the app.
-          const remote = `sudo /usr/local/bin/hfsp_dash_allow_key ${dashboardPort} ${shSingleQuote(pub)}`;
-          const out = sshTenant(remote);
-          if (!out.includes('OK')) {
-            throw new Error(`Tenant VPS key install unexpected output: ${out}`);
+          const out = sshTenant(`sudo /usr/local/bin/hfsp_dash_allow_key ${dashboardPort} ${shSingleQuote(pub)}`);
+          if (!out.includes('OK')) throw new Error(`Tenant VPS key install unexpected output: ${out}`);
+
+          // Ensure tenant directory exists (requires one-time chown of /opt/hfsp to tenant).
+          const tenantDir = `${TENANT_VPS_BASEDIR}/${tenantId}`;
+          const workspaceDir = `${tenantDir}/workspace`;
+          const secretsDir = `${tenantDir}/secrets`;
+          sshTenant(`mkdir -p ${workspaceDir} ${secretsDir}`);
+
+          // Write tenant secrets
+          const telegramToken = (w.data.botToken ?? '').trim();
+          const telegramTokenB64 = Buffer.from(telegramToken + '\n').toString('base64');
+          sshTenant(`bash -lc 'echo ${shSingleQuote(telegramTokenB64)} | base64 -d > ${secretsDir}/telegram.token'`);
+
+          if (w.data.provider === 'openai' && w.data.openaiApiKey) {
+            const k = Buffer.from(w.data.openaiApiKey.trim() + '\n').toString('base64');
+            sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/openai.key'`);
           }
+          if (w.data.provider === 'anthropic' && w.data.anthropicApiKey) {
+            const k = Buffer.from(w.data.anthropicApiKey.trim() + '\n').toString('base64');
+            sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/anthropic.key'`);
+          }
+
+          // Write tenant openclaw.json
+          const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
+          const openclawConfig = {
+            agents: {
+              defaults: {
+                workspace: '/tenant/workspace'
+              },
+              list: [
+                {
+                  id: 'main',
+                  default: true,
+                  name: w.data.templateId === 'ops_starter' ? 'Ops Starter' : 'Blank',
+                  workspace: '/tenant/workspace',
+                  identity: { name: w.data.agentName ?? 'Agent', emoji: '🧭' }
+                }
+              ]
+            },
+            gateway: {
+              port: dashboardPort,
+              bind: '0.0.0.0',
+              mode: 'local',
+              auth: { mode: 'token', token: gatewayToken }
+            },
+            plugins: { entries: { telegram: { enabled: true } } },
+            channels: {
+              telegram: {
+                enabled: true,
+                dmPolicy: 'pairing',
+                groupPolicy: 'deny',
+                accounts: {
+                  tenant: {
+                    enabled: true,
+                    dmPolicy: 'pairing',
+                    tokenFile: '/home/clawd/.openclaw/secrets/telegram.token',
+                    streaming: 'off'
+                  }
+                }
+              }
+            },
+            bindings: [
+              { agentId: 'main', match: { channel: 'telegram', accountId: 'tenant' } }
+            ]
+          };
+
+          const configB64 = Buffer.from(JSON.stringify(openclawConfig, null, 2)).toString('base64');
+          sshTenant(`bash -lc 'echo ${shSingleQuote(configB64)} | base64 -d > ${tenantDir}/openclaw.json'`);
+
+          // Start tenant container (dashboard bound to host loopback only)
+          const containerName = `hfsp_${tenantId}`;
+          // Stop/remove existing container if present
+          sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
+
+          const runCmd = [
+            'docker run -d',
+            `--name ${containerName}`,
+            '--restart unless-stopped',
+            `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
+            `-v ${workspaceDir}:/tenant/workspace`,
+            `-v ${secretsDir}:/tenant/secrets`,
+            `-v ${tenantDir}/openclaw.json:/tenant/openclaw.json:ro`,
+            TENANT_RUNTIME_IMAGE
+          ].join(' ');
+
+          sshTenant(runCmd);
 
           // Send private key as a document (generate-once UX)
           await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (download once). Keep it private.');
@@ -585,15 +668,17 @@ app.post('/telegram/webhook', async (req, res) => {
           await sendMessage(
             chatId,
             [
+              'Your OpenClaw dashboard is now running (private-only).',
+              '',
               'Dashboard access (customer):',
-              `1) Save the key file as: hfsp_${tenantId}.key`,
+              `1) Save key file as: hfsp_${tenantId}.key`,
               `2) chmod 600 hfsp_${tenantId}.key`,
-              `3) Run tunnel: ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@${TENANT_VPS_HOST}`,
-              `4) Open: http://127.0.0.1:${dashboardPort}`
+              `3) Tunnel: ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@${TENANT_VPS_HOST}`,
+              `4) Open: http://127.0.0.1:${dashboardPort}`,
+              '',
+              'Next milestone: hook up pairing + agent live chat (Telegram) end-to-end.'
             ].join('\n')
           );
-
-          await sendMessage(chatId, 'Next milestone: start the tenant OpenClaw container automatically + pairing.');
 
           return;
         } catch (err) {
@@ -756,5 +841,6 @@ app.post('/telegram/webhook', async (req, res) => {
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Storefront bot webhook listening on http://127.0.0.1:${PORT}`);
   console.log(`DB: ${DB_PATH}`);
-  console.log(`Tenant VPS: ${TENANT_VPS_USER}@${TENANT_VPS_HOST} (key=${TENANT_VPS_SSH_KEY})`);
+  console.log(`Tenant VPS: ${TENANT_VPS_USER}@${TENANT_VPS_HOST} (key=${TENANT_VPS_SSH_KEY}) baseDir=${TENANT_VPS_BASEDIR}`);
+  console.log(`Tenant runtime image: ${TENANT_RUNTIME_IMAGE}`);
 });
