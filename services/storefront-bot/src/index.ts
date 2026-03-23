@@ -698,10 +698,10 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
 
-      // Provision (v0): generate tenant id + dashboard tunnel key + instructions
-      if (data === 'provision:start') {
+      // Provision: create tenant + start container
+      if (data === 'provision:start' || data === 'provision:retry') {
         try {
-          await sendMessage(chatId, 'Provisioning… (creating tenant + dashboard key)');
+          await sendMessage(chatId, data === 'provision:retry' ? 'Retrying provisioning…' : 'Provisioning… (creating tenant + dashboard key)');
 
           const templateOk = Boolean(w.data.templateId);
           const providerOk = Boolean(w.data.provider);
@@ -713,50 +713,85 @@ app.post('/telegram/webhook', async (req, res) => {
             return;
           }
 
-          const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+          // Either create a new tenant record, or retry the most recent failed/provisioning tenant.
+          let tenantId: string;
+          let dashboardPort: number;
 
-          // Allocate a unique dashboard port (avoid collisions)
-          function allocateDashboardPort(): number {
-            const used = new Set<number>(
-              (db.prepare("SELECT dashboard_port FROM tenants WHERE dashboard_port IS NOT NULL AND (status IS NULL OR status != 'deleted')").all() as any[])
-                .map((r) => Number(r.dashboard_port))
-                .filter((n) => Number.isFinite(n))
-            );
-            for (let i = 0; i < 2000; i++) {
-              const p = 19000 + Math.floor(Math.random() * 1000);
-              if (!used.has(p)) return p;
+          if (data === 'provision:retry') {
+            const last = db
+              .prepare(
+                `SELECT tenant_id, dashboard_port
+                 FROM tenants
+                 WHERE telegram_user_id = ?
+                   AND status IN ('provisioning','failed')
+                   AND (deleted_at IS NULL)
+                 ORDER BY created_at DESC
+                 LIMIT 1`
+              )
+              .get(telegramUserId) as any;
+            if (!last?.tenant_id || !last?.dashboard_port) {
+              await sendMessage(chatId, 'No failed provisioning found to retry. Tap Status → Provision agent.');
+              return;
             }
-            // fallback: linear scan
-            for (let p = 19000; p < 20000; p++) if (!used.has(p)) return p;
-            throw new Error('No free dashboard ports available (19000-19999).');
+            tenantId = String(last.tenant_id);
+            dashboardPort = Number(last.dashboard_port);
+          } else {
+            tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+            // Allocate a unique dashboard port (avoid collisions)
+            function allocateDashboardPort(): number {
+              const used = new Set<number>(
+                (db.prepare("SELECT dashboard_port FROM tenants WHERE dashboard_port IS NOT NULL AND (status IS NULL OR status != 'deleted')").all() as any[])
+                  .map((r) => Number(r.dashboard_port))
+                  .filter((n) => Number.isFinite(n))
+              );
+              for (let i = 0; i < 2000; i++) {
+                const p = 19000 + Math.floor(Math.random() * 1000);
+                if (!used.has(p)) return p;
+              }
+              // fallback: linear scan
+              for (let p = 19000; p < 20000; p++) if (!used.has(p)) return p;
+              throw new Error('No free dashboard ports available (19000-19999).');
+            }
+
+            dashboardPort = allocateDashboardPort();
+
+            db.prepare(
+              `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, telegram_token_fp, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).run(
+              tenantId,
+              telegramUserId,
+              w.data.agentName ?? null,
+              w.data.botUsername ?? null,
+              w.data.templateId ?? null,
+              w.data.provider ?? null,
+              w.data.modelPreset ?? null,
+              dashboardPort,
+              null,
+              w.data.botTokenFp ?? null,
+              'provisioning'
+            );
           }
 
-          const dashboardPort = allocateDashboardPort();
+          // Record context immediately so retries/pairing have the tenant id.
+          setWizard(telegramUserId, 'await_pairing_code', {
+            ...w.data,
+            lastTenantId: tenantId,
+            lastDashboardPort: dashboardPort
+          });
 
-          db.prepare(
-            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, telegram_token_fp, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).run(
-            tenantId,
-            telegramUserId,
-            w.data.agentName ?? null,
-            w.data.botUsername ?? null,
-            w.data.templateId ?? null,
-            w.data.provider ?? null,
-            w.data.modelPreset ?? null,
-            dashboardPort,
-            null,
-            w.data.botTokenFp ?? null,
-            'active'
-          );
+          // Mark status provisioning on retry too
+          db.prepare(`UPDATE tenants SET status='provisioning' WHERE tenant_id = ?`).run(tenantId);
 
           // Generate a one-time SSH key for dashboard tunnel
+          // (On retry, generate a new key and add it; old keys may remain in authorized_keys.)
           const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hfsp-dash-'));
           const keyBase = path.join(tmpDir, `hfsp_${tenantId}`);
           execFileSync('ssh-keygen', ['-t', 'ed25519', '-C', tenantId, '-f', keyBase, '-N', ''], { stdio: 'ignore' });
           const pub = fs.readFileSync(`${keyBase}.pub`, 'utf8').trim();
 
-          await sendMessage(chatId, `Tenant created: ${tenantId}`);
+          await sendMessage(chatId, `Tenant: ${tenantId}`);
 
           // Install dash tunnel key automatically on tenant VPS via restricted sudo helper.
           const out = sshTenant(`sudo /usr/local/bin/hfsp_dash_allow_key ${dashboardPort} ${shSingleQuote(pub)}`);
@@ -783,7 +818,10 @@ app.post('/telegram/webhook', async (req, res) => {
           }
 
           // Write tenant openclaw.json
-          const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
+          // Reuse existing gateway token if present; otherwise generate.
+          const row0 = db.prepare(`SELECT gateway_token FROM tenants WHERE tenant_id = ?`).get(tenantId) as any;
+          const row = unprotectTenantRowTokens(row0);
+          const gatewayToken = row?.gateway_token ? String(row.gateway_token) : Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
           // persist token for Advanced dashboard access instructions (encrypted)
           db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
           const openclawConfig = {
@@ -857,7 +895,6 @@ app.post('/telegram/webhook', async (req, res) => {
           // Do it inside the container as root so it works without requiring sudo/root on the tenant VPS.
           sshTenant(`docker exec -u root ${containerName} bash -lc ${shSingleQuote('chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true')}`);
 
-          // Send private key as a document (generate-once UX)
           // Save last tenant info for pairing + Advanced dashboard access
           setWizard(telegramUserId, 'await_pairing_code', {
             ...w.data,
@@ -892,11 +929,31 @@ app.post('/telegram/webhook', async (req, res) => {
             }
           );
 
+          db.prepare(`UPDATE tenants SET status='active' WHERE tenant_id = ?`).run(tenantId);
+
           // Do not show SSH/tunnel commands by default.
           return;
         } catch (err) {
           console.error('Provision error', err);
-          await sendMessage(chatId, `Provisioning failed: ${(err as Error)?.message ?? String(err)}`);
+          // best-effort: mark last tenant as failed
+          try {
+            const w2 = getWizard(telegramUserId);
+            if (w2.data.lastTenantId) {
+              db.prepare(`UPDATE tenants SET status='failed' WHERE tenant_id = ?`).run(w2.data.lastTenantId);
+            }
+          } catch {}
+          await sendMessage(
+            chatId,
+            `Provisioning failed: ${(err as Error)?.message ?? String(err)}`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: 'Retry provisioning', callback_data: 'provision:retry' }],
+                  [{ text: 'Cancel', callback_data: 'flow:cancel' }]
+                ]
+              }
+            }
+          );
           return;
         }
       }
