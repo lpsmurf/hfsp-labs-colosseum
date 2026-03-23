@@ -516,6 +516,86 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
 
+      if (data === 'flow:resume') {
+        const w2 = getWizard(telegramUserId);
+        // Render the appropriate UI for the current step
+        if (w2.step === 'setup_intro') {
+          await renderSetupIntro(chatId);
+          return;
+        }
+        if (w2.step === 'await_agent_name') {
+          await sendMessage(chatId, 'What should we call your agent? (type a name)');
+          return;
+        }
+        if (w2.step === 'botfather_helper') {
+          await renderBotFatherHelper(chatId);
+          return;
+        }
+        if (w2.step === 'await_bot_token') {
+          await sendMessage(chatId, 'Paste your BotFather token now:', {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+            }
+          });
+          return;
+        }
+        if (w2.step === 'await_bot_username') {
+          await sendMessage(chatId, 'What is your bot username? (example: @my_agent_bot or t.me/my_agent_bot)', {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+            }
+          });
+          return;
+        }
+        if (w2.step === 'await_template') {
+          await sendMessage(chatId, 'Choose a template:', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Blank', callback_data: 'template:blank' }],
+                [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }],
+                [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+              ]
+            }
+          });
+          return;
+        }
+        if (w2.step === 'choose_provider') {
+          await renderChooseProvider(chatId);
+          return;
+        }
+        if (w2.step === 'connect_openai') {
+          await renderConnectOpenAI(chatId);
+          return;
+        }
+        if (w2.step === 'await_openai_api_key') {
+          await sendMessage(chatId, 'Paste your OpenAI API key:', {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]]
+            }
+          });
+          return;
+        }
+        if (w2.step === 'await_anthropic_api_key') {
+          await renderConnectAnthropic(chatId);
+          return;
+        }
+        if (w2.step === 'await_model_preset') {
+          await renderChoosePreset(chatId);
+          return;
+        }
+        if (w2.step === 'await_pairing_code') {
+          await sendMessage(chatId, 'Paste your pairing code here (8 characters):', {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Cancel', callback_data: 'flow:cancel' }]]
+            }
+          });
+          return;
+        }
+
+        await sendMenu(chatId);
+        return;
+      }
+
       if (data === 'flow:back') {
         const prev = back(telegramUserId, w.step, w.data);
         if (prev === 'setup_intro' || prev === 'idle') {
@@ -1369,6 +1449,12 @@ app.post('/telegram/webhook', async (req, res) => {
       }
 
       const inline: any[] = [[{ text: 'My agents', callback_data: 'agents:list' }]];
+
+      // Resume setup: route back to the right UI for the current wizard step
+      if (w.step !== 'idle') {
+        inline.push([{ text: 'Resume setup', callback_data: 'flow:resume' }]);
+      }
+
       if (lastFailed?.tenant_id) inline.push([{ text: 'Retry provisioning', callback_data: 'provision:retry' }]);
       inline.push([{ text: 'Provision agent', callback_data: 'provision:start' }]);
       inline.push([{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]);
