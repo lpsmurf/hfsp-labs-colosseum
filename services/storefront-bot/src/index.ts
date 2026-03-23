@@ -3,11 +3,113 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const TOKEN_FILE = process.env.TELEGRAM_BOT_TOKEN_FILE ?? '/home/clawd/.openclaw/secrets/hfsp_agent_bot.token';
 const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'storefront.sqlite');
+
+// DB encryption (beta)
+// Single server-side master key.
+// Prefer env HFSP_DB_SECRET, else read from HFSP_DB_SECRET_FILE.
+// DO NOT commit the secret.
+const HFSP_DB_SECRET_FILE = process.env.HFSP_DB_SECRET_FILE ?? '/home/clawd/.openclaw/secrets/hfsp_db_secret';
+function loadDbSecret(): string {
+  const env = process.env.HFSP_DB_SECRET?.trim();
+  if (env && env.length >= 16) return env;
+  try {
+    const file = fs.readFileSync(HFSP_DB_SECRET_FILE, 'utf8').trim();
+    if (file && file.length >= 16) return file;
+  } catch {
+    // ignore
+  }
+  throw new Error(
+    `Missing DB secret. Set HFSP_DB_SECRET or create ${HFSP_DB_SECRET_FILE} (min 16 chars).`
+  );
+}
+const HFSP_DB_SECRET = loadDbSecret();
+
+type EncPayloadV1 = { v: 1; alg: 'aes-256-gcm'; kdf: 'scrypt'; salt: string; iv: string; tag: string; data: string };
+
+function deriveKey(secret: string, salt: Buffer): Buffer {
+  return crypto.scryptSync(secret, salt, 32);
+}
+
+function encryptString(plain: string): string {
+  const p = (plain ?? '').toString();
+  if (!p) return '';
+  if (p.startsWith('enc:')) return p; // already encrypted
+  const salt = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(12);
+  const key = deriveKey(HFSP_DB_SECRET, salt);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(p, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  const payload: EncPayloadV1 = {
+    v: 1,
+    alg: 'aes-256-gcm',
+    kdf: 'scrypt',
+    salt: salt.toString('base64'),
+    iv: iv.toString('base64'),
+    tag: tag.toString('base64'),
+    data: ciphertext.toString('base64')
+  };
+  return `enc:${Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')}`;
+}
+
+function decryptString(maybeEnc: string): string {
+  const s = (maybeEnc ?? '').toString();
+  if (!s) return '';
+  if (!s.startsWith('enc:')) return s;
+  const b64 = s.slice(4);
+  const raw = Buffer.from(b64, 'base64').toString('utf8');
+  const payload = JSON.parse(raw) as EncPayloadV1;
+  if (payload.v !== 1 || payload.alg !== 'aes-256-gcm' || payload.kdf !== 'scrypt') throw new Error('Unsupported enc payload');
+  const salt = Buffer.from(payload.salt, 'base64');
+  const iv = Buffer.from(payload.iv, 'base64');
+  const tag = Buffer.from(payload.tag, 'base64');
+  const data = Buffer.from(payload.data, 'base64');
+  const key = deriveKey(HFSP_DB_SECRET, salt);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const plain = Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+  return plain;
+}
+
+function protectWizardData(data: WizardData): WizardData {
+  const out: WizardData = { ...data };
+  if (out.botToken) out.botToken = encryptString(out.botToken);
+  if (out.openaiApiKey) out.openaiApiKey = encryptString(out.openaiApiKey);
+  if (out.anthropicApiKey) out.anthropicApiKey = encryptString(out.anthropicApiKey);
+  if (out.lastGatewayToken) out.lastGatewayToken = encryptString(out.lastGatewayToken);
+  return out;
+}
+
+function unprotectWizardData(data: WizardData): WizardData {
+  const out: WizardData = { ...data };
+  try { if (out.botToken) out.botToken = decryptString(out.botToken); } catch {}
+  try { if (out.openaiApiKey) out.openaiApiKey = decryptString(out.openaiApiKey); } catch {}
+  try { if (out.anthropicApiKey) out.anthropicApiKey = decryptString(out.anthropicApiKey); } catch {}
+  try { if (out.lastGatewayToken) out.lastGatewayToken = decryptString(out.lastGatewayToken); } catch {}
+  return out;
+}
+
+function protectTenantRowTokens(row: any): any {
+  if (!row) return row;
+  const r = { ...row };
+  if (r.gateway_token) r.gateway_token = encryptString(String(r.gateway_token));
+  return r;
+}
+
+function unprotectTenantRowTokens(row: any): any {
+  if (!row) return row;
+  const r = { ...row };
+  if (r.gateway_token) {
+    try { r.gateway_token = decryptString(String(r.gateway_token)); } catch {}
+  }
+  return r;
+}
 
 // Tenant VPS provisioning (private-only)
 const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '187.124.173.69';
@@ -113,18 +215,20 @@ function getWizard(telegramUserId: number): { step: WizardStep; data: WizardData
     .get(telegramUserId) as { step: WizardStep; data_json: string } | undefined;
   if (!row) return { step: 'idle', data: {} };
   try {
-    return { step: row.step, data: JSON.parse(row.data_json) as WizardData };
+    const parsed = JSON.parse(row.data_json) as WizardData;
+    return { step: row.step, data: unprotectWizardData(parsed) };
   } catch {
     return { step: row.step, data: {} };
   }
 }
 
 function setWizard(telegramUserId: number, step: WizardStep, data: WizardData) {
+  const protectedData = protectWizardData(data);
   db.prepare(
     `INSERT INTO wizard_state(telegram_user_id, step, data_json)
      VALUES (?, ?, ?)
      ON CONFLICT(telegram_user_id) DO UPDATE SET step=excluded.step, data_json=excluded.data_json, updated_at=datetime('now')`
-  ).run(telegramUserId, step, JSON.stringify(data));
+  ).run(telegramUserId, step, JSON.stringify(protectedData));
 }
 
 function transition(telegramUserId: number, from: WizardStep, to: WizardStep, data: WizardData) {
@@ -621,8 +725,8 @@ app.post('/telegram/webhook', async (req, res) => {
 
           // Write tenant openclaw.json
           const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
-          // persist token for Advanced dashboard access instructions
-          db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(gatewayToken, tenantId);
+          // persist token for Advanced dashboard access instructions (encrypted)
+          db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
           const openclawConfig = {
             agents: {
               defaults: {
@@ -932,13 +1036,14 @@ app.post('/telegram/webhook', async (req, res) => {
 
       if (data?.startsWith('agent:dashboard:')) {
         const tenantId = data.split(':').slice(2).join(':');
-        const r = db
+        const r0 = db
           .prepare(
             `SELECT tenant_id, dashboard_port, gateway_token
              FROM tenants
              WHERE telegram_user_id = ? AND tenant_id = ? AND (status IS NULL OR status != 'deleted')`
           )
           .get(telegramUserId, tenantId) as any;
+        const r = unprotectTenantRowTokens(r0);
 
         if (!r?.dashboard_port || !r?.gateway_token) {
           await sendMessage(chatId, 'Missing dashboard details for this agent.');
@@ -1101,7 +1206,7 @@ app.post('/telegram/webhook', async (req, res) => {
       const presetLabel = w.data.modelPreset ? (w.data.modelPreset === 'fast' ? 'Fast' : 'Smart') : '—';
 
       // Also show how many agents exist
-      const agentCount = (db.prepare('SELECT COUNT(1) AS c FROM tenants WHERE telegram_user_id = ?').get(telegramUserId) as any)?.c ?? 0;
+      const agentCount = (db.prepare("SELECT COUNT(1) AS c FROM tenants WHERE telegram_user_id = ? AND (status IS NULL OR status != 'deleted')").get(telegramUserId) as any)?.c ?? 0;
 
       await sendMessage(
         chatId,
