@@ -683,6 +683,10 @@ app.post('/telegram/webhook', async (req, res) => {
 
           sshTenant(runCmd);
 
+          // Fix workspace permissions (host bind-mount is owned by user `tenant`; container runs as uid 10001).
+          // Do it inside the container as root so it works without requiring sudo/root on the tenant VPS.
+          sshTenant(`docker exec -u root ${containerName} bash -lc ${shSingleQuote('chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true')}`);
+
           // Send private key as a document (generate-once UX)
           // Save last tenant info for pairing + Advanced dashboard access
           setWizard(telegramUserId, 'await_pairing_code', {
