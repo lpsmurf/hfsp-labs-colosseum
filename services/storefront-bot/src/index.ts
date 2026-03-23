@@ -93,6 +93,7 @@ type WizardData = {
   lastTenantId?: string;
   lastDashboardPort?: number;
   lastGatewayToken?: string;
+  helpMode?: boolean;
   history?: WizardStep[];
 };
 
@@ -331,7 +332,7 @@ async function renderChoosePreset(chatId: number) {
 
 async function sendMenu(chatId: number) {
   const keyboard = {
-    keyboard: [[{ text: 'Create agent' }], [{ text: 'My agents' }], [{ text: 'Status' }, { text: 'Cancel' }]],
+    keyboard: [[{ text: 'Create agent' }], [{ text: 'My agents' }], [{ text: 'Help' }], [{ text: 'Status' }, { text: 'Cancel' }]],
     resize_keyboard: true,
     one_time_keyboard: false
   };
@@ -730,6 +731,41 @@ app.post('/telegram/webhook', async (req, res) => {
         }
       }
 
+      // Help
+      if (data === 'help:back') {
+        const w2 = getWizard(telegramUserId);
+        setWizard(telegramUserId, w2.step, { ...w2.data, helpMode: false });
+        await sendMessage(chatId, 'Back to setup.');
+        await sendMenu(chatId);
+        return;
+      }
+
+      if (data === 'help:common') {
+        await sendMessage(
+          chatId,
+          [
+            'Common issues:',
+            '',
+            '1) Pairing failed because you pasted your Telegram user id',
+            '   → Paste the 8-character pairing code (like A52X7ABQ), not 750030681.',
+            '',
+            '2) Telegram error 409 “terminated by other getUpdates request”',
+            '   → You reused the same BotFather token in multiple tenants. Create a new bot per agent.',
+            '',
+            '3) “Something went wrong while processing your request”',
+            '   → Usually the tenant runtime hit a config/auth/permission issue. Tell me the exact message and I’ll fix it.',
+            '',
+            'Tap Back when you’re ready.'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Back to setup', callback_data: 'help:back' }]]
+            }
+          }
+        );
+        return;
+      }
+
       // Agents: list + pick
       if (data === 'agents:list') {
         const rows = db
@@ -889,6 +925,7 @@ app.post('/telegram/webhook', async (req, res) => {
     const cmd =
       norm === 'create agent' ? 'create' :
       norm === 'my agents' ? 'my_agents' :
+      norm === 'help' ? 'help' :
       norm === 'status' ? 'status' :
       norm === 'cancel' ? 'cancel' :
       norm;
@@ -902,6 +939,35 @@ app.post('/telegram/webhook', async (req, res) => {
       clearWizard(telegramUserId);
       await sendMessage(chatId, 'Cancelled. Use the menu buttons when you’re ready.');
       await sendMenu(chatId);
+      return;
+    }
+
+    if (cmd === 'help') {
+      // Enter help chat mode without losing wizard progress.
+      setWizard(telegramUserId, w.step, { ...w.data, helpMode: true });
+      await sendMessage(
+        chatId,
+        [
+          'Help mode — ask me anything about setup.',
+          '',
+          'Common things I can help with:',
+          '• BotFather token / username',
+          '• Pairing code vs Telegram user id',
+          '• “Something went wrong” errors',
+          '• Dashboard (Advanced)',
+          '',
+          'Type your question now.'
+        ].join('\n'),
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Common issues', callback_data: 'help:common' }],
+              [{ text: 'Back to setup', callback_data: 'help:back' }],
+              [{ text: 'Cancel', callback_data: 'flow:cancel' }]
+            ]
+          }
+        }
+      );
       return;
     }
 
@@ -1069,6 +1135,35 @@ app.post('/telegram/webhook', async (req, res) => {
       }
       transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, anthropicApiKey: key });
       await renderChoosePreset(chatId);
+      return;
+    }
+
+    // Help chat mode: answer without advancing the wizard.
+    if (w.data.helpMode) {
+      const q = text.trim();
+      const ql = q.toLowerCase();
+
+      let answer: string;
+      if (ql.includes('pair') || ql.includes('code')) {
+        answer = 'Pairing tip: paste the 8-character pairing code (like A52X7ABQ). Don’t paste your Telegram user id (750030681).';
+      } else if (ql.includes('409') || ql.includes('getupdates') || ql.includes('conflict')) {
+        answer = 'Telegram 409 getUpdates conflict means the same BotFather token is being used by 2 runtimes. Create a new bot in BotFather for each agent/tenant.';
+      } else if (ql.includes('dashboard') || ql.includes('ssh') || ql.includes('tunnel')) {
+        answer = 'Dashboard is optional (Advanced). Use the “Dashboard access (Advanced)” button to see the tunnel command + token.';
+      } else if (ql.includes('token') || ql.includes('botfather')) {
+        answer = 'BotFather token should look like 123456:AA... Paste the full line. Keep it private.';
+      } else {
+        answer = 'Tell me what screen you’re on (or paste the exact error text). I’ll guide you to the next button / fix.';
+      }
+
+      await sendMessage(chatId, answer, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Common issues', callback_data: 'help:common' }],
+            [{ text: 'Back to setup', callback_data: 'help:back' }]
+          ]
+        }
+      });
       return;
     }
 

@@ -45,6 +45,14 @@ Telegram-first control plane that provisions **one isolated OpenClaw runtime per
 6) User pastes pairing code into storefront → storefront auto-approves
 7) Bot replies normally
 
+## Troubleshooting (common beta issues)
+- **Pairing failed**: make sure you paste the **8-character pairing code** (e.g. `A52X7ABQ`), not your Telegram user id.
+- **Telegram 409 getUpdates conflict**: you reused the same BotFather token in multiple tenants. Create a new bot per agent/tenant.
+- **“Something went wrong while processing your request”**: check tenant logs; common causes are workspace permissions and provider auth.
+
+## Help during setup
+The storefront bot includes a **Help** button. It answers setup questions without advancing the wizard, and can show common issues + how to fix them.
+
 ## Docs
 - UX: `docs/UX_FLOW.md`
 - State: `docs/STATE_MACHINE.md`
