@@ -2,3 +2,12 @@ node_modules/
 dist/
 .env
 .DS_Store
+
+# local runtime state
+/data/
+
+# local automation scripts (cron, checkers)
+/scripts/
+
+# legacy image build folders not meant for this repo state
+/runtime-image/
