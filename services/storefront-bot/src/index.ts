@@ -1195,13 +1195,29 @@ app.post('/telegram/webhook', async (req, res) => {
 
       if (data?.startsWith('agent:details:')) {
         const tenantId = data.split(':').slice(2).join(':');
-        const r = db
+        let r = db
           .prepare(
             `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, status, created_at
              FROM tenants
              WHERE telegram_user_id = ? AND tenant_id = ? AND (status IS NULL OR status != 'deleted')`
           )
           .get(telegramUserId, tenantId) as any;
+
+        // Backfill bot username for older tenants (created before we stored bot_username)
+        if (r && !r.bot_username) {
+          try {
+            const containerName = `hfsp_${tenantId}`;
+            const out = sshTenant(`docker exec -u clawd ${containerName} bash -lc ${shSingleQuote('HOME=/home/clawd openclaw channels status --probe')}`);
+            const m = out.match(/bot:@([A-Za-z0-9_]+)/);
+            if (m?.[1]) {
+              const uname = m[1];
+              db.prepare(`UPDATE tenants SET bot_username = ? WHERE tenant_id = ?`).run(uname, tenantId);
+              r = { ...r, bot_username: uname };
+            }
+          } catch {
+            // ignore; keep Bot: —
+          }
+        }
 
         if (!r) {
           await sendMessage(chatId, 'Agent not found.');
