@@ -599,11 +599,12 @@ app.post('/telegram/webhook', async (req, res) => {
         try {
           const oldContainer = `hfsp_${conflictTenant}`;
           sshTenant(`docker rm -f ${oldContainer} >/dev/null 2>&1 || true`);
+          db.prepare(`UPDATE tenants SET status='archived', archived_at=datetime('now') WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, conflictTenant);
         } catch (err) {
           console.error('token replace stop old container failed', err);
         }
         setWizard(telegramUserId, 'await_bot_username', { ...w2.data, allowTokenReuse: true });
-        await sendMessage(chatId, 'Ok — I stopped the old runtime. Now paste the bot username for this token (@name or t.me/name).');
+        await sendMessage(chatId, 'Ok — I stopped the old runtime and archived the previous agent. Now paste the bot username for this token (@name or t.me/name).');
         return;
       }
 
@@ -1339,29 +1340,41 @@ app.post('/telegram/webhook', async (req, res) => {
       // Also show how many agents exist
       const agentCount = (db.prepare("SELECT COUNT(1) AS c FROM tenants WHERE telegram_user_id = ? AND (status IS NULL OR status != 'deleted')").get(telegramUserId) as any)?.c ?? 0;
 
-      await sendMessage(
-        chatId,
-        [
-          'Your setup so far (current draft):',
-          `• Agent name: ${w.data.agentName ?? '—'}`,
-          `• Template: ${templateLabel}`,
-          `• Provider: ${providerLabel}`,
-          `• Key: ${hasKey ? 'saved ✅' : 'missing'}`,
-          `• Preset: ${presetLabel}`,
-          `• Current step: ${w.step}`,
-          '',
-          `Saved agents: ${agentCount}`
-        ].join('\n'),
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'My agents', callback_data: 'agents:list' }],
-              [{ text: 'Provision agent', callback_data: 'provision:start' }],
-              [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
-            ]
-          }
-        }
-      );
+      const lastFailed = db
+        .prepare(
+          `SELECT tenant_id, status, created_at
+           FROM tenants
+           WHERE telegram_user_id = ?
+             AND status IN ('failed','provisioning')
+             AND (deleted_at IS NULL)
+           ORDER BY created_at DESC
+           LIMIT 1`
+        )
+        .get(telegramUserId) as any;
+
+      const statusLines: string[] = [
+        'Your setup so far (current draft):',
+        `• Agent name: ${w.data.agentName ?? '—'}`,
+        `• Template: ${templateLabel}`,
+        `• Provider: ${providerLabel}`,
+        `• Key: ${hasKey ? 'saved ✅' : 'missing'}`,
+        `• Preset: ${presetLabel}`,
+        `• Current step: ${w.step}`,
+        '',
+        `Saved agents: ${agentCount}`
+      ];
+      if (lastFailed?.tenant_id) {
+        statusLines.push('', `⚠️ Last provisioning: ${lastFailed.status} (${lastFailed.tenant_id})`);
+      }
+
+      const inline: any[] = [[{ text: 'My agents', callback_data: 'agents:list' }]];
+      if (lastFailed?.tenant_id) inline.push([{ text: 'Retry provisioning', callback_data: 'provision:retry' }]);
+      inline.push([{ text: 'Provision agent', callback_data: 'provision:start' }]);
+      inline.push([{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]);
+
+      await sendMessage(chatId, statusLines.join('\n'), {
+        reply_markup: { inline_keyboard: inline }
+      });
       return;
     }
 
