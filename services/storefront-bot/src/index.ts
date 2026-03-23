@@ -1227,7 +1227,7 @@ app.post('/telegram/webhook', async (req, res) => {
         const botLink = r.bot_username ? `https://t.me/${r.bot_username}` : undefined;
         const providerLabel = r.provider === 'openai' ? 'OpenAI' : r.provider === 'anthropic' ? 'Claude (Anthropic)' : r.provider ?? '—';
 
-        const isArchived = r.status === 'archived';
+        const statusLabel = r.status === 'archived' ? 'archived' : r.status === 'stopped' ? 'stopped' : 'active';
 
         await sendMessage(
           chatId,
@@ -1237,7 +1237,7 @@ app.post('/telegram/webhook', async (req, res) => {
             `• Bot: ${r.bot_username ? '@' + r.bot_username : '—'}`,
             `• Provider: ${providerLabel}`,
             `• Preset: ${r.model_preset ?? '—'}`,
-            `• Status: ${isArchived ? 'archived' : 'active'}`,
+            `• Status: ${statusLabel}`,
             `• Tenant: ${r.tenant_id}`,
             `• Created: ${r.created_at}`
           ].join('\n'),
@@ -1248,11 +1248,11 @@ app.post('/telegram/webhook', async (req, res) => {
                 [{ text: 'Dashboard (Advanced)', callback_data: `agent:dashboard:${r.tenant_id}` }],
                 [{ text: 'Health check', callback_data: `agent:health:${r.tenant_id}` }],
                 [{ text: 'Stop (Advanced)', callback_data: `agent:stop_confirm:${r.tenant_id}` }, { text: 'Restart (Advanced)', callback_data: `agent:restart:${r.tenant_id}` }],
-                isArchived
+                statusLabel === 'archived'
                   ? [{ text: 'Unarchive', callback_data: `agent:unarchive:${r.tenant_id}` }]
                   : [{ text: 'Archive', callback_data: `agent:archive:${r.tenant_id}` }],
                 [{ text: 'Delete…', callback_data: `agent:delete_confirm:${r.tenant_id}` }],
-                [{ text: 'Back to list', callback_data: isArchived ? 'agents:list_archived' : 'agents:list' }]
+                [{ text: 'Back to list', callback_data: statusLabel === 'archived' ? 'agents:list_archived' : 'agents:list' }]
               ]
             }
           }
