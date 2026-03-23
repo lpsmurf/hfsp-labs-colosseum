@@ -54,6 +54,9 @@ db.exec(`
     model_preset TEXT,
     dashboard_port INTEGER,
     gateway_token TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    archived_at TEXT,
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
@@ -61,6 +64,9 @@ db.exec(`
 // best-effort migrations for older sqlite files
 try { db.exec(`ALTER TABLE tenants ADD COLUMN gateway_token TEXT`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN bot_username TEXT`); } catch {}
+try { db.exec(`ALTER TABLE tenants ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch {}
+try { db.exec(`ALTER TABLE tenants ADD COLUMN archived_at TEXT`); } catch {}
+try { db.exec(`ALTER TABLE tenants ADD COLUMN deleted_at TEXT`); } catch {}
 
 const BOT_TOKEN = readToken();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -566,8 +572,8 @@ app.post('/telegram/webhook', async (req, res) => {
           const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
 
           db.prepare(
-            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).run(
             tenantId,
             telegramUserId,
@@ -577,7 +583,8 @@ app.post('/telegram/webhook', async (req, res) => {
             w.data.provider ?? null,
             w.data.modelPreset ?? null,
             dashboardPort,
-            null
+            null,
+            'active'
           );
 
           // Generate a one-time SSH key for dashboard tunnel
@@ -767,12 +774,15 @@ app.post('/telegram/webhook', async (req, res) => {
       }
 
       // Agents: list + pick
-      if (data === 'agents:list') {
+      if (data === 'agents:list' || data === 'agents:list_archived') {
+        const showArchived = data === 'agents:list_archived';
         const rows = db
           .prepare(
-            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, created_at
+            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, status, created_at
              FROM tenants
              WHERE telegram_user_id = ?
+               AND (status IS NULL OR status != 'deleted')
+               AND (${showArchived ? "status = 'archived'" : "(status IS NULL OR status = 'active')"})
              ORDER BY created_at DESC
              LIMIT 10`
           )
@@ -784,13 +794,20 @@ app.post('/telegram/webhook', async (req, res) => {
           return;
         }
 
-        await sendMessage(chatId, 'Pick an agent:', {
+        await sendMessage(chatId, showArchived ? 'Pick an archived agent:' : 'Pick an agent:', {
           reply_markup: {
-            inline_keyboard: rows.map((r) => {
-              const name = r.agent_name ?? 'Agent';
-              const bot = r.bot_username ? `@${r.bot_username}` : r.tenant_id;
-              return [{ text: `${name} (${bot})`, callback_data: `agent:details:${r.tenant_id}` }];
-            }).concat([[{ text: 'Back', callback_data: 'flow:back' }]])
+            inline_keyboard: rows
+              .map((r) => {
+                const name = r.agent_name ?? 'Agent';
+                const bot = r.bot_username ? `@${r.bot_username}` : r.tenant_id;
+                return [{ text: `${name} (${bot})`, callback_data: `agent:details:${r.tenant_id}` }];
+              })
+              .concat([
+                showArchived
+                  ? [{ text: 'Back to active', callback_data: 'agents:list' }]
+                  : [{ text: 'Show archived', callback_data: 'agents:list_archived' }],
+                [{ text: 'Back', callback_data: 'flow:back' }]
+              ])
           }
         });
         return;
@@ -807,9 +824,9 @@ app.post('/telegram/webhook', async (req, res) => {
         const tenantId = data.split(':').slice(2).join(':');
         const r = db
           .prepare(
-            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, created_at
+            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, status, created_at
              FROM tenants
-             WHERE telegram_user_id = ? AND tenant_id = ?`
+             WHERE telegram_user_id = ? AND tenant_id = ? AND (status IS NULL OR status != 'deleted')`
           )
           .get(telegramUserId, tenantId) as any;
 
@@ -821,6 +838,8 @@ app.post('/telegram/webhook', async (req, res) => {
         const botLink = r.bot_username ? `https://t.me/${r.bot_username}` : undefined;
         const providerLabel = r.provider === 'openai' ? 'OpenAI' : r.provider === 'anthropic' ? 'Claude (Anthropic)' : r.provider ?? '—';
 
+        const isArchived = r.status === 'archived';
+
         await sendMessage(
           chatId,
           [
@@ -829,6 +848,7 @@ app.post('/telegram/webhook', async (req, res) => {
             `• Bot: ${r.bot_username ? '@' + r.bot_username : '—'}`,
             `• Provider: ${providerLabel}`,
             `• Preset: ${r.model_preset ?? '—'}`,
+            `• Status: ${isArchived ? 'archived' : 'active'}`,
             `• Tenant: ${r.tenant_id}`,
             `• Created: ${r.created_at}`
           ].join('\n'),
@@ -837,11 +857,76 @@ app.post('/telegram/webhook', async (req, res) => {
               inline_keyboard: [
                 botLink ? [{ text: 'Open bot', url: botLink }] : [{ text: 'Open bot', callback_data: 'noop' }],
                 [{ text: 'Dashboard (Advanced)', callback_data: `agent:dashboard:${r.tenant_id}` }],
-                [{ text: 'Back to list', callback_data: 'agents:list' }]
+                isArchived
+                  ? [{ text: 'Unarchive', callback_data: `agent:unarchive:${r.tenant_id}` }]
+                  : [{ text: 'Archive', callback_data: `agent:archive:${r.tenant_id}` }],
+                [{ text: 'Delete…', callback_data: `agent:delete_confirm:${r.tenant_id}` }],
+                [{ text: 'Back to list', callback_data: isArchived ? 'agents:list_archived' : 'agents:list' }]
               ]
             }
           }
         );
+        return;
+      }
+
+      if (data?.startsWith('agent:archive:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        db.prepare(`UPDATE tenants SET status='archived', archived_at=datetime('now') WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
+        await sendMessage(chatId, 'Archived.');
+        // return to details view
+        await sendMessage(chatId, 'Updated.', { reply_markup: { inline_keyboard: [[{ text: 'Back to list', callback_data: 'agents:list' }]] } });
+        return;
+      }
+
+      if (data?.startsWith('agent:unarchive:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        db.prepare(`UPDATE tenants SET status='active', archived_at=NULL WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
+        await sendMessage(chatId, 'Unarchived.');
+        await sendMessage(chatId, 'Updated.', { reply_markup: { inline_keyboard: [[{ text: 'Back to list', callback_data: 'agents:list' }]] } });
+        return;
+      }
+
+      if (data?.startsWith('agent:delete_confirm:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        await sendMessage(
+          chatId,
+          [
+            'Delete agent (Danger)',
+            '',
+            'This will stop and remove the tenant container and move its files to a trash folder on the tenant VPS.',
+            'You can’t use this agent afterwards unless we restore it.',
+            '',
+            'Are you sure?'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Delete permanently', callback_data: `agent:delete_do:${tenantId}` }],
+                [{ text: 'Cancel', callback_data: `agent:details:${tenantId}` }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+
+      if (data?.startsWith('agent:delete_do:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const containerName = `hfsp_${tenantId}`;
+        const tenantDir = `${TENANT_VPS_BASEDIR}/${tenantId}`;
+        const trashDir = `${TENANT_VPS_BASEDIR}/.trash/${tenantId}-${Date.now()}`;
+        try {
+          // best-effort stop/remove container
+          sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
+          // move tenant dir to trash for recoverability
+          sshTenant(`mkdir -p ${TENANT_VPS_BASEDIR}/.trash && (mv ${tenantDir} ${trashDir} 2>/dev/null || true)`);
+          db.prepare(`UPDATE tenants SET status='deleted', deleted_at=datetime('now') WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
+          await sendMessage(chatId, 'Deleted ✅');
+          await sendMessage(chatId, 'Back to your agents:', { reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }]] } });
+        } catch (err) {
+          console.error('delete failed', err);
+          await sendMessage(chatId, `Delete failed: ${(err as Error)?.message ?? String(err)}`);
+        }
         return;
       }
 
@@ -851,7 +936,7 @@ app.post('/telegram/webhook', async (req, res) => {
           .prepare(
             `SELECT tenant_id, dashboard_port, gateway_token
              FROM tenants
-             WHERE telegram_user_id = ? AND tenant_id = ?`
+             WHERE telegram_user_id = ? AND tenant_id = ? AND (status IS NULL OR status != 'deleted')`
           )
           .get(telegramUserId, tenantId) as any;
 
@@ -974,9 +1059,9 @@ app.post('/telegram/webhook', async (req, res) => {
     if (cmd === 'my_agents') {
       const rows = db
         .prepare(
-          `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, created_at
+          `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, status, created_at
            FROM tenants
-           WHERE telegram_user_id = ?
+           WHERE telegram_user_id = ? AND (status IS NULL OR status != 'deleted')
            ORDER BY created_at DESC
            LIMIT 10`
         )
@@ -993,13 +1078,15 @@ app.post('/telegram/webhook', async (req, res) => {
         const name = r.agent_name ?? 'Agent';
         const bot = r.bot_username ? `@${r.bot_username}` : '(bot unknown)';
         const prov = r.provider === 'anthropic' ? 'Claude' : r.provider === 'openai' ? 'OpenAI' : r.provider ?? '—';
-        lines.push(`• ${name} — ${bot} — ${prov} — ${r.tenant_id}`);
+        const st = r.status === 'archived' ? 'archived' : 'active';
+        lines.push(`• ${name} — ${bot} — ${prov} — ${st} — ${r.tenant_id}`);
       }
 
       await sendMessage(chatId, lines.join('\n'), {
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Show details…', callback_data: `agents:pick` }],
+            [{ text: 'Show archived', callback_data: 'agents:list_archived' }],
             [{ text: 'Create agent', callback_data: 'flow:start_setup' }]
           ]
         }
