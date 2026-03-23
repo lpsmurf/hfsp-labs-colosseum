@@ -1094,17 +1094,18 @@ app.post('/telegram/webhook', async (req, res) => {
       if (data?.startsWith('agent:archive:')) {
         const tenantId = data.split(':').slice(2).join(':');
         db.prepare(`UPDATE tenants SET status='archived', archived_at=datetime('now') WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
-        await sendMessage(chatId, 'Archived.');
-        // return to details view
-        await sendMessage(chatId, 'Updated.', { reply_markup: { inline_keyboard: [[{ text: 'Back to list', callback_data: 'agents:list' }]] } });
+        await sendMessage(chatId, 'Archived ✅');
+        // jump back to archived list
+        await sendMessage(chatId, 'Archived agents:', { reply_markup: { inline_keyboard: [[{ text: 'Show archived', callback_data: 'agents:list_archived' }], [{ text: 'Back to active', callback_data: 'agents:list' }]] } });
         return;
       }
 
       if (data?.startsWith('agent:unarchive:')) {
         const tenantId = data.split(':').slice(2).join(':');
         db.prepare(`UPDATE tenants SET status='active', archived_at=NULL WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
-        await sendMessage(chatId, 'Unarchived.');
-        await sendMessage(chatId, 'Updated.', { reply_markup: { inline_keyboard: [[{ text: 'Back to list', callback_data: 'agents:list' }]] } });
+        await sendMessage(chatId, 'Unarchived ✅');
+        // jump back to active list
+        await sendMessage(chatId, 'Active agents:', { reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }], [{ text: 'Show archived', callback_data: 'agents:list_archived' }]] } });
         return;
       }
 
@@ -1158,7 +1159,7 @@ app.post('/telegram/webhook', async (req, res) => {
           sshTenant(`mkdir -p ${TENANT_VPS_BASEDIR}/.trash && (mv ${tenantDir} ${trashDir} 2>/dev/null || true)`);
           db.prepare(`UPDATE tenants SET status='deleted', deleted_at=datetime('now') WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
           await sendMessage(chatId, 'Deleted ✅');
-          await sendMessage(chatId, 'Back to your agents:', { reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }]] } });
+          await sendMessage(chatId, 'Back to your agents:', { reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }], [{ text: 'Show archived', callback_data: 'agents:list_archived' }]] } });
         } catch (err) {
           console.error('delete failed', err);
           await sendMessage(chatId, `Delete failed: ${(err as Error)?.message ?? String(err)}`);
