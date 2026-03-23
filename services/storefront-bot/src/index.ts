@@ -1431,6 +1431,28 @@ app.post('/telegram/webhook', async (req, res) => {
 
       if (data?.startsWith('agent:dashboard_oneliner:')) {
         const tenantId = data.split(':').slice(2).join(':');
+        await sendMessage(
+          chatId,
+          'Where did you save the SSH key file?',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Downloads (recommended)', callback_data: `agent:dashboard_oneliner_loc:${tenantId}:Downloads` }],
+                [{ text: 'Desktop', callback_data: `agent:dashboard_oneliner_loc:${tenantId}:Desktop` }],
+                [{ text: 'I’m not sure', callback_data: `agent:dashboard_oneliner_loc:${tenantId}:Find` }],
+                [{ text: 'Back', callback_data: `agent:dashboard:${tenantId}` }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+
+      if (data?.startsWith('agent:dashboard_oneliner_loc:')) {
+        const parts = data.split(':');
+        const tenantId = parts[2] ?? '';
+        const loc = parts[3] ?? 'Downloads';
+
         const r0 = db
           .prepare(
             `SELECT tenant_id, dashboard_port, gateway_token
@@ -1448,7 +1470,12 @@ app.post('/telegram/webhook', async (req, res) => {
         const port = Number(r.dashboard_port);
         const url = `http://127.0.0.1:${port}`;
         const keyFile = `hfsp_${tenantId}.key`;
-        const cmd = `cd ~/Downloads && chmod 600 ${keyFile} && ssh -i ${keyFile} -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`;
+
+        let cdPath = '~/Downloads';
+        if (loc === 'Desktop') cdPath = '~/Desktop';
+
+        const cmd = `cd ${cdPath} && chmod 600 ${keyFile} && ssh -i ${keyFile} -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`;
+        const findCmd = `find ~ -maxdepth 2 -name ${keyFile} 2>/dev/null`;
 
         await sendMessage(
           chatId,
@@ -1459,8 +1486,10 @@ app.post('/telegram/webhook', async (req, res) => {
             `Then open: ${url}`,
             '',
             'Dashboard token (if prompted):',
-            String(r.gateway_token)
-          ].join('\n')
+            String(r.gateway_token),
+            '',
+            loc === 'Find' ? `If you can’t find the key, run:\n${findCmd}` : ''
+          ].filter(Boolean).join('\n')
         );
         return;
       }
