@@ -467,6 +467,59 @@ async function renderChoosePreset(chatId: number) {
   );
 }
 
+async function renderAgentsPage(params: {
+  chatId: number;
+  telegramUserId: number;
+  archived: boolean;
+  offset: number;
+}) {
+  const { chatId, telegramUserId, archived, offset } = params;
+  const limit = 5;
+
+  const rows = db
+    .prepare(
+      `SELECT tenant_id, agent_name, bot_username, status, created_at
+       FROM tenants
+       WHERE telegram_user_id = ?
+         AND (status IS NULL OR status != 'deleted')
+         AND (${archived ? "status = 'archived'" : "(status IS NULL OR status = 'active')"})
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`
+    )
+    .all(telegramUserId, limit + 1, offset) as Array<any>;
+
+  const hasMore = rows.length > limit;
+  const page = rows.slice(0, limit);
+
+  if (!page.length) {
+    await sendMessage(chatId, archived ? 'No archived agents.' : 'No agents yet. Tap “Create agent” to make your first one.');
+    await sendMenu(chatId);
+    return;
+  }
+
+  const inline_keyboard: any[] = page.map((r) => {
+    const name = r.agent_name ?? 'Agent';
+    const bot = r.bot_username ? `@${r.bot_username}` : r.tenant_id;
+    return [{ text: `${name} (${bot})`, callback_data: `agent:details:${r.tenant_id}` }];
+  });
+
+  const navRow: any[] = [];
+  if (offset > 0) navRow.push({ text: '← Prev', callback_data: `agents:${archived ? 'archived' : 'active'}:${Math.max(0, offset - limit)}` });
+  if (hasMore) navRow.push({ text: 'Next →', callback_data: `agents:${archived ? 'archived' : 'active'}:${offset + limit}` });
+  if (navRow.length) inline_keyboard.push(navRow);
+
+  inline_keyboard.push([
+    archived
+      ? { text: 'Back to active', callback_data: 'agents:active:0' }
+      : { text: 'Show archived', callback_data: 'agents:archived:0' }
+  ]);
+  inline_keyboard.push([{ text: 'Back', callback_data: 'flow:back' }]);
+
+  await sendMessage(chatId, archived ? 'Your archived agents:' : 'Your agents:', {
+    reply_markup: { inline_keyboard }
+  });
+}
+
 async function sendMenu(chatId: number) {
   const keyboard = {
     keyboard: [[{ text: 'Create agent' }], [{ text: 'My agents' }], [{ text: 'Help' }], [{ text: 'Status' }, { text: 'Cancel' }]],
@@ -1112,41 +1165,24 @@ app.post('/telegram/webhook', async (req, res) => {
 
       // Agents: list + pick
       if (data === 'agents:list' || data === 'agents:list_archived') {
-        const showArchived = data === 'agents:list_archived';
-        const rows = db
-          .prepare(
-            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, status, created_at
-             FROM tenants
-             WHERE telegram_user_id = ?
-               AND (status IS NULL OR status != 'deleted')
-               AND (${showArchived ? "status = 'archived'" : "(status IS NULL OR status = 'active')"})
-             ORDER BY created_at DESC
-             LIMIT 10`
-          )
-          .all(telegramUserId) as Array<any>;
-
-        if (!rows.length) {
-          await sendMessage(chatId, 'No agents yet. Tap “Create agent” to make your first one.');
-          await sendMenu(chatId);
-          return;
-        }
-
-        await sendMessage(chatId, showArchived ? 'Pick an archived agent:' : 'Pick an agent:', {
-          reply_markup: {
-            inline_keyboard: rows
-              .map((r) => {
-                const name = r.agent_name ?? 'Agent';
-                const bot = r.bot_username ? `@${r.bot_username}` : r.tenant_id;
-                return [{ text: `${name} (${bot})`, callback_data: `agent:details:${r.tenant_id}` }];
-              })
-              .concat([
-                showArchived
-                  ? [{ text: 'Back to active', callback_data: 'agents:list' }]
-                  : [{ text: 'Show archived', callback_data: 'agents:list_archived' }],
-                [{ text: 'Back', callback_data: 'flow:back' }]
-              ])
-          }
+        await renderAgentsPage({
+          chatId,
+          telegramUserId,
+          archived: data === 'agents:list_archived',
+          offset: 0
         });
+        return;
+      }
+
+      // Pagination callbacks
+      if (data?.startsWith('agents:active:')) {
+        const off = Number(data.split(':')[2] ?? '0');
+        await renderAgentsPage({ chatId, telegramUserId, archived: false, offset: Number.isFinite(off) ? off : 0 });
+        return;
+      }
+      if (data?.startsWith('agents:archived:')) {
+        const off = Number(data.split(':')[2] ?? '0');
+        await renderAgentsPage({ chatId, telegramUserId, archived: true, offset: Number.isFinite(off) ? off : 0 });
         return;
       }
 
@@ -1411,40 +1447,7 @@ app.post('/telegram/webhook', async (req, res) => {
     }
 
     if (cmd === 'my_agents') {
-      const rows = db
-        .prepare(
-          `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, status, created_at
-           FROM tenants
-           WHERE telegram_user_id = ? AND (status IS NULL OR status != 'deleted')
-           ORDER BY created_at DESC
-           LIMIT 10`
-        )
-        .all(telegramUserId) as Array<any>;
-
-      if (!rows.length) {
-        await sendMessage(chatId, 'No agents yet. Tap “Create agent” to make your first one.');
-        await sendMenu(chatId);
-        return;
-      }
-
-      const lines: string[] = ['Your agents (latest first):', ''];
-      for (const r of rows) {
-        const name = r.agent_name ?? 'Agent';
-        const bot = r.bot_username ? `@${r.bot_username}` : '(bot unknown)';
-        const prov = r.provider === 'anthropic' ? 'Claude' : r.provider === 'openai' ? 'OpenAI' : r.provider ?? '—';
-        const st = r.status === 'archived' ? 'archived' : 'active';
-        lines.push(`• ${name} — ${bot} — ${prov} — ${st} — ${r.tenant_id}`);
-      }
-
-      await sendMessage(chatId, lines.join('\n'), {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: 'Show details…', callback_data: `agents:pick` }],
-            [{ text: 'Show archived', callback_data: 'agents:list_archived' }],
-            [{ text: 'Create agent', callback_data: 'flow:start_setup' }]
-          ]
-        }
-      });
+      await renderAgentsPage({ chatId, telegramUserId, archived: false, offset: 0 });
       return;
     }
 
