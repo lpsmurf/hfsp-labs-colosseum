@@ -48,6 +48,7 @@ db.exec(`
     tenant_id TEXT PRIMARY KEY,
     telegram_user_id INTEGER NOT NULL,
     agent_name TEXT,
+    bot_username TEXT,
     template_id TEXT,
     provider TEXT,
     model_preset TEXT,
@@ -57,12 +58,9 @@ db.exec(`
   );
 `);
 
-// best-effort migration for older sqlite files
-try {
-  db.exec(`ALTER TABLE tenants ADD COLUMN gateway_token TEXT`);
-} catch {
-  // ignore (already exists)
-}
+// best-effort migrations for older sqlite files
+try { db.exec(`ALTER TABLE tenants ADD COLUMN gateway_token TEXT`); } catch {}
+try { db.exec(`ALTER TABLE tenants ADD COLUMN bot_username TEXT`); } catch {}
 
 const BOT_TOKEN = readToken();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -333,7 +331,7 @@ async function renderChoosePreset(chatId: number) {
 
 async function sendMenu(chatId: number) {
   const keyboard = {
-    keyboard: [[{ text: 'Create agent' }], [{ text: 'Status' }, { text: 'Cancel' }]],
+    keyboard: [[{ text: 'Create agent' }], [{ text: 'My agents' }], [{ text: 'Status' }, { text: 'Cancel' }]],
     resize_keyboard: true,
     one_time_keyboard: false
   };
@@ -567,12 +565,13 @@ app.post('/telegram/webhook', async (req, res) => {
           const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
 
           db.prepare(
-            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, template_id, provider, model_preset, dashboard_port, gateway_token)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).run(
             tenantId,
             telegramUserId,
             w.data.agentName ?? null,
+            w.data.botUsername ?? null,
             w.data.templateId ?? null,
             w.data.provider ?? null,
             w.data.modelPreset ?? null,
@@ -731,6 +730,117 @@ app.post('/telegram/webhook', async (req, res) => {
         }
       }
 
+      // Agents: list + pick
+      if (data === 'agents:list') {
+        const rows = db
+          .prepare(
+            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, created_at
+             FROM tenants
+             WHERE telegram_user_id = ?
+             ORDER BY created_at DESC
+             LIMIT 10`
+          )
+          .all(telegramUserId) as Array<any>;
+
+        if (!rows.length) {
+          await sendMessage(chatId, 'No agents yet. Tap “Create agent” to make your first one.');
+          await sendMenu(chatId);
+          return;
+        }
+
+        await sendMessage(chatId, 'Pick an agent:', {
+          reply_markup: {
+            inline_keyboard: rows.map((r) => {
+              const name = r.agent_name ?? 'Agent';
+              const bot = r.bot_username ? `@${r.bot_username}` : r.tenant_id;
+              return [{ text: `${name} (${bot})`, callback_data: `agent:details:${r.tenant_id}` }];
+            }).concat([[{ text: 'Back', callback_data: 'flow:back' }]])
+          }
+        });
+        return;
+      }
+
+      if (data === 'agents:pick') {
+        await sendMessage(chatId, 'Tap “My agents” to pick from your list.', {
+          reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }]] }
+        });
+        return;
+      }
+
+      if (data?.startsWith('agent:details:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const r = db
+          .prepare(
+            `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, gateway_token, created_at
+             FROM tenants
+             WHERE telegram_user_id = ? AND tenant_id = ?`
+          )
+          .get(telegramUserId, tenantId) as any;
+
+        if (!r) {
+          await sendMessage(chatId, 'Agent not found.');
+          return;
+        }
+
+        const botLink = r.bot_username ? `https://t.me/${r.bot_username}` : undefined;
+        const providerLabel = r.provider === 'openai' ? 'OpenAI' : r.provider === 'anthropic' ? 'Claude (Anthropic)' : r.provider ?? '—';
+
+        await sendMessage(
+          chatId,
+          [
+            'Agent details:',
+            `• Name: ${r.agent_name ?? '—'}`,
+            `• Bot: ${r.bot_username ? '@' + r.bot_username : '—'}`,
+            `• Provider: ${providerLabel}`,
+            `• Preset: ${r.model_preset ?? '—'}`,
+            `• Tenant: ${r.tenant_id}`,
+            `• Created: ${r.created_at}`
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [
+                botLink ? [{ text: 'Open bot', url: botLink }] : [{ text: 'Open bot', callback_data: 'noop' }],
+                [{ text: 'Dashboard (Advanced)', callback_data: `agent:dashboard:${r.tenant_id}` }],
+                [{ text: 'Back to list', callback_data: 'agents:list' }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+
+      if (data?.startsWith('agent:dashboard:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const r = db
+          .prepare(
+            `SELECT tenant_id, dashboard_port, gateway_token
+             FROM tenants
+             WHERE telegram_user_id = ? AND tenant_id = ?`
+          )
+          .get(telegramUserId, tenantId) as any;
+
+        if (!r?.dashboard_port || !r?.gateway_token) {
+          await sendMessage(chatId, 'Missing dashboard details for this agent.');
+          return;
+        }
+
+        await sendMessage(
+          chatId,
+          [
+            'Dashboard access (Advanced)',
+            '',
+            `Tunnel (Mac/Linux):`,
+            `ssh -i hfsp_${tenantId}.key -N -L ${r.dashboard_port}:127.0.0.1:${r.dashboard_port} dash@${TENANT_VPS_HOST}`,
+            '',
+            `Open: http://127.0.0.1:${r.dashboard_port}`,
+            '',
+            `Token (if prompted):`,
+            r.gateway_token
+          ].join('\n')
+        );
+        return;
+      }
+
       // Advanced: dashboard access instructions (hidden behind button)
       if (data === 'advanced:dashboard') {
         const w2 = getWizard(telegramUserId);
@@ -778,6 +888,7 @@ app.post('/telegram/webhook', async (req, res) => {
     // Map button labels to commands
     const cmd =
       norm === 'create agent' ? 'create' :
+      norm === 'my agents' ? 'my_agents' :
       norm === 'status' ? 'status' :
       norm === 'cancel' ? 'cancel' :
       norm;
@@ -794,16 +905,55 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
+    if (cmd === 'my_agents') {
+      const rows = db
+        .prepare(
+          `SELECT tenant_id, agent_name, bot_username, provider, model_preset, dashboard_port, created_at
+           FROM tenants
+           WHERE telegram_user_id = ?
+           ORDER BY created_at DESC
+           LIMIT 10`
+        )
+        .all(telegramUserId) as Array<any>;
+
+      if (!rows.length) {
+        await sendMessage(chatId, 'No agents yet. Tap “Create agent” to make your first one.');
+        await sendMenu(chatId);
+        return;
+      }
+
+      const lines: string[] = ['Your agents (latest first):', ''];
+      for (const r of rows) {
+        const name = r.agent_name ?? 'Agent';
+        const bot = r.bot_username ? `@${r.bot_username}` : '(bot unknown)';
+        const prov = r.provider === 'anthropic' ? 'Claude' : r.provider === 'openai' ? 'OpenAI' : r.provider ?? '—';
+        lines.push(`• ${name} — ${bot} — ${prov} — ${r.tenant_id}`);
+      }
+
+      await sendMessage(chatId, lines.join('\n'), {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Show details…', callback_data: `agents:pick` }],
+            [{ text: 'Create agent', callback_data: 'flow:start_setup' }]
+          ]
+        }
+      });
+      return;
+    }
+
     if (cmd === 'status') {
       const hasKey = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
       const providerLabel = w.data.provider === 'openai' ? 'OpenAI' : w.data.provider === 'anthropic' ? 'Claude (Anthropic)' : w.data.provider === 'other' ? 'Other' : '—';
       const templateLabel = w.data.templateId === 'blank' ? 'Blank' : w.data.templateId === 'ops_starter' ? 'Ops Starter' : '—';
       const presetLabel = w.data.modelPreset ? (w.data.modelPreset === 'fast' ? 'Fast' : 'Smart') : '—';
 
+      // Also show how many agents exist
+      const agentCount = (db.prepare('SELECT COUNT(1) AS c FROM tenants WHERE telegram_user_id = ?').get(telegramUserId) as any)?.c ?? 0;
+
       await sendMessage(
         chatId,
         [
-          'Your setup so far:',
+          'Your setup so far (current draft):',
           `• Agent name: ${w.data.agentName ?? '—'}`,
           `• Template: ${templateLabel}`,
           `• Provider: ${providerLabel}`,
@@ -811,11 +961,12 @@ app.post('/telegram/webhook', async (req, res) => {
           `• Preset: ${presetLabel}`,
           `• Current step: ${w.step}`,
           '',
-          'Next: Provision agent (this will create your isolated runtime + connect your bot).'
+          `Saved agents: ${agentCount}`
         ].join('\n'),
         {
           reply_markup: {
             inline_keyboard: [
+              [{ text: 'My agents', callback_data: 'agents:list' }],
               [{ text: 'Provision agent', callback_data: 'provision:start' }],
               [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
             ]
