@@ -1411,21 +1411,72 @@ app.post('/telegram/webhook', async (req, res) => {
           [
             'Dashboard access (Advanced)',
             '',
-            'Choose your computer:',
+            'Choose a method:',
             '',
-            'I’ll send you a 1-click launcher (no typing).'
+            '• One-liner (recommended): copy/paste into Terminal (no Gatekeeper prompts)',
+            '• Launcher file: download & run'
           ].join('\n'),
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: 'Mac', callback_data: `agent:dashboard_os:${tenantId}:mac` }],
-                [{ text: 'Windows', callback_data: `agent:dashboard_os:${tenantId}:windows` }],
-                [{ text: 'Linux', callback_data: `agent:dashboard_os:${tenantId}:linux` }],
+                [{ text: 'One-liner (recommended)', callback_data: `agent:dashboard_oneliner:${tenantId}` }],
+                [{ text: 'Launcher file…', callback_data: `agent:dashboard_launcher:${tenantId}` }],
                 [{ text: 'Back', callback_data: `agent:details:${tenantId}` }]
               ]
             }
           }
         );
+        return;
+      }
+
+      if (data?.startsWith('agent:dashboard_oneliner:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const r0 = db
+          .prepare(
+            `SELECT tenant_id, dashboard_port, gateway_token
+             FROM tenants
+             WHERE telegram_user_id = ? AND tenant_id = ? AND (status IS NULL OR status != 'deleted')`
+          )
+          .get(telegramUserId, tenantId) as any;
+        const r = unprotectTenantRowTokens(r0);
+
+        if (!r?.dashboard_port || !r?.gateway_token) {
+          await sendMessage(chatId, 'Missing dashboard details for this agent.');
+          return;
+        }
+
+        const port = Number(r.dashboard_port);
+        const url = `http://127.0.0.1:${port}`;
+        const keyFile = `hfsp_${tenantId}.key`;
+        const cmd = `cd ~/Downloads && chmod 600 ${keyFile} && ssh -i ${keyFile} -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`;
+
+        await sendMessage(
+          chatId,
+          [
+            'Copy/paste this into Terminal (Mac/Linux):',
+            cmd,
+            '',
+            `Then open: ${url}`,
+            '',
+            'Dashboard token (if prompted):',
+            String(r.gateway_token)
+          ].join('\n')
+        );
+        return;
+      }
+
+      if (data?.startsWith('agent:dashboard_launcher:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        await sendMessage(chatId, 'Choose your computer:', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Mac', callback_data: `agent:dashboard_os:${tenantId}:mac` }],
+              [{ text: 'Windows', callback_data: `agent:dashboard_os:${tenantId}:windows` }],
+              [{ text: 'Linux', callback_data: `agent:dashboard_os:${tenantId}:linux` }],
+              [{ text: 'Back', callback_data: `agent:details:${tenantId}` }]
+            ]
+          }
+        });
         return;
       }
 
