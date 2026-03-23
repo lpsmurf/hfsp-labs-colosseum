@@ -52,9 +52,17 @@ db.exec(`
     provider TEXT,
     model_preset TEXT,
     dashboard_port INTEGER,
+    gateway_token TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// best-effort migration for older sqlite files
+try {
+  db.exec(`ALTER TABLE tenants ADD COLUMN gateway_token TEXT`);
+} catch {
+  // ignore (already exists)
+}
 
 const BOT_TOKEN = readToken();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -86,6 +94,7 @@ type WizardData = {
   modelPreset?: 'fast' | 'smart';
   lastTenantId?: string;
   lastDashboardPort?: number;
+  lastGatewayToken?: string;
   history?: WizardStep[];
 };
 
@@ -558,8 +567,8 @@ app.post('/telegram/webhook', async (req, res) => {
           const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
 
           db.prepare(
-            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, template_id, provider, model_preset, dashboard_port)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, template_id, provider, model_preset, dashboard_port, gateway_token)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
           ).run(
             tenantId,
             telegramUserId,
@@ -567,7 +576,8 @@ app.post('/telegram/webhook', async (req, res) => {
             w.data.templateId ?? null,
             w.data.provider ?? null,
             w.data.modelPreset ?? null,
-            dashboardPort
+            dashboardPort,
+            null
           );
 
           // Generate a one-time SSH key for dashboard tunnel
@@ -604,6 +614,8 @@ app.post('/telegram/webhook', async (req, res) => {
 
           // Write tenant openclaw.json
           const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
+          // persist token for Advanced dashboard access instructions
+          db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(gatewayToken, tenantId);
           const openclawConfig = {
             agents: {
               defaults: {
@@ -633,12 +645,12 @@ app.post('/telegram/webhook', async (req, res) => {
             channels: {
               telegram: {
                 enabled: true,
-                dmPolicy: 'pairing',
-                groupPolicy: 'disabled',
+                // Configure account directly (avoid doctor migration from single-account fields)
                 accounts: {
-                  tenant: {
+                  default: {
                     enabled: true,
                     dmPolicy: 'pairing',
+                    groupPolicy: 'disabled',
                     tokenFile: '/home/clawd/.openclaw/secrets/telegram.token',
                     streaming: 'off'
                   }
@@ -646,7 +658,7 @@ app.post('/telegram/webhook', async (req, res) => {
               }
             },
             bindings: [
-              { agentId: 'main', match: { channel: 'telegram', accountId: 'tenant' } }
+              { agentId: 'main', match: { channel: 'telegram', accountId: 'default' } }
             ]
           };
 
@@ -672,11 +684,16 @@ app.post('/telegram/webhook', async (req, res) => {
           sshTenant(runCmd);
 
           // Send private key as a document (generate-once UX)
-          // Save last tenant info for pairing step
-          setWizard(telegramUserId, 'await_pairing_code', { ...w.data, lastTenantId: tenantId, lastDashboardPort: dashboardPort });
+          // Save last tenant info for pairing + Advanced dashboard access
+          setWizard(telegramUserId, 'await_pairing_code', {
+            ...w.data,
+            lastTenantId: tenantId,
+            lastDashboardPort: dashboardPort,
+            lastGatewayToken: gatewayToken
+          });
 
-          // Send dashboard key (advanced)
-          await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (advanced, download once). Keep it private.');
+          // Send dashboard key as a document, but do NOT show any SSH commands unless the user taps Advanced.
+          await sendDocument(chatId, keyBase, `hfsp_${tenantId}.key`, 'Dashboard SSH key (keep it private). You’ll only need this if you choose Dashboard access (Advanced).');
 
           const botLink = w.data.botUsername ? `https://t.me/${w.data.botUsername}` : undefined;
 
@@ -694,27 +711,51 @@ app.post('/telegram/webhook', async (req, res) => {
               reply_markup: {
                 inline_keyboard: [
                   botLink ? [{ text: 'Open your bot', url: botLink }] : [{ text: 'Open your bot', callback_data: 'noop' }],
+                  [{ text: 'Dashboard access (Advanced)', callback_data: 'advanced:dashboard' }],
                   [{ text: 'Cancel', callback_data: 'flow:cancel' }]
                 ]
               }
             }
           );
 
-          await sendMessage(
-            chatId,
-            [
-              'Dashboard (Advanced):',
-              `• Tunnel: ssh -i hfsp_${tenantId}.key -N -L ${dashboardPort}:127.0.0.1:${dashboardPort} dash@${TENANT_VPS_HOST}`,
-              `• Open: http://127.0.0.1:${dashboardPort}`
-            ].join('\n')
-          );
-
+          // Do not show SSH/tunnel commands by default.
           return;
         } catch (err) {
           console.error('Provision error', err);
           await sendMessage(chatId, `Provisioning failed: ${(err as Error)?.message ?? String(err)}`);
           return;
         }
+      }
+
+      // Advanced: dashboard access instructions (hidden behind button)
+      if (data === 'advanced:dashboard') {
+        const w2 = getWizard(telegramUserId);
+        const tenantId = w2.data.lastTenantId;
+        const port = w2.data.lastDashboardPort;
+        const token = w2.data.lastGatewayToken;
+
+        if (!tenantId || !port || !token) {
+          await sendMessage(chatId, 'I don’t have dashboard details in the current setup flow. Tap Status → Provision agent again.');
+          return;
+        }
+
+        await sendMessage(
+          chatId,
+          [
+            'Dashboard access (Advanced)',
+            '',
+            'This is optional. If you’re not comfortable with terminal commands, skip this.',
+            '',
+            `1) Start the tunnel (Mac/Linux):`,
+            `ssh -i hfsp_${tenantId}.key -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`,
+            '',
+            `2) Open: http://127.0.0.1:${port}`,
+            '',
+            `3) Dashboard token (if prompted):`,
+            token
+          ].join('\n')
+        );
+        return;
       }
 
       // Unknown callback
