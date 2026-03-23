@@ -300,6 +300,20 @@ async function sendDocument(chatId: number, filePath: string, filename: string, 
   }
 }
 
+async function telegramGetMe(token: string): Promise<{ ok: boolean; username?: string; error?: string }> {
+  try {
+    const t = token.trim();
+    const res = await fetch(`https://api.telegram.org/bot${t}/getMe`);
+    const j = (await res.json().catch(() => null)) as any;
+    if (!j?.ok) return { ok: false, error: j?.description ?? 'getMe failed' };
+    const uname = j?.result?.username;
+    if (uname && typeof uname === 'string') return { ok: true, username: uname };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.message ?? String(e) };
+  }
+}
+
 async function answerCallbackQuery(callbackQueryId: string) {
   await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
     method: 'POST',
@@ -683,6 +697,28 @@ app.post('/telegram/webhook', async (req, res) => {
         } catch (err) {
           console.error('token replace stop old container failed', err);
         }
+        // Try to auto-detect username now too
+        const token = w2.data.botToken ?? '';
+        let uname: string | undefined;
+        if (token) {
+          const me = await telegramGetMe(token);
+          if (me.ok && me.username) uname = me.username;
+        }
+        if (uname) {
+          setWizard(telegramUserId, 'await_template', { ...w2.data, allowTokenReuse: true, botUsername: uname });
+          await sendMessage(chatId, `Ok — old runtime stopped + archived. I found your bot: @${uname}`);
+          await sendMessage(chatId, 'Choose a template:', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Blank', callback_data: 'template:blank' }],
+                [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }],
+                [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+              ]
+            }
+          });
+          return;
+        }
+
         setWizard(telegramUserId, 'await_bot_username', { ...w2.data, allowTokenReuse: true });
         await sendMessage(chatId, 'Ok — I stopped the old runtime and archived the previous agent. Now paste the bot username for this token (@name or t.me/name).');
         return;
@@ -1532,6 +1568,30 @@ app.post('/telegram/webhook', async (req, res) => {
             }
           }
         );
+        return;
+      }
+
+      // Auto-detect bot username via Telegram getMe (so user doesn't have to type it)
+      const me = await telegramGetMe(token);
+      if (me.ok && me.username) {
+        transition(telegramUserId, w.step, 'await_template', {
+          ...w.data,
+          botToken: token,
+          botTokenFp: fp,
+          botTokenConflictTenantId: undefined,
+          allowTokenReuse: false,
+          botUsername: me.username
+        });
+        await sendMessage(chatId, `Nice — I found your bot: @${me.username}`);
+        await sendMessage(chatId, 'Choose a template:', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Blank', callback_data: 'template:blank' }],
+              [{ text: 'Ops Starter', callback_data: 'template:ops_starter' }],
+              [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+            ]
+          }
+        });
         return;
       }
 
