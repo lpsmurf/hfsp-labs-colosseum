@@ -36,6 +36,14 @@ function deriveKey(secret: string, salt: Buffer): Buffer {
   return crypto.scryptSync(secret, salt, 32);
 }
 
+function tokenFingerprint(token: string): string {
+  // Deterministic, non-reversible fingerprint to detect token reuse.
+  // Uses HMAC with the DB secret so tokens can't be recovered from the fingerprint.
+  const t = (token ?? '').trim();
+  if (!t) return '';
+  return crypto.createHmac('sha256', HFSP_DB_SECRET).update(t).digest('hex');
+}
+
 function encryptString(plain: string): string {
   const p = (plain ?? '').toString();
   if (!p) return '';
@@ -156,6 +164,7 @@ db.exec(`
     model_preset TEXT,
     dashboard_port INTEGER,
     gateway_token TEXT,
+    telegram_token_fp TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     archived_at TEXT,
     deleted_at TEXT,
@@ -166,6 +175,7 @@ db.exec(`
 // best-effort migrations for older sqlite files
 try { db.exec(`ALTER TABLE tenants ADD COLUMN gateway_token TEXT`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN bot_username TEXT`); } catch {}
+try { db.exec(`ALTER TABLE tenants ADD COLUMN telegram_token_fp TEXT`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN archived_at TEXT`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN deleted_at TEXT`); } catch {}
@@ -191,6 +201,9 @@ type WizardStep =
 type WizardData = {
   agentName?: string;
   botToken?: string;
+  botTokenFp?: string;
+  botTokenConflictTenantId?: string;
+  allowTokenReuse?: boolean;
   botUsername?: string; // without @
   templateId?: 'blank' | 'ops_starter';
   provider?: 'openai' | 'anthropic' | 'other';
@@ -566,6 +579,34 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
 
+      // Token reuse guardrail
+      if (data === 'token:retry') {
+        const w2 = getWizard(telegramUserId);
+        // Clear token so user can paste a new one
+        setWizard(telegramUserId, 'await_bot_token', { ...w2.data, botToken: undefined, botTokenFp: undefined, botTokenConflictTenantId: undefined, allowTokenReuse: false });
+        await sendMessage(chatId, 'Ok — please create a new bot in @BotFather and paste the NEW token here.');
+        return;
+      }
+
+      if (data === 'token:replace') {
+        const w2 = getWizard(telegramUserId);
+        const conflictTenant = w2.data.botTokenConflictTenantId;
+        if (!conflictTenant) {
+          await sendMessage(chatId, 'Missing conflict context. Paste the token again.');
+          return;
+        }
+        // Stop the old container so the token can be reused safely.
+        try {
+          const oldContainer = `hfsp_${conflictTenant}`;
+          sshTenant(`docker rm -f ${oldContainer} >/dev/null 2>&1 || true`);
+        } catch (err) {
+          console.error('token replace stop old container failed', err);
+        }
+        setWizard(telegramUserId, 'await_bot_username', { ...w2.data, allowTokenReuse: true });
+        await sendMessage(chatId, 'Ok — I stopped the old runtime. Now paste the bot username for this token (@name or t.me/name).');
+        return;
+      }
+
       // Template selection
       if (data?.startsWith('template:') && w.step === 'await_template') {
         const template = data.split(':')[1];
@@ -673,11 +714,28 @@ app.post('/telegram/webhook', async (req, res) => {
           }
 
           const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-          const dashboardPort = 19000 + Math.floor(Math.random() * 1000);
+
+          // Allocate a unique dashboard port (avoid collisions)
+          function allocateDashboardPort(): number {
+            const used = new Set<number>(
+              (db.prepare("SELECT dashboard_port FROM tenants WHERE dashboard_port IS NOT NULL AND (status IS NULL OR status != 'deleted')").all() as any[])
+                .map((r) => Number(r.dashboard_port))
+                .filter((n) => Number.isFinite(n))
+            );
+            for (let i = 0; i < 2000; i++) {
+              const p = 19000 + Math.floor(Math.random() * 1000);
+              if (!used.has(p)) return p;
+            }
+            // fallback: linear scan
+            for (let p = 19000; p < 20000; p++) if (!used.has(p)) return p;
+            throw new Error('No free dashboard ports available (19000-19999).');
+          }
+
+          const dashboardPort = allocateDashboardPort();
 
           db.prepare(
-            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, telegram_token_fp, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).run(
             tenantId,
             telegramUserId,
@@ -688,6 +746,7 @@ app.post('/telegram/webhook', async (req, res) => {
             w.data.modelPreset ?? null,
             dashboardPort,
             null,
+            w.data.botTokenFp ?? null,
             'active'
           );
 
@@ -961,6 +1020,7 @@ app.post('/telegram/webhook', async (req, res) => {
               inline_keyboard: [
                 botLink ? [{ text: 'Open bot', url: botLink }] : [{ text: 'Open bot', callback_data: 'noop' }],
                 [{ text: 'Dashboard (Advanced)', callback_data: `agent:dashboard:${r.tenant_id}` }],
+                [{ text: 'Health check', callback_data: `agent:health:${r.tenant_id}` }],
                 isArchived
                   ? [{ text: 'Unarchive', callback_data: `agent:unarchive:${r.tenant_id}` }]
                   : [{ text: 'Archive', callback_data: `agent:archive:${r.tenant_id}` }],
@@ -987,6 +1047,20 @@ app.post('/telegram/webhook', async (req, res) => {
         db.prepare(`UPDATE tenants SET status='active', archived_at=NULL WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
         await sendMessage(chatId, 'Unarchived.');
         await sendMessage(chatId, 'Updated.', { reply_markup: { inline_keyboard: [[{ text: 'Back to list', callback_data: 'agents:list' }]] } });
+        return;
+      }
+
+      if (data?.startsWith('agent:health:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const containerName = `hfsp_${tenantId}`;
+        await sendMessage(chatId, 'Running health check…');
+        try {
+          const out = sshTenant(`docker exec -u clawd ${containerName} bash -lc ${shSingleQuote('HOME=/home/clawd openclaw channels status --probe')}`);
+          await sendMessage(chatId, `Health check ✅\n\n${out}`);
+        } catch (err) {
+          console.error('health check failed', err);
+          await sendMessage(chatId, `Health check failed: ${(err as Error)?.message ?? String(err)}`);
+        }
         return;
       }
 
@@ -1259,7 +1333,52 @@ app.post('/telegram/webhook', async (req, res) => {
         });
         return;
       }
-      transition(telegramUserId, w.step, 'await_bot_username', { ...w.data, botToken: token });
+
+      const fp = tokenFingerprint(token);
+      const existing = db
+        .prepare(
+          `SELECT tenant_id, bot_username, created_at
+           FROM tenants
+           WHERE telegram_user_id = ?
+             AND telegram_token_fp = ?
+             AND (status IS NULL OR status != 'deleted')
+           ORDER BY created_at DESC
+           LIMIT 1`
+        )
+        .get(telegramUserId, fp) as any;
+
+      if (existing && !w.data.allowTokenReuse) {
+        setWizard(telegramUserId, w.step, {
+          ...w.data,
+          botToken: token,
+          botTokenFp: fp,
+          botTokenConflictTenantId: existing.tenant_id
+        });
+        await sendMessage(
+          chatId,
+          [
+            '⚠️ This bot token is already connected to an existing agent.',
+            '',
+            'If you reuse the same token, Telegram will break with a 409 polling conflict.',
+            '',
+            `Existing agent tenant: ${existing.tenant_id}${existing.bot_username ? ` (@${existing.bot_username})` : ''}`,
+            '',
+            'Recommended: create a NEW bot in @BotFather for each agent.'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'I will create a new bot (recommended)', callback_data: 'token:retry' }],
+                [{ text: 'Replace existing agent (stop old one)', callback_data: 'token:replace' }],
+                [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+
+      transition(telegramUserId, w.step, 'await_bot_username', { ...w.data, botToken: token, botTokenFp: fp, botTokenConflictTenantId: undefined, allowTokenReuse: false });
       await sendMessage(
         chatId,
         'What is your bot username? (example: @my_agent_bot or t.me/my_agent_bot)',
