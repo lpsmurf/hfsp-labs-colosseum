@@ -1440,15 +1440,94 @@ app.post('/telegram/webhook', async (req, res) => {
           [
             'Dashboard access (Advanced)',
             '',
-            'This is optional. If you’re not comfortable with terminal commands, skip this.',
+            'Choose your computer:',
             '',
-            `1) Start the tunnel (Mac/Linux):`,
-            `ssh -i hfsp_${tenantId}.key -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`,
+            'I’ll send you a 1-click launcher (no typing).'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Mac', callback_data: `advanced:dashboard:os:mac` }],
+                [{ text: 'Windows', callback_data: `advanced:dashboard:os:windows` }],
+                [{ text: 'Linux', callback_data: `advanced:dashboard:os:linux` }],
+                [{ text: 'Back', callback_data: 'flow:back' }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+
+      if (data?.startsWith('advanced:dashboard:os:')) {
+        const osKey = data.split(':')[3];
+        const w2 = getWizard(telegramUserId);
+        const tenantId = w2.data.lastTenantId;
+        const port = w2.data.lastDashboardPort;
+        const token = w2.data.lastGatewayToken;
+        if (!tenantId || !port || !token) {
+          await sendMessage(chatId, 'Missing dashboard context. Tap Status → Provision agent again.');
+          return;
+        }
+
+        const keyFile = `hfsp_${tenantId}.key`;
+        const url = `http://127.0.0.1:${port}`;
+
+        let filename = '';
+        let content = '';
+        let caption = '';
+
+        if (osKey === 'mac') {
+          filename = `connect-dashboard-${tenantId}.command`;
+          content = [
+            '#!/usr/bin/env bash',
+            'set -euo pipefail',
             '',
-            `2) Open: http://127.0.0.1:${port}`,
+            `cd "$(dirname "$0")"`,
+            `chmod 600 "${keyFile}" 2>/dev/null || true`,
+            `echo "Starting tunnel… Keep this window open."`,
+            `echo "Then open: ${url}"`,
+            `ssh -i "./${keyFile}" -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`
+          ].join('\n');
+          caption = `Mac launcher. Put it in the same folder as ${keyFile}, then double-click.`;
+        } else if (osKey === 'windows') {
+          filename = `connect-dashboard-${tenantId}.ps1`;
+          content = [
+            '$ErrorActionPreference = "Stop"',
+            `$here = Split-Path -Parent $MyInvocation.MyCommand.Path`,
+            'Set-Location $here',
+            `Write-Host "Starting tunnel… Keep this window open."`,
+            `Write-Host "Then open: ${url}"`,
+            `ssh -i .\\${keyFile} -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`
+          ].join('\r\n');
+          caption = `Windows launcher. Save it next to ${keyFile}, right-click → Run with PowerShell.`;
+        } else {
+          filename = `connect-dashboard-${tenantId}.sh`;
+          content = [
+            '#!/usr/bin/env bash',
+            'set -euo pipefail',
             '',
-            `3) Dashboard token (if prompted):`,
-            token
+            `cd "$(dirname "$0")"`,
+            `chmod 600 "${keyFile}" 2>/dev/null || true`,
+            `echo "Starting tunnel… Keep this window open."`,
+            `echo "Then open: ${url}"`,
+            `ssh -i "./${keyFile}" -N -L ${port}:127.0.0.1:${port} dash@${TENANT_VPS_HOST}`
+          ].join('\n');
+          caption = `Linux launcher. Save it next to ${keyFile}, then run: chmod +x ${filename} && ./${filename}`;
+        }
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hfsp-dash-launch-'));
+        const outPath = path.join(tmpDir, filename);
+        fs.writeFileSync(outPath, content, { encoding: 'utf8', mode: 0o600 });
+
+        await sendDocument(chatId, outPath, filename, caption);
+
+        await sendMessage(
+          chatId,
+          [
+            'Dashboard token (if prompted):',
+            token,
+            '',
+            `Open after tunnel starts: ${url}`
           ].join('\n')
         );
         return;
