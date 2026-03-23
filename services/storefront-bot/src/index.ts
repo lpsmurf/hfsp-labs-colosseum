@@ -1247,6 +1247,7 @@ app.post('/telegram/webhook', async (req, res) => {
                 botLink ? [{ text: 'Open bot', url: botLink }] : [{ text: 'Open bot', callback_data: 'noop' }],
                 [{ text: 'Dashboard (Advanced)', callback_data: `agent:dashboard:${r.tenant_id}` }],
                 [{ text: 'Health check', callback_data: `agent:health:${r.tenant_id}` }],
+                [{ text: 'Stop (Advanced)', callback_data: `agent:stop_confirm:${r.tenant_id}` }, { text: 'Restart (Advanced)', callback_data: `agent:restart:${r.tenant_id}` }],
                 isArchived
                   ? [{ text: 'Unarchive', callback_data: `agent:unarchive:${r.tenant_id}` }]
                   : [{ text: 'Archive', callback_data: `agent:archive:${r.tenant_id}` }],
@@ -1288,6 +1289,60 @@ app.post('/telegram/webhook', async (req, res) => {
           console.error('health check failed', err);
           await sendMessage(chatId, `Health check failed: ${(err as Error)?.message ?? String(err)}`);
         }
+        return;
+      }
+
+      if (data?.startsWith('agent:stop_confirm:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        await sendMessage(
+          chatId,
+          [
+            'Stop runtime (Advanced)',
+            '',
+            'This will stop the agent container. Your bot will stop responding until you restart it.',
+            '',
+            'Are you sure?'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Stop now', callback_data: `agent:stop_do:${tenantId}` }],
+                [{ text: 'Cancel', callback_data: `agent:details:${tenantId}` }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+
+      if (data?.startsWith('agent:stop_do:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const containerName = `hfsp_${tenantId}`;
+        try {
+          sshTenant(`docker stop ${containerName} >/dev/null 2>&1 || true`);
+          db.prepare(`UPDATE tenants SET status='stopped' WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
+          await sendMessage(chatId, 'Stopped ✅');
+        } catch (err) {
+          console.error('stop failed', err);
+          await sendMessage(chatId, `Stop failed: ${(err as Error)?.message ?? String(err)}`);
+        }
+        await sendMessage(chatId, 'Back:', { reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }]] } });
+        return;
+      }
+
+      if (data?.startsWith('agent:restart:')) {
+        const tenantId = data.split(':').slice(2).join(':');
+        const containerName = `hfsp_${tenantId}`;
+        await sendMessage(chatId, 'Restarting…');
+        try {
+          sshTenant(`docker restart ${containerName} >/dev/null 2>&1 || true`);
+          db.prepare(`UPDATE tenants SET status='active' WHERE telegram_user_id=? AND tenant_id=?`).run(telegramUserId, tenantId);
+          await sendMessage(chatId, 'Restarted ✅');
+        } catch (err) {
+          console.error('restart failed', err);
+          await sendMessage(chatId, `Restart failed: ${(err as Error)?.message ?? String(err)}`);
+        }
+        await sendMessage(chatId, 'Back:', { reply_markup: { inline_keyboard: [[{ text: 'My agents', callback_data: 'agents:list' }]] } });
         return;
       }
 
