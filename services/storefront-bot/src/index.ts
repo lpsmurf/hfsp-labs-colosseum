@@ -279,7 +279,7 @@ async function sendMessage(chatId: number, text: string, opts: SendMessageOpts =
   }
 }
 
-async function sendDocument(chatId: number, filePath: string, filename: string, caption?: string) {
+async function sendDocument(chatId: number, filePath: string, filename: string, caption: string = '') {
   const form = new FormData();
   form.set('chat_id', String(chatId));
   if (caption) form.set('caption', caption);
@@ -1411,14 +1411,20 @@ app.post('/telegram/webhook', async (req, res) => {
           [
             'Dashboard access (Advanced)',
             '',
-            `Tunnel (Mac/Linux):`,
-            `ssh -i hfsp_${tenantId}.key -N -L ${r.dashboard_port}:127.0.0.1:${r.dashboard_port} dash@${TENANT_VPS_HOST}`,
+            'Choose your computer:',
             '',
-            `Open: http://127.0.0.1:${r.dashboard_port}`,
-            '',
-            `Token (if prompted):`,
-            r.gateway_token
-          ].join('\n')
+            'I’ll send you a 1-click launcher (no typing).'
+          ].join('\n'),
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Mac', callback_data: `agent:dashboard_os:${tenantId}:mac` }],
+                [{ text: 'Windows', callback_data: `agent:dashboard_os:${tenantId}:windows` }],
+                [{ text: 'Linux', callback_data: `agent:dashboard_os:${tenantId}:linux` }],
+                [{ text: 'Back', callback_data: `agent:details:${tenantId}` }]
+              ]
+            }
+          }
         );
         return;
       }
@@ -1458,17 +1464,9 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
 
-      if (data?.startsWith('advanced:dashboard:os:')) {
-        const osKey = data.split(':')[3];
-        const w2 = getWizard(telegramUserId);
-        const tenantId = w2.data.lastTenantId;
-        const port = w2.data.lastDashboardPort;
-        const token = w2.data.lastGatewayToken;
-        if (!tenantId || !port || !token) {
-          await sendMessage(chatId, 'Missing dashboard context. Tap Status → Provision agent again.');
-          return;
-        }
-
+      const ensuredChatId: number = chatId;
+      async function sendDashboardLauncher(params: { tenantId: string; port: number; token: string; osKey: string }) {
+        const { tenantId, port, token, osKey } = params;
         const keyFile = `hfsp_${tenantId}.key`;
         const url = `http://127.0.0.1:${port}`;
 
@@ -1519,10 +1517,10 @@ app.post('/telegram/webhook', async (req, res) => {
         const outPath = path.join(tmpDir, filename);
         fs.writeFileSync(outPath, content, { encoding: 'utf8', mode: 0o600 });
 
-        await sendDocument(chatId, outPath, filename, caption);
+        await sendDocument(ensuredChatId, outPath, filename, caption);
 
         await sendMessage(
-          chatId,
+          ensuredChatId,
           [
             'Dashboard token (if prompted):',
             token,
@@ -1530,6 +1528,44 @@ app.post('/telegram/webhook', async (req, res) => {
             `Open after tunnel starts: ${url}`
           ].join('\n')
         );
+      }
+
+      if (data?.startsWith('advanced:dashboard:os:')) {
+        const osKey = data.split(':')[3];
+        const w2 = getWizard(telegramUserId);
+        const tenantId = w2.data.lastTenantId;
+        const port = w2.data.lastDashboardPort;
+        const token = w2.data.lastGatewayToken;
+        if (!tenantId || !port || !token) {
+          await sendMessage(chatId, 'Missing dashboard context. Tap Status → Provision agent again.');
+          return;
+        }
+
+        await sendDashboardLauncher({ tenantId, port, token, osKey });
+        return;
+      }
+
+      if (data?.startsWith('agent:dashboard_os:')) {
+        const parts = data.split(':');
+        // agent:dashboard_os:<tenantId>:<os>
+        const tenantId = parts[2] ?? '';
+        const osKey = parts[3] ?? '';
+
+        const r0 = db
+          .prepare(
+            `SELECT tenant_id, dashboard_port, gateway_token
+             FROM tenants
+             WHERE telegram_user_id = ? AND tenant_id = ? AND (status IS NULL OR status != 'deleted')`
+          )
+          .get(telegramUserId, tenantId) as any;
+        const r = unprotectTenantRowTokens(r0);
+
+        if (!r?.dashboard_port || !r?.gateway_token) {
+          await sendMessage(chatId, 'Missing dashboard details for this agent.');
+          return;
+        }
+
+        await sendDashboardLauncher({ tenantId, port: Number(r.dashboard_port), token: String(r.gateway_token), osKey });
         return;
       }
 
