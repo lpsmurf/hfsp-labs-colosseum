@@ -1,32 +1,24 @@
-# Tenant state machine (beta)
+# Tenant state machine (beta) — current
 
-## Tenant.status
-- draft
-- provisioning
-- waiting_oauth
-- oauth_connected
-- waiting_api_key
-- ready_waiting_pair
-- live
-- suspended
-- cancelled
+This repo currently stores **wizard_state** separately from **tenants**.
+The tenant record is created at provisioning time.
 
-## Connect method
-- api_key
-- oauth
-- oauth_then_api_key
+## Wizard steps (storefront bot)
+See `docs/STATE_MACHINE.md` only as a conceptual reference — the canonical step list lives in `services/storefront-bot/src/index.ts` as `WizardStep`.
 
-## Transitions (happy path)
-- draft → provisioning (after token + template + connect method selected)
-- provisioning → waiting_oauth (if oauth)
-- waiting_oauth → oauth_connected (web callback success)
-- oauth_connected → ready_waiting_pair (gateway started)
-- ready_waiting_pair → live (pairing approved)
+## Tenant lifecycle (conceptual)
+- drafted (wizard not yet provisioned)
+- provisioned (tenant container created)
+- waiting_pair (until pairing approved)
+- live (paired + can respond)
+- stopped (future: container stopped)
+- deleted (future)
 
-## Fallback path
-- waiting_oauth → waiting_api_key (oauth failure/timeout)
-- waiting_api_key → provisioning (api key received)
+## Key transitions
+- draft → provisioned: after token + username + template + provider + key + preset
+- provisioned → live: pairing approved
 
-## Timeouts
-- waiting_oauth: 10 min then fallback
-- provisioning: 5 min then mark failed + show retry
+## Known failure modes
+- Telegram 409 getUpdates conflict if two containers run the same BotFather token.
+- Workspace EACCES if bind mount owner != container uid (fixed by post-`docker run` chown inside container).
+- Provider auth store schema mismatch (fixed by exporting provider env vars in tenant runtime entrypoint for Anthropic).
