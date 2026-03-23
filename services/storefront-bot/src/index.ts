@@ -891,8 +891,10 @@ app.post('/telegram/webhook', async (req, res) => {
       await sendMessage(chatId, 'Pairing…');
       try {
         const containerName = `hfsp_${tenantId}`;
-        // approve pairing inside tenant container
-        const cmd = `docker exec ${containerName} bash -lc ${shSingleQuote(`openclaw pairing approve telegram ${code}`)}`;
+        // Approve pairing inside tenant container as the runtime user.
+        // Critical: ensure HOME points at /home/clawd so OpenClaw uses the mounted config.
+        const approveInner = `HOME=/home/clawd openclaw pairing approve telegram ${code}`;
+        const cmd = `docker exec -u clawd ${containerName} bash -lc ${shSingleQuote(approveInner)}`;
         const out = sshTenant(cmd);
         await sendMessage(chatId, `Paired ✅\n${out ? out : ''}`.trim());
         setWizard(telegramUserId, 'idle', { ...w.data });
