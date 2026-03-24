@@ -522,7 +522,7 @@ async function renderAgentsPage(params: {
 
 async function sendMenu(chatId: number) {
   const keyboard = {
-    keyboard: [[{ text: 'Create agent' }], [{ text: 'My agents' }], [{ text: 'Help' }], [{ text: 'Status' }, { text: 'Cancel' }]],
+    keyboard: [[{ text: 'Create agent' }], [{ text: 'My agents' }], [{ text: 'Help' }], [{ text: 'Cancel' }]],
     resize_keyboard: true,
     one_time_keyboard: false
   };
@@ -847,7 +847,7 @@ app.post('/telegram/webhook', async (req, res) => {
         return;
       }
 
-      // Preset selection
+      // Preset selection - generate SSH key and show Provision button
       if (data?.startsWith('preset:') && w.step === 'await_model_preset') {
         const preset = data.split(':')[1];
         const modelPreset = preset === 'fast' ? 'fast' : preset === 'smart' ? 'smart' : undefined;
@@ -855,16 +855,55 @@ app.post('/telegram/webhook', async (req, res) => {
           await sendMessage(chatId, 'Invalid preset.');
           return;
         }
-        setWizard(telegramUserId, 'idle', { ...w.data, modelPreset });
-        await sendMessage(
-          chatId,
-          [
-            `Saved: ${modelPreset === 'fast' ? 'Fast' : 'Smart'} preset.`,
-            '',
-            'Next: tap Status → Provision agent.'
-          ].join('\n')
-        );
-        await sendMenu(chatId);
+        
+        // Generate SSH key now (for dashboard access)
+        let keyBase: string;
+        const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        try {
+          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hfsp-dash-'));
+          keyBase = path.join(tmpDir, `hfsp_${tenantId}`);
+          execFileSync('ssh-keygen', ['-t', 'ed25519', '-C', tenantId, '-f', keyBase, '-N', ''], { stdio: 'ignore' });
+          
+          await sendMessage(
+            chatId,
+            [
+              `✅ ${modelPreset === 'fast' ? 'Fast' : 'Smart'} preset selected.`,
+              '',
+              'Your setup is complete. Ready to provision your agent?'
+            ].join('\n')
+          );
+          
+          // Send SSH key file
+          await sendDocument(chatId, keyBase, `dashboard_${tenantId}.key`, 'Your dashboard SSH key (keep private). Save this for later access.');
+          
+          // Save preset for provisioning
+          setWizard(telegramUserId, 'idle', { ...w.data, modelPreset });
+          
+          // Show Provision button
+          await sendMessage(
+            chatId,
+            'Tap below to create your agent:',
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🚀 Provision Agent', callback_data: 'provision:start' }],
+                  [{ text: 'Cancel', callback_data: 'flow:cancel' }]
+                ]
+              }
+            }
+          );
+        } catch (e) {
+          console.error('SSH key generation failed:', e);
+          await sendMessage(chatId, '⚠️ Key generation failed. Continue anyway?', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🚀 Provision Agent', callback_data: 'provision:start' }],
+                [{ text: 'Cancel', callback_data: 'flow:cancel' }]
+              ]
+            }
+          });
+          setWizard(telegramUserId, 'idle', { ...w.data, modelPreset });
+        }
         return;
       }
 
