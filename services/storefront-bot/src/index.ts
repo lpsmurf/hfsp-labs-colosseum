@@ -1715,6 +1715,12 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
+    if (cmd.startsWith('/app')) {
+      await handleAppCommand(chatId);
+      return;
+    }
+
+
     if (cmd === 'cancel') {
       clearWizard(telegramUserId);
       await sendMessage(chatId, 'Cancelled. Use the menu buttons when you’re ready.');
@@ -2050,6 +2056,155 @@ app.post('/telegram/webhook', async (req, res) => {
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Storefront bot webhook listening on http://127.0.0.1:${PORT}`);
   console.log(`DB: ${DB_PATH}`);
+  // Configure the Mini App menu button on startup
+  setupMenuButton().catch((e) => console.error('setupMenuButton error:', e));
   console.log(`Tenant VPS: ${TENANT_VPS_USER}@${TENANT_VPS_HOST} (key=${TENANT_VPS_SSH_KEY}) baseDir=${TENANT_VPS_BASEDIR}`);
   console.log(`Tenant runtime image: ${TENANT_RUNTIME_IMAGE}`);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TELEGRAM MINI APP (WEBAPP) INTEGRATION
+// Added: webapp auth endpoint + /app bot command + menu button setup
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WEBAPP_URL = process.env.WEBAPP_URL ?? 'https://app.piercalito.com';
+// Derive a signing secret from the DB secret so we don't need a new env var
+const WEBAPP_JWT_SECRET = crypto.createHmac('sha256', HFSP_DB_SECRET).update('webapp_jwt').digest();
+
+// ── Simple HMAC-SHA256 signed token (no external dep) ───────────────────────
+function signToken(payload: Record<string, unknown>, expiresInSec = 3600): string {
+  const header  = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body    = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + expiresInSec, iat: Math.floor(Date.now() / 1000) })).toString('base64url');
+  const sig     = crypto.createHmac('sha256', WEBAPP_JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${sig}`;
+}
+
+function verifyToken(token: string): Record<string, unknown> | null {
+  try {
+    const [header, body, sig] = token.split('.');
+    const expected = crypto.createHmac('sha256', WEBAPP_JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as Record<string, unknown>;
+    if (typeof payload.exp === 'number' && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+// ── Validate Telegram initData (HMAC-SHA256 per Telegram docs) ───────────────
+function validateInitData(initData: string, botToken: string): Record<string, string> | null {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash   = params.get('hash');
+    if (!hash) return null;
+    params.delete('hash');
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const expected  = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(hash, 'hex'))) return null;
+
+    // Check auth_date is within 24h
+    const authDate = parseInt(params.get('auth_date') ?? '0', 10);
+    if (Date.now() / 1000 - authDate > 86400) return null;
+
+    return Object.fromEntries(params.entries());
+  } catch {
+    return null;
+  }
+}
+
+// ── POST /api/webapp/auth ────────────────────────────────────────────────────
+app.post('/api/webapp/auth', (req, res) => {
+  const { initData } = req.body as { initData?: string };
+  if (!initData) {
+    res.status(400).json({ error: { code: 'MISSING_INIT_DATA', message: 'initData is required' } });
+    return;
+  }
+
+  const parsed = validateInitData(initData, BOT_TOKEN);
+  if (!parsed) {
+    res.status(401).json({ error: { code: 'INVALID_INIT_DATA', message: 'initData validation failed' } });
+    return;
+  }
+
+  let user: Record<string, unknown> = {};
+  try { user = JSON.parse(parsed.user ?? '{}'); } catch { /* ignore */ }
+
+  const telegramId = user.id as number;
+  const tenant = db.prepare('SELECT * FROM tenants WHERE telegram_user_id = ?').get(telegramId) as any;
+
+  const token = signToken({
+    sub:         String(telegramId),
+    tenant_id:   tenant?.id ?? null,
+    telegram_id: telegramId,
+    first_name:  user.first_name,
+    username:    user.username,
+  });
+
+  res.json({
+    token,
+    expires_in: 3600,
+    user: {
+      id:         tenant?.id ?? String(telegramId),
+      telegram_id: telegramId,
+      first_name:  user.first_name,
+      last_name:   user.last_name,
+      username:    user.username,
+      language_code: user.language_code,
+    },
+  });
+});
+
+// ── GET /api/webapp/verify (middleware helper — verify JWT) ──────────────────
+app.get('/api/webapp/verify', (req, res) => {
+  const auth = req.headers.authorization ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const payload = verifyToken(token);
+  if (!payload) {
+    res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Token is invalid or expired' } });
+    return;
+  }
+  res.json({ ok: true, payload });
+});
+
+// ── Configure Telegram Menu Button to open the Mini App ─────────────────────
+async function setupMenuButton() {
+  if (!WEBAPP_URL) return;
+  try {
+    const res = await fetch(`${TELEGRAM_API}/setChatMenuButton`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        menu_button: {
+          type:    'web_app',
+          text:    'Open App',
+          web_app: { url: WEBAPP_URL },
+        },
+      }),
+    });
+    const body = await res.json() as any;
+    if (body.ok) console.log('[webapp] Menu button configured →', WEBAPP_URL);
+    else         console.warn('[webapp] Menu button setup failed:', body.description);
+  } catch (err) {
+    console.warn('[webapp] Menu button setup error:', err);
+  }
+}
+
+// ── Handle /app command in the bot ─────────────────────────────────────────
+// This is called from inside the webhook handler — export so it can be invoked.
+async function handleAppCommand(chatId: number) {
+  await sendMessage(chatId, '👇 Tap the button below to open your agent dashboard:', {
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text:    '🚀 Open Dashboard',
+          web_app: { url: WEBAPP_URL },
+        },
+      ]],
+    },
+  });
+}
