@@ -1,0 +1,315 @@
+================================================================================
+                    HFSP AGENT PROVISIONING - 3 DAY MVP
+================================================================================
+
+STATUS: ✅ READY TO BUILD NOW
+
+TIMELINE: 72 hours (3 days)
+
+GOAL: Users sign up (email or Phantom wallet) → auto 14-day trial → 
+      create 1 agent → upgrade to $9/month Pro → create up to 10 agents
+
+================================================================================
+                           FILES TO READ (IN ORDER)
+================================================================================
+
+READ IN THIS ORDER:
+
+1. 📄 START_HERE_3DAY.md (7 min)
+   └─ Quick overview + what changed + sprint kickoff
+
+2. 📄 CRITICAL_UPDATES.md (10 min)  
+   └─ Your clarifications → updated specs
+   └─ Trial model: 1 per email+wallet combo
+   └─ Pricing: $9/month only (no free plan)
+   └─ Tokens: Users bring their own API keys
+   └─ Payment: SumUp (not Stripe)
+
+3. 📄 3DAY_SPRINT.md (15 min for your role)
+   └─ Hour-by-hour breakdown
+   └─ Day 1: Backend engineer reads this
+   └─ Day 2: Frontend engineer reads this
+   └─ Day 3: DevOps reads this
+
+THEN: Start building! ✨
+
+================================================================================
+                         IMMEDIATE ACTION ITEMS
+================================================================================
+
+RIGHT NOW (Next 30 minutes):
+
+Backend Engineer:
+  [ ] Read CRITICAL_UPDATES.md (focus on database section)
+  [ ] Read 3DAY_SPRINT.md - "DAY 1: Backend Foundation" section
+  [ ] Create `.env` file with placeholders
+  [ ] Verify Node.js 18+ installed
+  [ ] Start Hour 1: Database migration 007
+
+Frontend Engineer:
+  [ ] Read CRITICAL_UPDATES.md
+  [ ] Read 3DAY_SPRINT.md - "DAY 2: Frontend UI" section
+  [ ] Install Phantom wallet extension (Chrome)
+  [ ] Verify Node.js 18+ installed
+  [ ] Create services/clawdrop-wizard folder
+
+DevOps/Full-stack:
+  [ ] Read all 3 files above
+  [ ] Create SumUp test account & get API keys
+  [ ] Verify Docker + docker-compose installed
+  [ ] Install Postman for API testing
+
+================================================================================
+                         WHAT'S DIFFERENT FROM BEFORE
+================================================================================
+
+YOUR CLARIFICATIONS → CHANGES TO SPECS:
+
+❌ OLD: Free trial → Free plan → Pro plan ($29/month)
+✅ NEW: Free trial → Pro plan ($9/month) only
+        NO FREE PLAN
+
+❌ OLD: One trial per email OR wallet
+✅ NEW: One trial per EMAIL + WALLET combo (can't reuse either)
+
+❌ OLD: HFSP charges based on LLM token usage
+✅ NEW: Users bring their own API keys (pay OpenAI/Anthropic directly)
+        HFSP charges fixed $9/month for provisioning/hosting
+
+❌ OLD: Use Stripe for payments
+✅ NEW: Use SumUp for payments
+
+❌ OLD: Magic Eden + Backpack wallets needed
+✅ NEW: Phantom wallet only (for now)
+
+====================== KEY IMPLEMENTATION POINTS ========================
+
+Trial Model:
+  → User signs up email: john@example.com + wallet: ABC123 
+  → Gets 1 trial (tied to this combo)
+  → Can't signup again with same email (even different wallet)
+  → Can't signup again with same wallet (even different email)
+  → One trial per email+wallet = one trial per user
+
+Payment Model:
+  → User provides their own API key (e.g., OpenAI key)
+  → HFSP charges $9/month for provisioning/hosting
+  → User pays OpenAI separately for actual token usage
+  → Simpler billing (fixed rate, not metered)
+
+Scope for 3 Days:
+  → Auth system (email + Phantom)
+  → Paywall (trial → Pro)
+  → UI Wizard (signup + create agent)
+  → Mock provisioning (returns success after 5 sec)
+  → NOT real Docker provisioning (that's Week 2)
+
+================================================================================
+                         KEY FILES YOU'LL MODIFY
+================================================================================
+
+Backend:
+  services/storefront-bot/src/
+  ├── routes/auth.ts              (NEW: email + phantom signup)
+  ├── routes/billing.ts           (NEW: SumUp checkout + webhook)
+  ├── database.ts                 (MODIFY: add auth columns)
+  └── middleware/
+      └── authenticate.ts         (MODIFY: support multiple auth)
+
+Frontend:
+  services/clawdrop-wizard/       (NEW PROJECT)
+  ├── src/pages/
+  │   ├── SignupPage.tsx
+  │   ├── WizardPage.tsx
+  │   └── DashboardPage.tsx
+  ├── src/components/
+  │   ├── EmailSignupForm.tsx
+  │   └── PhantomSignupForm.tsx
+  └── src/hooks/
+      ├── usePhantomWallet.ts
+      └── useAuth.ts
+
+Database:
+  hfsp.db (migration 007 adds):
+  ├─ users.email
+  ├─ users.password_hash
+  ├─ users.phantom_wallet_address
+  ├─ users.subscription_tier
+  ├─ users.trial_expires_at
+  └─ users.sumup_customer_id
+
+================================================================================
+                         DEPENDENCIES TO ADD
+================================================================================
+
+Backend:
+  npm install bcrypt nodemailer nacl dotenv
+
+Frontend:
+  npm install react-router-dom axios zod react-hook-form tailwindcss
+
+================================================================================
+                         SUCCESS CRITERIA BY DAY
+================================================================================
+
+END OF DAY 1:
+  ✅ Email signup endpoint works
+  ✅ Phantom wallet signup works
+  ✅ Email + wallet combo validation works
+  ✅ Trial auto-activation works (14 days)
+  ✅ SumUp checkout endpoint works
+  ✅ All tested with Postman
+  ✅ Database migrated
+
+END OF DAY 2:
+  ✅ SignupPage renders (email + phantom options)
+  ✅ Email signup form works
+  ✅ Phantom wallet connection works
+  ✅ SetupWizard form works
+  ✅ DashboardPage shows trial countdown
+  ✅ Upgrade button present
+  ✅ Mobile responsive
+
+END OF DAY 3:
+  ✅ Full signup → create agent → upgrade flow works
+  ✅ Email signup flow tested end-to-end
+  ✅ Phantom wallet flow tested end-to-end
+  ✅ Trial expiration works (quota enforced)
+  ✅ SumUp payment flow works (test mode)
+  ✅ Error handling works (all edge cases)
+  ✅ docker-compose up → everything runs
+  ✅ Ready to launch! 🚀
+
+================================================================================
+                         WHAT NOT TO BUILD (SAVE TIME)
+================================================================================
+
+❌ Real Docker provisioning (mock in 3 days)
+❌ VPS SSH setup (do in Week 2)
+❌ Email templates (use console in dev)
+❌ Admin dashboard (v2 feature)
+❌ Analytics (v2 feature)
+❌ Advanced error recovery (basic is fine)
+❌ Perfect styling (MVP ugly is OK)
+❌ 100% test coverage (happy path only)
+
+================================================================================
+                         ENVIRONMENT VARIABLES NEEDED
+================================================================================
+
+Create .env in services/storefront-bot/:
+
+  NODE_ENV=development
+  PORT=3000
+  DATABASE_URL=./hfsp.db
+  JWT_SECRET=your_random_secret_here
+  EMAIL_USER=your@email.com
+  EMAIL_PASSWORD=app_specific_password
+  SUMUP_API_KEY=xxx_from_sumup_dashboard
+  SUMUP_MERCHANT_ID=xxx_from_sumup_dashboard
+  FRONTEND_URL=http://localhost:5173
+
+Create .env in services/clawdrop-wizard/:
+
+  VITE_API_URL=http://localhost:3000/api/v1
+
+================================================================================
+                         TESTING YOUR WORK
+================================================================================
+
+Test Backend Endpoints with Postman:
+
+  1. POST http://localhost:3000/api/v1/auth/email-signup
+     Body: {"email":"test@example.com","password":"password123","firstName":"Test"}
+     Expected: 201 + token
+
+  2. POST http://localhost:3000/api/v1/auth/verify-email
+     Body: {"email":"test@example.com","verificationCode":"123456"}
+     Expected: 200 + email_verified
+
+  3. POST http://localhost:3000/api/v1/agents
+     Header: Authorization: Bearer YOUR_TOKEN
+     Body: {"agentName":"My Agent","botToken":"x","botUsername":"x"}
+     Expected: 201 + agent created
+
+  4. GET http://localhost:3000/api/v1/agents
+     Header: Authorization: Bearer YOUR_TOKEN
+     Expected: 200 + list of agents
+
+Test Frontend:
+
+  1. Open http://localhost:5173
+  2. Click "Sign up with Email"
+  3. Enter email + password
+  4. Check console for verification code
+  5. Enter code
+  6. Should redirect to /wizard
+  7. Create agent (mock deploy)
+  8. See agent in dashboard
+  9. See trial countdown (14 days)
+
+================================================================================
+                         QUICK REFERENCE
+================================================================================
+
+Sprint Duration: 72 hours (3 days)
+
+Team Composition:
+  - 1 Backend Engineer (Day 1 focus)
+  - 1 Frontend Engineer (Day 2 focus)
+  - 1 DevOps/Full-stack (Day 3 focus)
+
+Tech Stack:
+  Frontend: React 18 + TypeScript + TailwindCSS + Vite
+  Backend: Node.js + Express + TypeScript
+  Database: SQLite 3
+  Payment: SumUp
+  Wallets: Phantom
+
+Monorepo: YES
+  services/webapp/           (Telegram - don't touch)
+  services/storefront-bot/   (API - modify)
+  services/clawdrop-wizard/  (NEW - wizard UI)
+
+Mock Provisioning: YES
+  Real Docker provisioning in Week 2
+  For now: Return success after 5 seconds
+
+Deployment: docker-compose
+  Start all services: docker-compose up
+  Access wizard: http://localhost:5173
+  Access API: http://localhost:3000
+
+================================================================================
+                         FINAL CHECKLIST
+================================================================================
+
+Before Starting:
+
+  [ ] All team members read: START_HERE_3DAY.md
+  [ ] Backend engineer read: CRITICAL_UPDATES.md + 3DAY_SPRINT.md (Day 1)
+  [ ] Frontend engineer read: CRITICAL_UPDATES.md + 3DAY_SPRINT.md (Day 2)
+  [ ] DevOps read: CRITICAL_UPDATES.md + 3DAY_SPRINT.md (Day 3)
+  [ ] SumUp account created + API keys obtained
+  [ ] .env files created with placeholders
+  [ ] All dependencies installed (Node.js 18+, Docker, etc)
+  [ ] Phantom wallet extension installed (Chrome)
+  [ ] Postman installed
+  [ ] Code editor configured
+  [ ] Git branches created (optional but recommended)
+  [ ] Slack/Discord channel ready for updates
+
+================================================================================
+                         YOU'RE READY TO START!
+================================================================================
+
+Next: Read START_HERE_3DAY.md (7 min)
+Then: Read CRITICAL_UPDATES.md (10 min)
+Then: Read 3DAY_SPRINT.md (your section)
+Then: START BUILDING! 🚀
+
+Questions? Check the files above - they have all the details!
+
+Good luck! 💪
+
+================================================================================

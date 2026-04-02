@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: hfsp-api
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+      DB_PATH: /app/data/storefront.sqlite
+      TELEGRAM_BOT_TOKEN_FILE: /secrets/hfsp_agent_bot.token
+      HFSP_DB_SECRET_FILE: /secrets/hfsp_db_secret
+      SOLANA_NETWORK: devnet
+      SOLANA_RPC_URL: https://api.devnet.solana.com
+      SOLANA_WALLET_ADDRESS: ${SOLANA_WALLET_ADDRESS:-}
+      SOLANA_WALLET_SECRET_KEY: ${SOLANA_WALLET_SECRET_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - /secrets:/secrets:ro
+    networks:
+      - hfsp-network
+
+  wizard:
+    build:
+      context: ./services/clawdrop-wizard
+      dockerfile: Dockerfile
+    container_name: hfsp-wizard
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    networks:
+      - hfsp-network
+    depends_on:
+      - api
+
+networks:
+  hfsp-network:
+    driver: bridge
+
+volumes:
+  data:

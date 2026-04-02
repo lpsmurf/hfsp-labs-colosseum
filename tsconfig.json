@@ -10,5 +10,13 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["services/**/*.ts"]
+  "include": [
+    "services/storefront-bot/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "services/webapp",
+    "services/clawdrop-wizard",
+    "dist"
+  ]
 }

@@ -11,3 +11,12 @@ dist/
 
 # legacy image build folders not meant for this repo state
 /runtime-image/
+
+# Test environment (contains fake secrets, still not for git)
+.env.test
+.env.local
+.env.*.local
+
+# Frontend build output
+services/clawdrop-wizard/dist/
+services/webapp/dist/

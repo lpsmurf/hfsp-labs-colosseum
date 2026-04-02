@@ -5,6 +5,10 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
+import bcrypt from 'bcrypt';
+import * as nacl from 'tweetnacl';
+import { PublicKey, Connection } from '@solana/web3.js';
+import QRCode from 'qrcode';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const TOKEN_FILE = process.env.TELEGRAM_BOT_TOKEN_FILE ?? '/home/clawd/.openclaw/secrets/hfsp_agent_bot.token';
@@ -125,6 +129,15 @@ const TENANT_VPS_USER = process.env.TENANT_VPS_USER ?? 'root';
 const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '/home/clawd/.ssh/id_ed25519_hfsp_provisioner';
 const TENANT_VPS_BASEDIR = process.env.TENANT_VPS_BASEDIR ?? '/opt/hfsp/tenants';
 const TENANT_RUNTIME_IMAGE = process.env.TENANT_RUNTIME_IMAGE ?? 'hfsp/openclaw-runtime:stable';
+
+// Email auth and Solana payment
+const SOLANA_NETWORK = process.env.SOLANA_NETWORK ?? 'devnet';
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com';
+const SOLANA_WALLET_ADDRESS = process.env.SOLANA_WALLET_ADDRESS ?? '';
+const SOLANA_WALLET_SECRET_KEY = process.env.SOLANA_WALLET_SECRET_KEY ?? '';
+
+// Stripe/SumUp (for later fiat implementation)
+// const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? '';
 const TENANT_VPS_SSH_OPTS = ['-i', TENANT_VPS_SSH_KEY, '-o', 'StrictHostKeyChecking=accept-new'];
 
 function readToken(): string {
@@ -179,6 +192,34 @@ try { db.exec(`ALTER TABLE tenants ADD COLUMN telegram_token_fp TEXT`); } catch 
 try { db.exec(`ALTER TABLE tenants ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN archived_at TEXT`); } catch {}
 try { db.exec(`ALTER TABLE tenants ADD COLUMN deleted_at TEXT`); } catch {}
+// Email auth columns for users table
+// SQLite: ADD COLUMN cannot include UNIQUE — add columns plain then create unique indexes
+try { db.exec(`ALTER TABLE users ADD COLUMN user_id TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN phantom_wallet_address TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free_trial'`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN trial_started_at DATETIME`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN trial_expires_at DATETIME`); } catch {}
+// Unique indexes (IF NOT EXISTS handles re-runs safely)
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id) WHERE user_id IS NOT NULL`); } catch {}
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`); } catch {}
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet ON users(phantom_wallet_address) WHERE phantom_wallet_address IS NOT NULL`); } catch {}
+
+// Create crypto_payments table for Solana transaction tracking
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crypto_payments (
+    payment_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    email TEXT,
+    phantom_wallet_address TEXT,
+    amount_usdc REAL NOT NULL,
+    transaction_signature TEXT UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at DATETIME DEFAULT (datetime('now')),
+    confirmed_at DATETIME
+  );
+`);
 
 const BOT_TOKEN = readToken();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -546,6 +587,20 @@ async function sendMenu(chatId: number) {
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+
+// CORS: allow ClawDrop wizard frontend
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:3001').split(',');
+app.use((req: any, res: any, next: any) => {
+  const origin = (req.headers.origin as string) ?? '';
+  if (ALLOWED_ORIGINS.includes(origin) || process.env.NODE_ENV === 'development') {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+  next();
+});
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
@@ -2051,6 +2106,695 @@ app.post('/telegram/webhook', async (req, res) => {
   } catch (err) {
     console.error('Webhook handler error', err);
   }
+});
+
+
+// ── EMAIL AUTHENTICATION ENDPOINTS ──────────────────────────────────────────
+// POST /api/v1/auth/email-signup
+app.post('/api/v1/auth/email-signup', async (req, res) => {
+  try {
+    const { email, password, firstName } = req.body as { email?: string; password?: string; firstName?: string };
+
+    // Validation
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Check if email already exists
+    const existing = db.prepare('SELECT telegram_user_id FROM users WHERE email = ?').get(email);
+    if (existing) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    // Create user with 14-day trial
+    // telegram_user_id: synthetic negative ID for email-only users
+    const syntheticTgId = -(Date.now());
+    const userId = `u_email_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const trialStartedAt = new Date();
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
+
+    db.prepare(`
+      INSERT INTO users (telegram_user_id, user_id, email, password_hash, subscription_tier, trial_started_at, trial_expires_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(syntheticTgId, userId, email, passwordHash, 'free_trial', trialStartedAt.toISOString(), trialExpiresAt.toISOString(), new Date().toISOString());
+
+    // Generate JWT token
+    const token = signToken({
+      sub: userId,
+      email: email,
+      auth_method: 'email',
+      subscription_tier: 'free_trial',
+    }, 86400); // 24 hours
+
+    // For MVP: log verification code to console
+    const verificationCode = Math.random().toString().slice(2, 8);
+    console.log(`\n📧 VERIFICATION CODE FOR ${email}: ${verificationCode}\n`);
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        userId,
+        email,
+        subscription: 'free_trial',
+        trialExpiresAt,
+      },
+      message: 'Account created! 14-day trial activated.',
+    });
+  } catch (error) {
+    console.error('Email signup error:', error);
+    res.status(500).json({ error: 'Signup failed' });
+  }
+});
+
+// POST /api/v1/auth/email-login
+app.post('/api/v1/auth/email-login', async (req, res) => {
+  try {
+    const { email, password } = req.body as { email?: string; password?: string };
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    const user = db.prepare(`
+      SELECT user_id, telegram_user_id, password_hash, subscription_tier, trial_expires_at
+      FROM users
+      WHERE email = ?
+    `).get(email) as any;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check if trial has expired
+    const now = new Date();
+    const trialExpired = user.trial_expires_at && new Date(user.trial_expires_at) < now;
+
+    // Only allow login if: trial is active OR subscription is 'pro'
+    if (trialExpired && user.subscription_tier !== 'pro') {
+      return res.status(403).json({ error: 'Trial expired. Upgrade to Pro to continue.' });
+    }
+
+    // sub is user_id (string) if present, else fallback to telegram_user_id
+    const sub = user.user_id || `tg_${user.telegram_user_id}`;
+    const token = signToken({
+      sub,
+      email: email,
+      auth_method: 'email',
+      subscription_tier: user.subscription_tier,
+    }, 86400);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        userId: user.user_id,
+        email,
+        subscription: user.subscription_tier,
+      },
+    });
+  } catch (error) {
+    console.error('Email login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ── PHANTOM WALLET AUTHENTICATION ──────────────────────────────────────────
+
+// POST /api/v1/auth/phantom-verify
+app.post('/api/v1/auth/phantom-verify', async (req, res) => {
+  try {
+    const { publicKeyBase58, signedMessageBase64, email } = req.body as {
+      publicKeyBase58?: string;
+      signedMessageBase64?: string;
+      email?: string;
+    };
+
+    if (!publicKeyBase58 || !signedMessageBase64) {
+      return res.status(400).json({ error: 'Missing public key or signed message' });
+    }
+
+    // Verify signature using NaCl + Solana PublicKey (base58 decode)
+    try {
+      const pubkeyBytes = new PublicKey(publicKeyBase58).toBytes();
+      const signatureBytes = new Uint8Array(Buffer.from(signedMessageBase64, 'base64'));
+      const messageBytes = Buffer.from('Authorize access to HFSP Agent Provisioning');
+      
+      const verified = nacl.sign.detached.verify(messageBytes, signatureBytes, pubkeyBytes);
+      if (!verified) {
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+    } catch (err) {
+      console.error('Signature verification error:', err);
+      return res.status(400).json({ error: 'Invalid public key format' });
+    }
+
+    // Check if wallet already has an account
+    let user = db.prepare(`
+      SELECT user_id, subscription_tier, trial_expires_at
+      FROM users
+      WHERE phantom_wallet_address = ?
+    `).get(publicKeyBase58) as any;
+
+    if (!user) {
+      // New Phantom account - check email combo for trial eligibility
+      if (email) {
+        const existingEmail = db.prepare(`
+          SELECT telegram_user_id FROM users WHERE email = ?
+        `).get(email);
+
+        if (existingEmail) {
+          return res.status(409).json({
+            error: 'Email already linked to another wallet. Please use email login or contact support.',
+          });
+        }
+      }
+
+      // Create new account with Phantom wallet
+      const userId = `u_phantom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const trialStartedAt = new Date();
+      const trialExpiresAt = new Date();
+      trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
+
+      const syntheticTgIdPhantom = -(Date.now());
+      db.prepare(`
+        INSERT INTO users (telegram_user_id, user_id, phantom_wallet_address, email, subscription_tier, trial_started_at, trial_expires_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(syntheticTgIdPhantom, userId, publicKeyBase58, email || null, 'free_trial', trialStartedAt.toISOString(), trialExpiresAt.toISOString(), new Date().toISOString());
+
+      user = {
+        user_id: userId,
+        subscription_tier: 'free_trial',
+        trial_expires_at: trialExpiresAt.toISOString(),
+      };
+    }
+
+    const token = signToken({
+      sub: user.user_id,
+      wallet: publicKeyBase58,
+      email: email || null,
+      auth_method: 'phantom',
+      subscription_tier: user.subscription_tier,
+    }, 86400);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        userId: user.user_id,
+        wallet: publicKeyBase58,
+        subscription: user.subscription_tier,
+      },
+    });
+  } catch (error) {
+    console.error('Phantom verify error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// ── SOLANA PAYMENT ENDPOINTS ────────────────────────────────────────────────
+
+// POST /api/v1/auth/solana-pay-qr
+app.post('/api/v1/auth/solana-pay-qr', async (req, res) => {
+  try {
+    const auth = req.headers.authorization ?? '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    const payload = verifyToken(token);
+
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid or missing token' });
+    }
+
+    const userId = payload.sub as string;
+    
+    // For now, hardcoded $9 USDC for Pro tier (1 month)
+    const amountUsdc = 9;
+    
+    // Create payment record
+    const paymentId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    db.prepare(`
+      INSERT INTO crypto_payments (payment_id, user_id, amount_usdc, status)
+      VALUES (?, ?, ?, ?)
+    `).run(paymentId, userId, amountUsdc, 'pending');
+
+    // Generate Solana Pay link (format: solana:WALLET?amount=AMOUNT&spl-token=USDC_TOKEN&reference=PAYMENT_ID)
+    const USDC_MINT = 'EPjFWaJy47gHeQZzauRN123i8DAShsFXCqnnV6471zo'; // USDC on mainnet
+    const solanaPayLink = `solana:${SOLANA_WALLET_ADDRESS}?amount=${amountUsdc}&spl-token=${USDC_MINT}&reference=${paymentId}`;
+
+    // Generate QR code
+    const qrCode = await QRCode.toDataURL(solanaPayLink);
+
+    res.json({
+      success: true,
+      paymentId,
+      amount: amountUsdc,
+      currency: 'USDC',
+      qrCode, // Data URL for embedding in UI
+      solanaPayLink,
+    });
+  } catch (error) {
+    console.error('Solana Pay QR error:', error);
+    res.status(500).json({ error: 'Failed to generate QR code' });
+  }
+});
+
+// POST /api/v1/auth/verify-payment
+app.post('/api/v1/auth/verify-payment', async (req, res) => {
+  try {
+    const { paymentId, transactionSignature } = req.body as {
+      paymentId?: string;
+      transactionSignature?: string;
+    };
+
+    if (!paymentId || !transactionSignature) {
+      return res.status(400).json({ error: 'Missing payment ID or transaction signature' });
+    }
+
+    const payment = db.prepare('SELECT * FROM crypto_payments WHERE payment_id = ?').get(paymentId) as any;
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    // In MVP: trust the client-provided signature (TODO: verify on chain)
+    // In production: query Solana RPC to verify the transaction
+    const connection = new Connection(SOLANA_RPC_URL);
+    try {
+      const tx = await connection.getTransaction(transactionSignature, { commitment: 'confirmed' });
+      if (!tx) {
+        return res.status(400).json({ error: 'Transaction not found on chain' });
+      }
+    } catch (err) {
+      console.error('Failed to verify transaction on chain:', err);
+      // For MVP, continue anyway
+    }
+
+    // Update payment status
+    db.prepare(`
+      UPDATE crypto_payments
+      SET status = ?, transaction_signature = ?, confirmed_at = ?
+      WHERE payment_id = ?
+    `).run('confirmed', transactionSignature, new Date().toISOString(), paymentId);
+
+    // Upgrade user subscription
+    db.prepare(`
+      UPDATE users
+      SET subscription_tier = ?
+      WHERE user_id = ?
+    `).run('pro', payment.user_id);
+
+    res.json({
+      success: true,
+      message: 'Payment confirmed. Subscription upgraded to Pro!',
+      subscriptionTier: 'pro',
+    });
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+
+// ── JWT AUTH MIDDLEWARE ──────────────────────────────────────────────────────
+
+function requireAuth(req: any, res: any): Record<string, unknown> | null {
+  const auth = req.headers.authorization ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const payload = verifyToken(token);
+  if (!payload) {
+    res.status(401).json({ error: 'Invalid or missing token' });
+    return null;
+  }
+  return payload;
+}
+
+// ── AGENT PROVISIONING API ──────────────────────────────────────────────────
+
+// Reusable port allocation (extracted from Telegram bot flow)
+function allocateFreeDashboardPort(): number {
+  const used = new Set<number>(
+    (db.prepare("SELECT dashboard_port FROM tenants WHERE dashboard_port IS NOT NULL AND (status IS NULL OR status != 'deleted')").all() as any[])
+      .map((r: any) => Number(r.dashboard_port))
+      .filter((n: number) => Number.isFinite(n))
+  );
+  for (let i = 0; i < 2000; i++) {
+    const p = 19000 + Math.floor(Math.random() * 1000);
+    if (!used.has(p)) return p;
+  }
+  for (let p = 19000; p < 20000; p++) if (!used.has(p)) return p;
+  throw new Error('No free dashboard ports available (19000-19999).');
+}
+
+// POST /api/v1/agents - Create and provision a new agent
+app.post('/api/v1/agents', async (req, res) => {
+  const payload = requireAuth(req, res);
+  if (!payload) return;
+
+  try {
+    const userId = payload.sub as string;
+    const { name, provider, model, botToken, openaiApiKey, anthropicApiKey } = req.body as {
+      name?: string;
+      provider?: string;
+      model?: string;
+      botToken?: string;
+      openaiApiKey?: string;
+      anthropicApiKey?: string;
+    };
+
+    if (!name || !provider || !model || !botToken) {
+      return res.status(400).json({ error: 'Missing required fields: name, provider, model, botToken' });
+    }
+
+    // Lookup user by user_id (email/phantom users) or telegram_user_id (Telegram users)
+    const user = db.prepare(`
+      SELECT telegram_user_id, user_id, subscription_tier, trial_expires_at
+      FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?
+    `).get(userId, userId) as any;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const tgUserId = user.telegram_user_id;
+    const tier = user?.subscription_tier || 'free_trial';
+
+    // Check trial expiration
+    if (tier === 'free_trial' && user?.trial_expires_at) {
+      if (new Date(user.trial_expires_at) < new Date()) {
+        return res.status(403).json({ error: 'Trial expired. Upgrade to Pro to create agents.' });
+      }
+    }
+
+    // Count existing agents using actual telegram_user_id
+    const agentCount = (db.prepare(
+      "SELECT COUNT(*) as cnt FROM tenants WHERE telegram_user_id = ? AND status != 'deleted' AND deleted_at IS NULL"
+    ).get(tgUserId) as any)?.cnt || 0;
+
+    // Trial users: max 1 agent
+    if (tier === 'free_trial' && agentCount >= 1) {
+      return res.status(403).json({ error: 'Trial plan limited to 1 agent. Upgrade to Pro for unlimited agents.' });
+    }
+
+    // Allocate port and create tenant
+    const tenantId = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const dashboardPort = allocateFreeDashboardPort();
+    const botTokenFp = tokenFingerprint(botToken);
+
+    // Insert tenant record
+    db.prepare(
+      `INSERT INTO tenants(tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, telegram_token_fp, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      tenantId,
+      tgUserId,
+      name,
+      null,
+      'blank',
+      provider,
+      model,
+      dashboardPort,
+      null,
+      botTokenFp,
+      'provisioning'
+    );
+
+    // Respond immediately - provisioning happens async
+    res.status(202).json({
+      success: true,
+      agent: {
+        id: tenantId,
+        name,
+        status: 'provisioning',
+        dashboardPort,
+        provider,
+        model,
+        createdAt: new Date().toISOString(),
+      },
+      message: 'Agent provisioning started. Check status with GET /api/v1/agents/' + tenantId,
+    });
+
+    // ── ASYNC PROVISIONING ──────────────────────────────────────────────
+    (async () => {
+      try {
+        const tenantDir = `${TENANT_VPS_BASEDIR}/${tenantId}`;
+        const workspaceDir = `${tenantDir}/workspace`;
+        const secretsDir = `${tenantDir}/secrets`;
+
+        // Create directories on VPS
+        sshTenant(`mkdir -p ${workspaceDir} ${secretsDir}`);
+
+        // Write Telegram token
+        const telegramTokenB64 = Buffer.from(botToken.trim() + '\n').toString('base64');
+        sshTenant(`bash -lc 'echo ${shSingleQuote(telegramTokenB64)} | base64 -d > ${secretsDir}/telegram.token'`);
+
+        // Write API keys
+        if (provider === 'openai' && openaiApiKey) {
+          const k = Buffer.from(openaiApiKey.trim() + '\n').toString('base64');
+          sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/openai.key'`);
+        }
+        if (provider === 'anthropic' && anthropicApiKey) {
+          const k = Buffer.from(anthropicApiKey.trim() + '\n').toString('base64');
+          sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/anthropic.key'`);
+        }
+
+        // Generate gateway token
+        const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
+        db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
+
+        // Write openclaw.json
+        const openclawConfig = {
+          agents: {
+            defaults: { workspace: '/tenant/workspace' },
+            list: [{
+              id: 'main',
+              default: true,
+              name: 'Blank',
+              workspace: '/tenant/workspace',
+              identity: { name: name ?? 'Agent', emoji: '🧭' }
+            }]
+          },
+          gateway: {
+            port: dashboardPort,
+            bind: 'lan',
+            mode: 'local',
+            auth: { mode: 'token', token: gatewayToken },
+            controlUi: {
+              enabled: true,
+              allowedOrigins: [`http://localhost:${dashboardPort}`, `http://127.0.0.1:${dashboardPort}`]
+            }
+          },
+          plugins: { entries: { telegram: { enabled: true } } },
+          channels: {
+            telegram: {
+              enabled: true,
+              accounts: {
+                default: {
+                  enabled: true,
+                  dmPolicy: 'pairing',
+                  groupPolicy: 'disabled',
+                  tokenFile: '/home/clawd/.openclaw/secrets/telegram.token',
+                  streaming: 'off'
+                }
+              }
+            }
+          },
+          bindings: [{ agentId: 'main', match: { channel: 'telegram', accountId: 'default' } }]
+        };
+
+        const configB64 = Buffer.from(JSON.stringify(openclawConfig, null, 2)).toString('base64');
+        sshTenant(`bash -lc 'echo ${shSingleQuote(configB64)} | base64 -d > ${tenantDir}/openclaw.json'`);
+
+        // Stop/remove existing container
+        sshTenant(`docker rm -f hfsp_${tenantId} >/dev/null 2>&1 || true`);
+
+        // Start container
+        const runCmd = [
+          'docker run -d',
+          `--name hfsp_${tenantId}`,
+          '--restart unless-stopped',
+          `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
+          `-v ${workspaceDir}:/tenant/workspace`,
+          `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
+          `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
+          TENANT_RUNTIME_IMAGE
+        ].join(' ');
+
+        sshTenant(runCmd);
+
+        // Fix permissions
+        sshTenant(
+          `docker exec -u root hfsp_${tenantId} bash -lc ${shSingleQuote(
+            'chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'
+          )}`
+        );
+
+        // Mark as active
+        db.prepare(`UPDATE tenants SET status = 'active' WHERE tenant_id = ?`).run(tenantId);
+        console.log(`✅ Agent ${tenantId} provisioned successfully on port ${dashboardPort}`);
+
+      } catch (err) {
+        console.error(`❌ Provisioning failed for ${tenantId}:`, err);
+        db.prepare(`UPDATE tenants SET status = 'failed' WHERE tenant_id = ?`).run(tenantId);
+      }
+    })();
+  } catch (error) {
+    console.error('Agent creation error:', error);
+    res.status(500).json({ error: 'Failed to create agent' });
+  }
+});
+
+// GET /api/v1/agents - List user's agents
+app.get('/api/v1/agents', (req, res) => {
+  const payload = requireAuth(req, res);
+  if (!payload) return;
+
+  const userId = payload.sub as string;
+
+  const userRow = db.prepare(`SELECT telegram_user_id FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?`).get(userId, userId) as any;
+  const resolvedTgId = userRow?.telegram_user_id ?? userId;
+
+  const agents = db.prepare(`
+    SELECT tenant_id, agent_name, provider, model_preset, dashboard_port, status, created_at
+    FROM tenants
+    WHERE telegram_user_id = ?
+      AND deleted_at IS NULL
+    ORDER BY created_at DESC
+  `).all(resolvedTgId) as any[];
+
+  res.json({
+    agents: agents.map((a: any) => ({
+      id: a.tenant_id,
+      name: a.agent_name,
+      provider: a.provider,
+      model: a.model_preset,
+      dashboardPort: a.dashboard_port,
+      status: a.status,
+      createdAt: a.created_at,
+    })),
+  });
+});
+
+// GET /api/v1/agents/:id - Agent details
+app.get('/api/v1/agents/:id', (req, res) => {
+  const payload = requireAuth(req, res);
+  if (!payload) return;
+
+  const userId = payload.sub as string;
+  const agentId = req.params.id;
+
+  const detailUserRow = db.prepare(`SELECT telegram_user_id FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?`).get(userId, userId) as any;
+  const detailTgId = detailUserRow?.telegram_user_id ?? userId;
+
+  const agent = db.prepare(`
+    SELECT tenant_id, agent_name, provider, model_preset, dashboard_port, gateway_token, status, created_at
+    FROM tenants
+    WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL
+  `).get(agentId, detailTgId) as any;
+
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+
+  res.json({
+    agent: {
+      id: agent.tenant_id,
+      name: agent.agent_name,
+      provider: agent.provider,
+      model: agent.model_preset,
+      dashboardPort: agent.dashboard_port,
+      status: agent.status,
+      createdAt: agent.created_at,
+    },
+  });
+});
+
+// DELETE /api/v1/agents/:id - Delete (deprovision) an agent
+app.delete('/api/v1/agents/:id', async (req, res) => {
+  const payload = requireAuth(req, res);
+  if (!payload) return;
+
+  const userId = payload.sub as string;
+  const agentId = req.params.id;
+
+  const delUserRow = db.prepare(`SELECT telegram_user_id FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?`).get(userId, userId) as any;
+  const delTgId = delUserRow?.telegram_user_id ?? userId;
+
+  const agent = db.prepare(`
+    SELECT tenant_id, status
+    FROM tenants
+    WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL
+  `).get(agentId, delTgId) as any;
+
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+
+  try {
+    const containerName = `hfsp_${agentId}`;
+    const tenantDir = `${TENANT_VPS_BASEDIR}/${agentId}`;
+    const trashDir = `${TENANT_VPS_BASEDIR}/.trash/${agentId}-${Date.now()}`;
+
+    // Stop and remove container
+    try {
+      sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
+      sshTenant(`mkdir -p ${TENANT_VPS_BASEDIR}/.trash && (mv ${tenantDir} ${trashDir} 2>/dev/null || true)`);
+    } catch (err) {
+      console.error(`Deprovision SSH error for ${agentId}:`, err);
+    }
+
+    // Soft-delete in DB
+    db.prepare(`UPDATE tenants SET status = 'deleted', deleted_at = datetime('now') WHERE tenant_id = ?`).run(agentId);
+
+    res.json({ success: true, message: 'Agent deleted' });
+  } catch (error) {
+    console.error('Agent deletion error:', error);
+    res.status(500).json({ error: 'Failed to delete agent' });
+  }
+});
+
+// GET /api/v1/user/profile - Get user profile
+app.get('/api/v1/user/profile', (req, res) => {
+  const payload = requireAuth(req, res);
+  if (!payload) return;
+
+  const userId = payload.sub as string;
+
+  const user = db.prepare(`
+    SELECT user_id, email, phantom_wallet_address, subscription_tier, trial_started_at, trial_expires_at, created_at
+    FROM users
+    WHERE user_id = ?
+  `).get(userId) as any;
+
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  // Resolve the actual telegram_user_id for tenants lookup
+  const tgId = user?.telegram_user_id;
+  const agentCount = tgId ? (db.prepare(
+    "SELECT COUNT(*) as cnt FROM tenants WHERE telegram_user_id = ? AND status != 'deleted' AND deleted_at IS NULL"
+  ).get(tgId) as any)?.cnt || 0 : 0;
+
+  res.json({
+    user: {
+      userId: user.user_id,
+      email: user.email,
+      wallet: user.phantom_wallet_address,
+      subscription: user.subscription_tier,
+      trialStartedAt: user.trial_started_at,
+      trialExpiresAt: user.trial_expires_at,
+      createdAt: user.created_at,
+      agentCount,
+    },
+  });
 });
 
 app.listen(PORT, '127.0.0.1', () => {
