@@ -25,8 +25,9 @@ export interface PaymentResponse {
 export interface Agent {
   id: string;
   name: string;
-  status: 'active' | 'provisioning' | 'error';
+  status: 'active' | 'provisioning' | 'failed' | 'deleted';
   createdAt: string;
   model?: string;
   provider?: string;
+  dashboardPort?: number;
 }
