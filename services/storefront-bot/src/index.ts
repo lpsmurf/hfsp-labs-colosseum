@@ -2945,6 +2945,8 @@ app.post('/api/webapp/auth', (req, res) => {
   try { user = JSON.parse(parsed.user ?? '{}'); } catch { /* ignore */ }
 
   const telegramId = user.id as number;
+  // Ensure user exists in users table so /api/v1/agents can find them
+  getOrCreateUser(telegramId);
   const tenant = db.prepare('SELECT * FROM tenants WHERE telegram_user_id = ?').get(telegramId) as any;
 
   const token = signToken({
