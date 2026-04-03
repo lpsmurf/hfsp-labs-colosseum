@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { agentAPI } from '../services/api';
 
@@ -19,14 +19,52 @@ export default function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [pairingCode, setPairingCode] = useState('');
+  const [pairing, setPairing] = useState(false);
+  const [pairError, setPairError] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchAgent = async () => {
+    if (!id) return;
+    try {
+      const res = await agentAPI.getAgent(id);
+      setAgent(res.data.agent);
+    } catch {
+      setError('Failed to load agent');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!id) return;
-    agentAPI.getAgent(id)
-      .then(res => setAgent(res.data.agent))
-      .catch(() => setError('Failed to load agent'))
-      .finally(() => setLoading(false));
+    fetchAgent();
   }, [id]);
+
+  // Poll while provisioning
+  useEffect(() => {
+    if (!agent) return;
+    if (agent.status === 'provisioning') {
+      pollRef.current = setInterval(fetchAgent, 5000);
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [agent?.status]);
+
+  const handlePair = async () => {
+    if (!id || !pairingCode.trim()) return;
+    setPairing(true);
+    setPairError('');
+    try {
+      await agentAPI.pairAgent(id, pairingCode.trim().toUpperCase());
+      await fetchAgent();
+      setPairingCode('');
+    } catch (err: any) {
+      setPairError(err.response?.data?.error ?? 'Pairing failed. Check the code and try again.');
+    } finally {
+      setPairing(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!id || !confirm('Delete this agent? This will stop and remove its container.')) return;
@@ -58,9 +96,10 @@ export default function AgentDetailPage() {
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               agent.status === 'active' ? 'bg-green-100 text-green-800' :
               agent.status === 'provisioning' ? 'bg-blue-100 text-blue-800' :
+              agent.status === 'awaiting_pairing' ? 'bg-yellow-100 text-yellow-800' :
               'bg-red-100 text-red-800'
             }`}>
-              {agent.status}
+              {agent.status === 'awaiting_pairing' ? 'awaiting pairing' : agent.status}
             </span>
           </div>
 
@@ -85,13 +124,49 @@ export default function AgentDetailPage() {
 
           {agent.status === 'provisioning' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <p className="text-blue-800">Your agent is being provisioned. This usually takes 30-60 seconds. Refresh to check status.</p>
+              <p className="text-blue-800 font-medium mb-1">Provisioning your agent…</p>
+              <p className="text-blue-700 text-sm">This usually takes 30–60 seconds. Checking automatically.</p>
+            </div>
+          )}
+
+          {agent.status === 'awaiting_pairing' && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 mb-6">
+              <h3 className="font-semibold text-yellow-900 mb-2">Pair your Telegram bot</h3>
+              <ol className="text-sm text-yellow-800 space-y-1 mb-4 list-decimal list-inside">
+                <li>Open your Telegram bot and send <code className="bg-yellow-100 px-1 rounded">/start</code></li>
+                <li>The bot will reply with a pairing code (e.g. <code className="bg-yellow-100 px-1 rounded">PJDNQ3VU</code>)</li>
+                <li>Paste that code below</li>
+              </ol>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={pairingCode}
+                  onChange={e => setPairingCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  maxLength={12}
+                  placeholder="e.g. PJDNQ3VU"
+                  className="flex-1 border rounded-md px-3 py-2 font-mono text-lg tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                />
+                <button
+                  onClick={handlePair}
+                  disabled={pairing || pairingCode.length < 6}
+                  className="bg-yellow-500 text-white px-5 py-2 rounded-md hover:bg-yellow-600 disabled:opacity-50 font-medium"
+                >
+                  {pairing ? 'Pairing…' : 'Pair'}
+                </button>
+              </div>
+              {pairError && <p className="text-red-600 text-sm mt-2">{pairError}</p>}
+            </div>
+          )}
+
+          {agent.status === 'active' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <p className="text-green-800 font-medium">Agent is active and running.</p>
             </div>
           )}
 
           {agent.status === 'failed' && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-red-800">Provisioning failed. You can delete this agent and try again.</p>
+              <p className="text-red-800">Provisioning failed. Delete this agent and try again.</p>
             </div>
           )}
 
