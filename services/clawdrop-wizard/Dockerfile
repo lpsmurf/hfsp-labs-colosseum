@@ -1,21 +1,27 @@
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
 COPY . .
+
+# Inject API URL at build time (override with --build-arg)
+ARG VITE_API_URL=http://localhost:3000
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
-FROM node:20-alpine
+# ── Serve with nginx ──────────────────────────────────────────────────────────
+FROM nginx:alpine
 
-WORKDIR /app
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-RUN npm install -g http-server
+# SPA routing: 404 → index.html
+RUN printf 'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n  location / { try_files $uri $uri/ /index.html; }\n}\n' \
+    > /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /app/dist ./dist
+EXPOSE 80
 
-EXPOSE 5173
-
-CMD ["http-server", "dist", "-p", "5173", "--cors"]
+CMD ["nginx", "-g", "daemon off;"]

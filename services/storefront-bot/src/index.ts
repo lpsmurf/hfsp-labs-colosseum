@@ -2635,10 +2635,9 @@ app.post('/api/v1/agents', async (req, res) => {
             'chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'
           )}`
         );
-
-        // Mark as active
-        db.prepare(`UPDATE tenants SET status = 'active' WHERE tenant_id = ?`).run(tenantId);
-        console.log(`✅ Agent ${tenantId} provisioned successfully on port ${dashboardPort}`);
+        // Mark as awaiting_pairing — user must enter bot pairing code to activate
+        db.prepare(`UPDATE tenants SET status = 'awaiting_pairing' WHERE tenant_id = ?`).run(tenantId);
+        console.log(`✅ Agent ${tenantId} docker started on port ${dashboardPort} — awaiting pairing`);
 
       } catch (err) {
         console.error(`❌ Provisioning failed for ${tenantId}:`, err);
@@ -2714,6 +2713,54 @@ app.get('/api/v1/agents/:id', (req, res) => {
       createdAt: agent.created_at,
     },
   });
+});
+
+
+// POST /api/v1/agents/:id/pair - Approve pairing code for an agent
+app.post('/api/v1/agents/:id/pair', async (req, res) => {
+  const payload = requireAuth(req, res);
+  if (!payload) return;
+
+  const userId = payload.sub as string;
+  const agentId = req.params.id;
+  const { pairingCode } = req.body as { pairingCode?: string };
+
+  if (!pairingCode || !/^[A-Z0-9]{6,12}$/i.test(pairingCode.trim())) {
+    res.status(400).json({ error: 'Invalid pairing code format' });
+    return;
+  }
+
+  const userRow = db.prepare(`SELECT telegram_user_id FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?`).get(userId, userId) as any;
+  const resolvedTgId = userRow?.telegram_user_id ?? userId;
+
+  const agent = db.prepare(`
+    SELECT tenant_id, status FROM tenants
+    WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL
+  `).get(agentId, resolvedTgId) as any;
+
+  if (!agent) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  if (agent.status !== 'awaiting_pairing') {
+    res.status(409).json({ error: `Agent is not awaiting pairing (current status: ${agent.status})` });
+    return;
+  }
+
+  const containerName = `hfsp_${agentId}`;
+  const code = pairingCode.trim().toUpperCase();
+
+  try {
+    const approveCmd = `docker exec -u clawd ${containerName} bash -lc ${shSingleQuote('HOME=/home/clawd openclaw pairing approve telegram ' + code)}`;
+    const out = sshTenant(approveCmd);
+    db.prepare(`UPDATE tenants SET status = 'active' WHERE tenant_id = ?`).run(agentId);
+    console.log(`✅ Pairing approved for ${agentId}: ${out.trim()}`);
+    res.json({ success: true, message: 'Agent paired and active' });
+  } catch (err: any) {
+    console.error('Pairing approve failed:', err);
+    res.status(500).json({ error: 'Pairing failed. Make sure the code is correct and the agent is running.' });
+  }
 });
 
 // DELETE /api/v1/agents/:id - Delete (deprovision) an agent

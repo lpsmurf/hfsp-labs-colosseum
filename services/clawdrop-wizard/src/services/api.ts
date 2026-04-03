@@ -33,6 +33,8 @@ export const agentAPI = {
     client.post('/api/v1/agents', data),
   getAgent: (id: string) =>
     client.get(`/api/v1/agents/${id}`),
+  pairAgent: (id: string, pairingCode: string) =>
+    client.post(`/api/v1/agents/${id}/pair`, { pairingCode }),
   deleteAgent: (id: string) =>
     client.delete(`/api/v1/agents/${id}`),
 };
