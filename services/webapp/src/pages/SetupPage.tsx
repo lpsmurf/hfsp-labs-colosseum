@@ -1,292 +1,216 @@
 /**
- * Agent Setup Page
- * Multi-field form for creating new agents
+ * Create Agent — minimal form matching the live backend contract
  */
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCreateAgent } from '../hooks/useAgents';
 import { useToast } from '../components/shared';
-import { Button, Input } from '../components/shared';
+import { Button } from '../components/shared';
 import useTelegramApp from '../hooks/useTelegramApp';
 
-// Zod validation schema
-const agentSetupSchema = z.object({
-  name: z.string().min(1, 'Agent name is required').min(3, 'Name must be at least 3 characters'),
-  description: z.string().optional().default(''),
-  model: z.string().min(1, 'Model selection is required'),
-  temperature: z.coerce
-    .number()
-    .min(0, 'Temperature must be between 0 and 2')
-    .max(2, 'Temperature must be between 0 and 2')
-    .default(0.7),
-  max_tokens: z.coerce
-    .number()
-    .min(1, 'Max tokens must be at least 1')
-    .max(128000, 'Max tokens cannot exceed 128000')
-    .default(2000),
-  system_prompt: z.string().optional().default('You are a helpful AI assistant.'),
-  webhook_url: z.string().url('Invalid webhook URL').optional().or(z.literal('')),
-});
+type Provider = 'anthropic' | 'openai' | 'openrouter';
 
-type AgentSetupForm = z.infer<typeof agentSetupSchema>;
-
-const AVAILABLE_MODELS = [
-  { value: 'gpt-4', label: 'GPT-4 (Most capable, slower)' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (Fast & powerful)' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Fast & cheap)' },
-  { value: 'claude-3-opus', label: 'Claude 3 Opus (Thoughtful)' },
-  { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet (Balanced)' },
+const PROVIDERS: { id: Provider; label: string; placeholder: string; hint: string }[] = [
+  { id: 'anthropic',   label: 'Anthropic',   placeholder: 'sk-ant-...',  hint: 'Claude models' },
+  { id: 'openai',      label: 'OpenAI',      placeholder: 'sk-...',      hint: 'GPT models' },
+  { id: 'openrouter',  label: 'OpenRouter',  placeholder: 'sk-or-...',   hint: '200+ models' },
 ];
 
+const MODELS: Record<Provider, { label: string; value: string }[]> = {
+  anthropic: [
+    { label: 'Claude 3.5 Sonnet',  value: 'claude-3-5-sonnet-20241022' },
+    { label: 'Claude 3 Opus',      value: 'claude-3-opus-20240229' },
+    { label: 'Claude 3 Sonnet',    value: 'claude-3-sonnet-20240229' },
+  ],
+  openai: [
+    { label: 'GPT-4o',             value: 'gpt-4o' },
+    { label: 'GPT-4 Turbo',        value: 'gpt-4-turbo' },
+    { label: 'GPT-3.5 Turbo',      value: 'gpt-3.5-turbo' },
+  ],
+  openrouter: [
+    { label: 'Auto (best available)', value: 'openrouter/auto' },
+    { label: 'GPT-4o',               value: 'openai/gpt-4o' },
+    { label: 'Claude 3.5 Sonnet',    value: 'anthropic/claude-3.5-sonnet' },
+    { label: 'Llama 3.1 405B',       value: 'meta-llama/llama-3.1-405b-instruct' },
+    { label: 'Gemini Pro 1.5',       value: 'google/gemini-pro-1.5' },
+  ],
+};
+
 export function SetupPage() {
-  const tg = useTelegramApp();
-  const toast = useToast();
+  const tg      = useTelegramApp();
+  const toast   = useToast();
+  const navigate = useNavigate();
   const createAgentMutation = useCreateAgent();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    watch,
-    reset,
-  } = useForm<AgentSetupForm>({
-    resolver: zodResolver(agentSetupSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-      model: 'gpt-3.5-turbo',
-      temperature: 0.7,
-      max_tokens: 2000,
-      system_prompt: 'You are a helpful AI assistant.',
-      webhook_url: '',
-    },
-  });
+  const [name,      setName]      = useState('');
+  const [provider,  setProvider]  = useState<Provider>('anthropic');
+  const [model,     setModel]     = useState(MODELS.anthropic[0].value);
+  const [botToken,  setBotToken]  = useState('');
+  const [apiKey,    setApiKey]    = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const temperature = watch('temperature');
-  const model = watch('model');
+  const handleProviderChange = (p: Provider) => {
+    setProvider(p);
+    setModel(MODELS[p][0].value);
+    setApiKey('');
+  };
 
-  const onSubmit = async (data: AgentSetupForm) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !botToken.trim() || !apiKey.trim()) return;
+
+    setSubmitting(true);
+    tg.haptic('impactOccurred', 'medium');
+
     try {
-      tg.haptic('impactOccurred', 'medium');
       await createAgentMutation.mutateAsync({
-        name: data.name,
-        description: data.description,
-        model: data.model,
-        temperature: data.temperature,
-        max_tokens: data.max_tokens,
-        system_prompt: data.system_prompt,
-        webhook_url: data.webhook_url || undefined,
+        name: name.trim(),
+        provider,
+        model,
+        botToken: botToken.trim(),
+        anthropicApiKey:  provider === 'anthropic'  ? apiKey.trim() : undefined,
+        openaiApiKey:     provider === 'openai'     ? apiKey.trim() : undefined,
+        openrouterApiKey: provider === 'openrouter' ? apiKey.trim() : undefined,
       });
 
-      toast.success('Agent created successfully! 🎉');
+      toast.success('Agent provisioning started!');
       tg.haptic('notificationOccurred', 'success');
-      reset();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create agent';
-      toast.error(message);
+      navigate('/');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error ?? err?.message ?? 'Failed to create agent';
+      toast.error(msg);
       tg.haptic('notificationOccurred', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const currentProvider = PROVIDERS.find(p => p.id === provider)!;
+  const isLoading = submitting || createAgentMutation.isLoading;
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 text-white p-6">
-        <h1 className="text-2xl font-bold mb-2">Create Agent</h1>
-        <p className="text-blue-100">Set up a new AI agent with custom configuration</p>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 pt-8 pb-6">
+        <button onClick={() => navigate('/')} className="text-blue-200 hover:text-white text-sm mb-4 flex items-center gap-1">
+          ← Back
+        </button>
+        <h1 className="text-2xl font-bold">New Agent</h1>
+        <p className="text-blue-100 text-sm mt-1">Connect a Telegram bot to an AI model</p>
       </div>
 
-      {/* Form Container */}
-      <div className="max-w-2xl mx-auto p-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Basic Information Section */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold mb-4">Basic Information</h2>
+      <div className="max-w-lg mx-auto px-6 py-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-            <Input
-              label="Agent Name"
-              placeholder="e.g., Customer Support Bot"
-              {...register('name')}
-              error={errors.name?.message}
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                Description (Optional)
-              </label>
-              <textarea
-                placeholder="What does this agent do?"
-                rows={3}
-                className={`
-                  w-full px-4 py-2 rounded-lg border-2 transition-colors
-                  bg-white dark:bg-gray-900 text-gray-900 dark:text-white
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  border-gray-300 dark:border-gray-600
-                  focus:outline-none focus:border-blue-500 dark:focus:border-blue-400
-                  ${errors.description ? 'border-red-500 dark:border-red-400' : ''}
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-                {...register('description')}
-              />
-              {errors.description && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description.message}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Model Configuration Section */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold mb-4">Model Configuration</h2>
-
-            <div>
-              <label htmlFor="model" className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                AI Model <span className="text-red-600">*</span>
-              </label>
-              <select
-                id="model"
-                className={`
-                  w-full px-4 py-2 rounded-lg border-2 transition-colors
-                  bg-white dark:bg-gray-900 text-gray-900 dark:text-white
-                  border-gray-300 dark:border-gray-600
-                  focus:outline-none focus:border-blue-500 dark:focus:border-blue-400
-                  ${errors.model ? 'border-red-500 dark:border-red-400' : ''}
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-                {...register('model')}
-              >
-                <option value="">Select a model...</option>
-                {AVAILABLE_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              {errors.model && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.model.message}</p>}
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {AVAILABLE_MODELS.find((m) => m.value === model)?.label}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Temperature: <span className="text-blue-600 dark:text-blue-400 font-semibold">{temperature.toFixed(1)}</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  {...register('temperature')}
-                  className="w-full"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {temperature < 0.5
-                    ? 'Focused & deterministic'
-                    : temperature < 1.5
-                      ? 'Balanced'
-                      : 'Creative & diverse'}
-                </p>
-              </div>
-
-              <Input
-                label="Max Tokens"
-                type="number"
-                placeholder="2000"
-                {...register('max_tokens')}
-                error={errors.max_tokens?.message}
-                helperText="Max response length"
-              />
-            </div>
-          </div>
-
-          {/* System Prompt Section */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold mb-4">System Instructions</h2>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                System Prompt
-              </label>
-              <textarea
-                placeholder="You are a helpful AI assistant..."
-                rows={4}
-                className={`
-                  w-full px-4 py-2 rounded-lg border-2 transition-colors
-                  bg-white dark:bg-gray-900 text-gray-900 dark:text-white
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  border-gray-300 dark:border-gray-600
-                  focus:outline-none focus:border-blue-500 dark:focus:border-blue-400
-                  ${errors.system_prompt ? 'border-red-500 dark:border-red-400' : ''}
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  font-mono text-sm
-                `}
-                {...register('system_prompt')}
-              />
-              {errors.system_prompt && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.system_prompt.message}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Define the agent's behavior and role
-              </p>
-            </div>
-          </div>
-
-          {/* Advanced Section */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold mb-4">Advanced (Optional)</h2>
-
-            <Input
-              label="Webhook URL"
-              type="url"
-              placeholder="https://example.com/webhook"
-              {...register('webhook_url')}
-              error={errors.webhook_url?.message}
-              helperText="URL to receive provisioning status updates"
+          {/* Agent Name */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Agent Name <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Customer Support Bot"
+              className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
-          {/* Submit Section */}
-          <div className="flex gap-3 sticky bottom-0 bg-white dark:bg-gray-900 p-6 -mx-6 border-t border-gray-200 dark:border-gray-700">
+          {/* Provider */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">LLM Provider <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-3 gap-2">
+              {PROVIDERS.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleProviderChange(p.id)}
+                  className={`py-2.5 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                    provider === p.id
+                      ? 'border-blue-600 bg-blue-600 text-white'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-300'
+                  }`}
+                >
+                  <div>{p.label}</div>
+                  <div className={`text-xs mt-0.5 ${provider === p.id ? 'text-blue-100' : 'text-gray-400'}`}>{p.hint}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Model */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Model <span className="text-red-500">*</span></label>
+            <select
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:border-blue-500 transition-colors"
+            >
+              {MODELS[provider].map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Telegram Bot Token */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Telegram Bot Token <span className="text-red-500">*</span></label>
+            <input
+              type="password"
+              required
+              value={botToken}
+              onChange={e => setBotToken(e.target.value)}
+              placeholder="Get from @BotFather"
+              className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:border-blue-500 transition-colors"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Create a new bot with @BotFather on Telegram, then paste the token here
+            </p>
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              {currentProvider.label} API Key <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder={currentProvider.placeholder}
+              className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:border-blue-500 transition-colors"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Your key is stored securely — you pay the provider directly
+            </p>
+          </div>
+
+          {/* Error */}
+          {createAgentMutation.error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-700 dark:text-red-300 text-sm">
+              {(createAgentMutation.error as any)?.response?.data?.error ?? 'Failed to create agent'}
+            </div>
+          )}
+
+          {/* Submit */}
+          <div className="sticky bottom-0 bg-white dark:bg-gray-900 pt-4 pb-6 -mx-6 px-6 border-t border-gray-100 dark:border-gray-800">
             <Button
               type="submit"
               variant="primary"
               size="lg"
               fullWidth
-              isLoading={isSubmitting || createAgentMutation.isLoading}
-              disabled={isSubmitting || createAgentMutation.isLoading}
+              isLoading={isLoading}
+              disabled={isLoading || !name.trim() || !botToken.trim() || !apiKey.trim()}
             >
-              {isSubmitting || createAgentMutation.isLoading ? 'Creating Agent...' : 'Create Agent'}
+              {isLoading ? 'Provisioning…' : 'Create & Provision Agent'}
             </Button>
+            <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-2">
+              Your bot will be ready in about 60 seconds
+            </p>
           </div>
 
-          {/* Status Message */}
-          {createAgentMutation.error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-800 dark:text-red-200">
-              <p className="font-semibold">Error</p>
-              <p className="text-sm">
-                {createAgentMutation.error instanceof Error 
-                  ? createAgentMutation.error.message 
-                  : typeof createAgentMutation.error === 'string'
-                    ? createAgentMutation.error
-                    : 'Failed to create agent'}
-              </p>
-            </div>
-          )}
         </form>
-
-        {/* Info Section */}
-        <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-blue-900 dark:text-blue-200">
-          <h3 className="font-semibold mb-2">💡 Tips</h3>
-          <ul className="text-sm space-y-1 list-disc list-inside">
-            <li>Lower temperature (0.0) = more predictable responses</li>
-            <li>Higher temperature (2.0) = more creative responses</li>
-            <li>System prompt defines the agent's personality and constraints</li>
-            <li>Max tokens limits the response length</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

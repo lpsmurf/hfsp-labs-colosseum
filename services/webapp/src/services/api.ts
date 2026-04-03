@@ -1,212 +1,110 @@
 /**
  * Axios API Client with JWT Authentication
- * Handles token refresh and API calls
  */
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { WebAppAuthRequest, WebAppAuthResponse } from '../types/api';
-import { Agent, AgentSetupPayload, UpdateAgentRequest } from '../types/agent';
-
-interface ApiClientConfig {
-  baseURL?: string;
-  timeout?: number;
-}
+import { Agent, AgentSetupPayload } from '../types/agent';
 
 class ApiClient {
   private client: AxiosInstance;
   private refreshTokenPromise: Promise<string> | null = null;
 
-  constructor(config: ApiClientConfig = {}) {
+  constructor() {
     this.client = axios.create({
-      baseURL: config.baseURL || '/api',
-      timeout: config.timeout || 10000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      baseURL: '/api/v1',
+      timeout: 15000,
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    // Add request interceptor for JWT auth
+    // Attach JWT to every request
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         const token = this.getStoredToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        if (token) config.headers.Authorization = `Bearer ${token}`;
         return config;
       },
       (error) => Promise.reject(error)
     );
 
-    // Add response interceptor for token refresh
+    // Auto-logout on persistent 401
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-
-        // If 401 and not a retry, try to refresh token
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-
-          try {
-            await this.refreshToken();
-            const token = this.getStoredToken();
-            if (token) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              return this.client(originalRequest);
-            }
-          } catch (refreshError) {
-            // Token refresh failed, clear storage and redirect to login
-            this.clearAuth();
-            window.location.href = '/';
-            return Promise.reject(refreshError);
-          }
+        const req = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+        if (error.response?.status === 401 && !req._retry) {
+          req._retry = true;
+          this.clearAuth();
+          window.location.href = '/';
         }
-
         return Promise.reject(error);
       }
     );
   }
 
-  /**
-   * Authenticate with Telegram Web App initData
-   */
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
   async authenticateWithTelegram(initData: string): Promise<WebAppAuthResponse> {
     const payload: WebAppAuthRequest = { initData };
-    const response = await this.client.post<WebAppAuthResponse>('/webapp/auth', payload);
-
+    // Telegram auth lives outside /v1
+    const response = await axios.post<WebAppAuthResponse>('/api/webapp/auth', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
     if (response.data.token) {
       this.setStoredToken(response.data.token, response.data.expires_in);
     }
-
     return response.data;
   }
 
-  /**
-   * Refresh the JWT token
-   */
-  private async refreshToken(): Promise<string> {
-    // Prevent multiple simultaneous refresh requests
-    if (this.refreshTokenPromise) {
-      return this.refreshTokenPromise;
-    }
+  // ── Token helpers ─────────────────────────────────────────────────────────
 
-    this.refreshTokenPromise = (async () => {
-      try {
-        const response = await this.client.post<{ token: string; expires_in: number }>('/auth/refresh');
-        const { token, expires_in } = response.data;
-        this.setStoredToken(token, expires_in);
-        this.refreshTokenPromise = null;
-        return token;
-      } catch (error) {
-        this.refreshTokenPromise = null;
-        throw error;
-      }
-    })();
-
-    return this.refreshTokenPromise;
-  }
-
-  /**
-   * Get stored JWT token
-   */
   private getStoredToken(): string | null {
     return localStorage.getItem('authToken');
   }
 
-  /**
-   * Set stored JWT token with expiry
-   */
   private setStoredToken(token: string, expiresIn: number): void {
     localStorage.setItem('authToken', token);
-    const expiryTime = Date.now() + expiresIn * 1000;
-    localStorage.setItem('authTokenExpiry', expiryTime.toString());
+    localStorage.setItem('authTokenExpiry', (Date.now() + expiresIn * 1000).toString());
   }
 
-  /**
-   * Clear authentication
-   */
   private clearAuth(): void {
     localStorage.removeItem('authToken');
     localStorage.removeItem('authTokenExpiry');
+    localStorage.removeItem('authUser');
   }
 
-  /**
-   * Check if token is expired
-   */
   isTokenExpired(): boolean {
     const expiry = localStorage.getItem('authTokenExpiry');
     if (!expiry) return true;
     return Date.now() > parseInt(expiry, 10);
   }
 
-  // Agent API Methods
+  // ── Agents ────────────────────────────────────────────────────────────────
 
-  /**
-   * Get list of agents
-   */
-  async getAgents(page = 1, pageSize = 20) {
-    const response = await this.client.get<{ agents: Agent[]; total: number; page: number; page_size: number }>('/agents', {
-      params: { page, page_size: pageSize },
-    });
-    return response.data;
+  async getAgents(): Promise<{ agents: Agent[] }> {
+    const res = await this.client.get<{ agents: Agent[] }>('/agents');
+    return res.data;
   }
 
-  /**
-   * Get single agent by ID
-   */
   async getAgent(id: string): Promise<Agent> {
-    const response = await this.client.get<Agent>(`/agents/${id}`);
-    return response.data;
+    const res = await this.client.get<{ agent: Agent }>(`/agents/${id}`);
+    return res.data.agent;
   }
 
-  /**
-   * Create a new agent
-   */
   async createAgent(payload: AgentSetupPayload): Promise<Agent> {
-    const response = await this.client.post<Agent>('/agents', payload);
-    return response.data;
+    const res = await this.client.post<{ agent: Agent }>('/agents', payload);
+    return res.data.agent;
   }
 
-  /**
-   * Update an agent
-   */
-  async updateAgent(id: string, payload: UpdateAgentRequest): Promise<Agent> {
-    const response = await this.client.patch<Agent>(`/agents/${id}`, payload);
-    return response.data;
-  }
-
-  /**
-   * Delete an agent
-   */
   async deleteAgent(id: string): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.delete(`/agents/${id}`);
-    return response.data;
+    const res = await this.client.delete(`/agents/${id}`);
+    return res.data;
   }
 
-  /**
-   * Get tenant info
-   */
-  async getTenantInfo() {
-    const response = await this.client.get('/tenant');
-    return response.data;
-  }
-
-  /**
-   * Get tenant agents with filters
-   */
-  async searchAgents(filters: { name?: string; status?: string; page?: number; page_size?: number }) {
-    const response = await this.client.get('/agents/search', { params: filters });
-    return response.data;
-  }
-
-  /**
-   * Get raw axios instance for advanced usage
-   */
-  getClient(): AxiosInstance {
+  getAxios(): AxiosInstance {
     return this.client;
   }
 }
 
-// Export singleton instance
 export const apiClient = new ApiClient();
 export default ApiClient;
