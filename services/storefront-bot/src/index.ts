@@ -251,6 +251,7 @@ type WizardData = {
   openaiConnectMethod?: 'oauth_beta' | 'api_key';
   openaiApiKey?: string;
   anthropicApiKey?: string;
+      openrouterApiKey?: string;
   modelPreset?: 'fast' | 'smart';
   lastTenantId?: string;
   lastDashboardPort?: number;
@@ -2463,13 +2464,14 @@ app.post('/api/v1/agents', async (req, res) => {
 
   try {
     const userId = payload.sub as string;
-    const { name, provider, model, botToken, openaiApiKey, anthropicApiKey } = req.body as {
+    const { name, provider, model, botToken, openaiApiKey, anthropicApiKey, openrouterApiKey } = req.body as {
       name?: string;
       provider?: string;
       model?: string;
       botToken?: string;
       openaiApiKey?: string;
       anthropicApiKey?: string;
+      openrouterApiKey?: string;
     };
 
     if (!name || !provider || !model || !botToken) {
@@ -2565,6 +2567,11 @@ app.post('/api/v1/agents', async (req, res) => {
           sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/anthropic.key'`);
         }
 
+        if (provider === 'openrouter' && openrouterApiKey) {
+          const k = Buffer.from(openrouterApiKey.trim() + '\n').toString('base64');
+          sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/openrouter.key'`);
+        }
+
         // Generate gateway token
         const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
         db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
@@ -2616,7 +2623,7 @@ app.post('/api/v1/agents', async (req, res) => {
         sshTenant(`docker rm -f hfsp_${tenantId} >/dev/null 2>&1 || true`);
 
         // Start container
-        const runCmd = [
+        const runParts = [
           'docker run -d',
           `--name hfsp_${tenantId}`,
           '--restart unless-stopped',
@@ -2624,8 +2631,13 @@ app.post('/api/v1/agents', async (req, res) => {
           `-v ${workspaceDir}:/tenant/workspace`,
           `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
           `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
-          TENANT_RUNTIME_IMAGE
-        ].join(' ');
+        ];
+        // Inject OPENROUTER_API_KEY for OpenRouter provider (entrypoint only handles openai/anthropic natively)
+        if (provider === 'openrouter') {
+          runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key)"`);
+        }
+        runParts.push(TENANT_RUNTIME_IMAGE);
+        const runCmd = runParts.join(' ');
 
         sshTenant(runCmd);
 
@@ -2759,7 +2771,14 @@ app.post('/api/v1/agents/:id/pair', async (req, res) => {
     res.json({ success: true, message: 'Agent paired and active' });
   } catch (err: any) {
     console.error('Pairing approve failed:', err);
-    res.status(500).json({ error: 'Pairing failed. Make sure the code is correct and the agent is running.' });
+    const stderr: string = err?.stderr ?? '';
+    if (stderr.includes('No pending pairing request')) {
+      res.status(400).json({ error: 'Code not found. Send /start to your bot again to get a fresh code, then submit it here.' });
+    } else if (stderr.includes('expired') || stderr.includes('invalid')) {
+      res.status(400).json({ error: 'Pairing code is invalid or expired. Send /start to your bot to get a new one.' });
+    } else {
+      res.status(500).json({ error: 'Pairing failed. Make sure your bot is running and try again.' });
+    }
   }
 });
 

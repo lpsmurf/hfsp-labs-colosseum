@@ -29,7 +29,15 @@ export const authAPI = {
 export const agentAPI = {
   listAgents: () =>
     client.get('/api/v1/agents'),
-  createAgent: (data: { name: string; provider: string; model: string; botToken: string; openaiApiKey?: string; anthropicApiKey?: string }) =>
+  createAgent: (data: {
+    name: string;
+    provider: string;
+    model: string;
+    botToken: string;
+    openaiApiKey?: string;
+    anthropicApiKey?: string;
+    openrouterApiKey?: string;
+  }) =>
     client.post('/api/v1/agents', data),
   getAgent: (id: string) =>
     client.get(`/api/v1/agents/${id}`),
