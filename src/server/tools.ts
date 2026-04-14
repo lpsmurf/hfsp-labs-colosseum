@@ -10,6 +10,7 @@ import {
 } from './schemas';
 import { readServicesFromFile } from '../services/catalog';
 import { getSOLPrice, getHERDPrice } from '../integrations/helius';
+import { saveAgent, getAgent } from '../db/memory';
 import { logger } from '../utils/logger';
 
 export const tools: Tool[] = [
@@ -230,8 +231,28 @@ async function handleCreateAgent(input: unknown): Promise<string> {
     throw new Error(`Service not found: ${parsed.service_id}`);
   }
 
-  // Mock agent deployment
+  // Generate agent ID
   const agentId = `agent_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const mockTxHash = `devnet_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+  // Save to memory store
+  saveAgent({
+    agent_id: agentId,
+    service_id: parsed.service_id,
+    agent_name: parsed.agent_name,
+    payment_tx_hash: mockTxHash,
+    status: 'provisioning',
+    console_url: `https://clawdrop.live/agent/${agentId}`,
+    deployed_at: new Date(),
+    last_activity: new Date(),
+    logs: [
+      {
+        timestamp: new Date(),
+        level: 'info',
+        message: 'Agent provisioning started',
+      },
+    ],
+  });
 
   logger.info(
     {
@@ -239,7 +260,7 @@ async function handleCreateAgent(input: unknown): Promise<string> {
       agent_name: parsed.agent_name,
       service_id: parsed.service_id,
     },
-    'Agent deployment initiated'
+    'Agent deployment initiated and saved to memory'
   );
 
   const response = CreateOpenclawAgentResponseSchema.parse({
@@ -256,32 +277,26 @@ async function handleCreateAgent(input: unknown): Promise<string> {
 async function handleGetAgentStatus(input: unknown): Promise<string> {
   const parsed = ToolInputMap.get_agent_status.parse(input);
 
-  // Mock status response
+  // Get from memory store
+  const agent = getAgent(parsed.agent_id);
+
+  if (!agent) {
+    throw new Error(`Agent not found: ${parsed.agent_id}`);
+  }
+
   const response = GetAgentStatusResponseSchema.parse({
-    agent_id: parsed.agent_id,
-    status: 'running',
-    uptime_seconds: Math.floor(Math.random() * 3600),
-    last_activity: new Date(Date.now() - Math.random() * 60000).toISOString(),
-    logs: [
-      {
-        timestamp: new Date(Date.now() - 30000).toISOString(),
-        level: 'info',
-        message: 'Agent initialized successfully',
-      },
-      {
-        timestamp: new Date(Date.now() - 10000).toISOString(),
-        level: 'info',
-        message: 'Connected to Solana devnet',
-      },
-      {
-        timestamp: new Date().toISOString(),
-        level: 'info',
-        message: 'Agent running and monitoring',
-      },
-    ],
+    agent_id: agent.agent_id,
+    status: agent.status,
+    uptime_seconds: Math.floor((Date.now() - agent.deployed_at.getTime()) / 1000),
+    last_activity: agent.last_activity.toISOString(),
+    logs: agent.logs.map(log => ({
+      timestamp: log.timestamp.toISOString(),
+      level: log.level,
+      message: log.message,
+    })),
   });
 
-  logger.info({ agent_id: parsed.agent_id }, 'Agent status retrieved');
+  logger.info({ agent_id: parsed.agent_id }, 'Agent status retrieved from memory');
 
   return JSON.stringify(response);
 }
