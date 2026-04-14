@@ -71,7 +71,7 @@ export const GetAgentStatusRequestSchema = z.object({
 
 export const GetAgentStatusResponseSchema = z.object({
   agent_id: z.string(),
-  status: z.enum(['initializing', 'running', 'paused', 'failed', 'stopped']),
+  status: z.enum(['initializing', 'provisioning', 'running', 'paused', 'failed', 'stopped']),
   uptime_seconds: z.number(),
   last_activity: z.string().datetime(),
   logs: z.array(z.object({
