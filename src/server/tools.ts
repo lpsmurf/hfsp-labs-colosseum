@@ -9,6 +9,7 @@ import {
   GetAgentStatusResponseSchema,
 } from './schemas';
 import { readServicesFromFile } from '../services/catalog';
+import { getSOLPrice, getHERDPrice } from '../integrations/helius';
 import { logger } from '../utils/logger';
 
 export const tools: Tool[] = [
@@ -155,8 +156,17 @@ async function handleQuoteService(input: unknown): Promise<string> {
   }
 
   const token = parsed.token || 'sol';
-  const price = token === 'sol' ? service.price_sol : service.price_herd;
-  const estimatedGas = token === 'sol' ? 0.005 : 0;
+  
+  let price: number;
+  let estimatedGas: number;
+  
+  if (token === 'sol') {
+    price = service.price_sol;
+    estimatedGas = 0.005; // 5k lamports
+  } else {
+    price = service.price_herd;
+    estimatedGas = 0;
+  }
 
   const response = QuoteServiceResponseSchema.parse({
     service_id: service.id,
@@ -167,6 +177,16 @@ async function handleQuoteService(input: unknown): Promise<string> {
     total_with_gas: price + estimatedGas,
     valid_until: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 min validity
   });
+
+  logger.info(
+    { 
+      service_id: service.id, 
+      price, 
+      token, 
+      total: price + estimatedGas 
+    },
+    'Service quoted'
+  );
 
   return JSON.stringify(response);
 }
@@ -260,6 +280,8 @@ async function handleGetAgentStatus(input: unknown): Promise<string> {
       },
     ],
   });
+
+  logger.info({ agent_id: parsed.agent_id }, 'Agent status retrieved');
 
   return JSON.stringify(response);
 }
