@@ -590,7 +590,7 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 
 // CORS: allow ClawDrop wizard frontend
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:3001').split(',');
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:3001,https://app.hfsp.cloud,https://miniapp.hfsp.cloud').split(',');
 app.use((req: any, res: any, next: any) => {
   const origin = (req.headers.origin as string) ?? '';
   if (ALLOWED_ORIGINS.includes(origin) || process.env.NODE_ENV === 'development') {
@@ -1089,6 +1089,19 @@ app.post('/telegram/webhook', async (req, res) => {
           const gatewayToken = row?.gateway_token ? String(row.gateway_token) : Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
           // persist token for Advanced dashboard access instructions (encrypted)
           db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
+          // Map 'fast'/'smart' preset → real OpenClaw model ID per provider
+          const WIZARD_MODEL_MAP: Record<string, Record<string, string>> = {
+            anthropic: { fast: 'anthropic/claude-3-5-sonnet', smart: 'anthropic/claude-3-opus' },
+            openai:    { fast: 'openai/gpt-3.5-turbo',        smart: 'openai/gpt-4o' },
+          };
+          const resolvedModel = WIZARD_MODEL_MAP[w.data.provider ?? '']?.[w.data.modelPreset ?? ''] ?? undefined;
+          // Build auth profile so OpenClaw knows which credentials profile to use
+          const wizardAuthProfile: Record<string, any> = {};
+          if (w.data.provider === 'anthropic') {
+            wizardAuthProfile['anthropic:default'] = { provider: 'anthropic', mode: 'api_key' };
+          } else if (w.data.provider === 'openai') {
+            wizardAuthProfile['openai:default'] = { provider: 'openai', mode: 'api_key' };
+          }
           const openclawConfig = {
             agents: {
               defaults: {
@@ -1100,10 +1113,12 @@ app.post('/telegram/webhook', async (req, res) => {
                   default: true,
                   name: w.data.templateId === 'ops_starter' ? 'Ops Starter' : 'Blank',
                   workspace: '/tenant/workspace',
+                  model: resolvedModel,
                   identity: { name: w.data.agentName ?? 'Agent', emoji: '🧭' }
                 }
               ]
             },
+            ...(Object.keys(wizardAuthProfile).length > 0 ? { auth: { profiles: wizardAuthProfile } } : {}),
             gateway: {
               port: dashboardPort,
               bind: 'lan',
@@ -1143,7 +1158,7 @@ app.post('/telegram/webhook', async (req, res) => {
           // Stop/remove existing container if present
           sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
 
-          const runCmd = [
+          const runParts = [
             'docker run -d',
             `--name ${containerName}`,
             '--restart unless-stopped',
@@ -1151,8 +1166,14 @@ app.post('/telegram/webhook', async (req, res) => {
             `-v ${workspaceDir}:/tenant/workspace`,
             `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
             `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
-            TENANT_RUNTIME_IMAGE
-          ].join(' ');
+          ];
+          if (w.data.provider === 'openai') {
+            runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
+          } else if (w.data.provider === 'anthropic') {
+            runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\n\r')"`);
+          }
+          runParts.push(TENANT_RUNTIME_IMAGE);
+          const runCmd = runParts.join(' ');
 
           sshTenant(runCmd);
 
@@ -2894,7 +2915,7 @@ app.listen(PORT, '127.0.0.1', () => {
 // Added: webapp auth endpoint + /app bot command + menu button setup
 // ─────────────────────────────────────────────────────────────────────────────
 
-const WEBAPP_URL = process.env.WEBAPP_URL ?? 'https://app.piercalito.com';
+const WEBAPP_URL = process.env.WEBAPP_URL ?? 'https://miniapp.hfsp.cloud';
 // Derive a signing secret from the DB secret so we don't need a new env var
 const WEBAPP_JWT_SECRET = crypto.createHmac('sha256', HFSP_DB_SECRET).update('webapp_jwt').digest();
 
