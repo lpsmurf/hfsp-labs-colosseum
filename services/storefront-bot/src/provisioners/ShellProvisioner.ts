@@ -99,8 +99,18 @@ export class ShellProvisioner extends BaseProvisioner {
         .toString('hex')
         .slice(0, 48);
 
+      // Build auth profile based on provider
+      const authProfile: Record<string, any> = {};
+      if (provider === 'anthropic') {
+        authProfile['anthropic:default'] = { provider: 'anthropic', mode: 'api_key' };
+      } else if (provider === 'openai') {
+        authProfile['openai:default'] = { provider: 'openai', mode: 'api_key' };
+      } else if (provider === 'openrouter') {
+        authProfile['openrouter:default'] = { provider: 'openrouter', mode: 'api_key' };
+      }
+
       // Create openclaw.json config
-      const openclawConfig = {
+      const openclawConfig: Record<string, any> = {
         agents: {
           defaults: {
             workspace: '/tenant/workspace'
@@ -109,12 +119,14 @@ export class ShellProvisioner extends BaseProvisioner {
             {
               id: 'main',
               default: true,
-              name: templateId === 'ops_starter' ? 'Ops Starter' : 'Blank',
+              name: agentName ?? (templateId === 'ops_starter' ? 'Ops Starter' : 'Blank'),
               workspace: '/tenant/workspace',
+              model: modelPreset ?? undefined,
               identity: { name: agentName ?? 'Agent', emoji: '🧭' }
             }
           ]
         },
+        ...(Object.keys(authProfile).length > 0 ? { auth: { profiles: authProfile } } : {}),
         gateway: {
           port: dashboardPort,
           bind: 'lan',
@@ -155,7 +167,7 @@ export class ShellProvisioner extends BaseProvisioner {
       this.sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
 
       // Start container
-      const runCmd = [
+      const runParts = [
         'docker run -d',
         `--name ${containerName}`,
         '--restart unless-stopped',
@@ -163,8 +175,16 @@ export class ShellProvisioner extends BaseProvisioner {
         `-v ${workspaceDir}:/tenant/workspace`,
         `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
         `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
-        this.config.runtimeImage
-      ].join(' ');
+      ];
+      if (provider === 'openrouter') {
+        runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key | tr -d '\n\r')"`);
+      } else if (provider === 'openai') {
+        runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
+      } else if (provider === 'anthropic') {
+        runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\n\r')"`);
+      }
+      runParts.push(this.config.runtimeImage);
+      const runCmd = runParts.join(' ');
 
       this.sshTenant(runCmd);
 

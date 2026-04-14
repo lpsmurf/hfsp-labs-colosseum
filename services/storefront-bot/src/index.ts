@@ -2576,18 +2576,30 @@ app.post('/api/v1/agents', async (req, res) => {
         const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
         db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
 
+        // Build auth profile based on provider
+        const authProfile: Record<string, any> = {};
+        if (provider === 'anthropic') {
+          authProfile[`anthropic:default`] = { provider: 'anthropic', mode: 'api_key' };
+        } else if (provider === 'openai') {
+          authProfile[`openai:default`] = { provider: 'openai', mode: 'api_key' };
+        } else if (provider === 'openrouter') {
+          authProfile[`openrouter:default`] = { provider: 'openrouter', mode: 'api_key' };
+        }
+
         // Write openclaw.json
-        const openclawConfig = {
+        const openclawConfig: Record<string, any> = {
           agents: {
             defaults: { workspace: '/tenant/workspace' },
             list: [{
               id: 'main',
               default: true,
-              name: 'Blank',
+              name: name ?? 'Agent',
               workspace: '/tenant/workspace',
+              model: model ?? undefined,
               identity: { name: name ?? 'Agent', emoji: '🧭' }
             }]
           },
+          ...(Object.keys(authProfile).length > 0 ? { auth: { profiles: authProfile } } : {}),
           gateway: {
             port: dashboardPort,
             bind: 'lan',
@@ -2632,9 +2644,14 @@ app.post('/api/v1/agents', async (req, res) => {
           `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
           `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
         ];
-        // Inject OPENROUTER_API_KEY for OpenRouter provider (entrypoint only handles openai/anthropic natively)
+        // Inject provider API keys — patched entrypoint reads from key files automatically
+        // but we also pass via env for belt-and-suspenders
         if (provider === 'openrouter') {
-          runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key)"`);
+          runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key | tr -d '\n\r')"`);
+        } else if (provider === 'openai') {
+          runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
+        } else if (provider === 'anthropic') {
+          runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\n\r')"`);
         }
         runParts.push(TENANT_RUNTIME_IMAGE);
         const runCmd = runParts.join(' ');
