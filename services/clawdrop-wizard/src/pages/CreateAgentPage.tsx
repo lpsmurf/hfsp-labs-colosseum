@@ -15,42 +15,51 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'GPT-3.5 Turbo (Fast)', value: 'openai/gpt-3.5-turbo' },
   ],
   openrouter: [
-    { label: 'Auto — best available',                          value: 'openrouter/auto' },
-    { label: 'GPT-4o (via OpenRouter)',                        value: 'openai/gpt-4o' },
-    { label: 'Claude 3.5 Sonnet (via OpenRouter)',             value: 'anthropic/claude-3.5-sonnet' },
-    { label: 'Llama 3.1 405B (via OpenRouter)',                value: 'meta-llama/llama-3.1-405b-instruct' },
-    { label: 'Gemini Pro 1.5 (via OpenRouter)',                value: 'google/gemini-pro-1.5' },
+    { label: 'Auto — best available',              value: 'openrouter/auto' },
+    { label: 'GPT-4o (via OpenRouter)',             value: 'openai/gpt-4o' },
+    { label: 'Claude 3.5 Sonnet (via OpenRouter)', value: 'anthropic/claude-3.5-sonnet' },
+    { label: 'Llama 3.1 405B (via OpenRouter)',    value: 'meta-llama/llama-3.1-405b-instruct' },
+    { label: 'Gemini Pro 1.5 (via OpenRouter)',    value: 'google/gemini-pro-1.5' },
+  ],
+  kimi: [
+    { label: 'Kimi k1.5 (Recommended)',    value: 'moonshot/kimi-k1-5' },
+    { label: 'Moonshot v1 128k (Longest)', value: 'moonshot/moonshot-v1-128k' },
+    { label: 'Moonshot v1 32k',            value: 'moonshot/moonshot-v1-32k' },
+    { label: 'Moonshot v1 8k (Fast)',      value: 'moonshot/moonshot-v1-8k' },
   ],
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
-  anthropic:   'Anthropic',
-  openai:      'OpenAI',
-  openrouter:  'OpenRouter',
+  anthropic:  'Anthropic',
+  openai:     'OpenAI',
+  openrouter: 'OpenRouter',
+  kimi:       'Kimi',
 };
 
 const KEY_PLACEHOLDERS: Record<string, string> = {
   anthropic:  'sk-ant-...',
   openai:     'sk-...',
   openrouter: 'sk-or-...',
+  kimi:       'sk-...',
 };
 
 const KEY_HINTS: Record<string, string> = {
   anthropic:  'Get your key at console.anthropic.com',
   openai:     'Get your key at platform.openai.com/api-keys',
   openrouter: 'Get your key at openrouter.ai/keys — access 200+ models',
+  kimi:       'Get your key at platform.moonshot.cn — long context, great for code',
 };
 
-type Provider = 'anthropic' | 'openai' | 'openrouter';
+type Provider = 'anthropic' | 'openai' | 'openrouter' | 'kimi';
 
 export default function CreateAgentPage() {
-  const [name,              setName]              = useState('');
-  const [provider,          setProvider]          = useState<Provider>('anthropic');
-  const [model,             setModel]             = useState(MODELS.anthropic[0].value);
-  const [botToken,          setBotToken]          = useState('');
-  const [apiKey,            setApiKey]            = useState('');
-  const [error,             setError]             = useState('');
-  const [loading,           setLoading]           = useState(false);
+  const [name,     setName]     = useState('');
+  const [provider, setProvider] = useState<Provider>('anthropic');
+  const [model,    setModel]    = useState(MODELS.anthropic[0].value);
+  const [botToken, setBotToken] = useState('');
+  const [apiKey,   setApiKey]   = useState('');
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
   const navigate = useNavigate();
 
   const handleProviderChange = (p: Provider) => {
@@ -78,6 +87,7 @@ export default function CreateAgentPage() {
         openaiApiKey:      provider === 'openai'      ? apiKey.trim() : undefined,
         anthropicApiKey:   provider === 'anthropic'   ? apiKey.trim() : undefined,
         openrouterApiKey:  provider === 'openrouter'  ? apiKey.trim() : undefined,
+        kimiApiKey:        provider === 'kimi'        ? apiKey.trim() : undefined,
       });
       navigate('/');
     } catch (err: any) {
@@ -146,8 +156,8 @@ export default function CreateAgentPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 LLM Provider
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['anthropic', 'openai', 'openrouter'] as Provider[]).map(p => (
+              <div className="grid grid-cols-2 gap-2">
+                {(['anthropic', 'openai', 'openrouter', 'kimi'] as Provider[]).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -167,6 +177,11 @@ export default function CreateAgentPage() {
                   Access 200+ models with a single API key via openrouter.ai
                 </p>
               )}
+              {provider === 'kimi' && (
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Moonshot AI — long context windows, strong at coding and reasoning
+                </p>
+              )}
             </div>
 
             {/* Model */}
@@ -183,7 +198,7 @@ export default function CreateAgentPage() {
               </select>
             </div>
 
-            {/* API Key (provider-specific) */}
+            {/* API Key */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {PROVIDER_LABELS[provider]} API Key

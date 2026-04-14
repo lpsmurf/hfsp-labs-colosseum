@@ -37,6 +37,7 @@ export const agentAPI = {
     openaiApiKey?: string;
     anthropicApiKey?: string;
     openrouterApiKey?: string;
+    kimiApiKey?: string;
   }) =>
     client.post('/api/v1/agents', data),
   getAgent: (id: string) =>

@@ -236,6 +236,8 @@ type WizardStep =
   | 'connect_openai'
   | 'await_openai_api_key'
   | 'await_anthropic_api_key'
+  | 'await_openrouter_api_key'
+  | 'await_kimi_api_key'
   | 'await_model_preset'
   | 'await_pairing_code';
 
@@ -252,6 +254,7 @@ type WizardData = {
   openaiApiKey?: string;
   anthropicApiKey?: string;
       openrouterApiKey?: string;
+      kimiApiKey?: string;
   modelPreset?: 'fast' | 'smart';
   lastTenantId?: string;
   lastDashboardPort?: number;
@@ -433,9 +436,8 @@ async function renderChooseProvider(chatId: number) {
     {
       reply_markup: {
         inline_keyboard: [
-          [{ text: 'OpenAI', callback_data: 'provider:openai' }],
-          [{ text: 'Claude (Anthropic)', callback_data: 'provider:anthropic' }],
-          [{ text: 'Others (coming soon)', callback_data: 'provider:others' }],
+          [{ text: 'OpenAI', callback_data: 'provider:openai' }, { text: 'Claude (Anthropic)', callback_data: 'provider:anthropic' }],
+          [{ text: 'Kimi (Moonshot)', callback_data: 'provider:kimi' }, { text: 'OpenRouter', callback_data: 'provider:openrouter' }],
           [{ text: 'Back', callback_data: 'flow:back' }, { text: 'Cancel', callback_data: 'flow:cancel' }]
         ]
       }
@@ -858,6 +860,16 @@ app.post('/telegram/webhook', async (req, res) => {
         await renderConnectAnthropic(chatId);
         return;
       }
+      if (data === 'provider:openrouter' && w.step === 'choose_provider') {
+        transition(telegramUserId, w.step, 'await_openrouter_api_key', { ...w.data, provider: 'openrouter' });
+        await sendMessage(chatId, 'Please send your OpenRouter API key (sk-or-...):');
+        return;
+      }
+      if (data === 'provider:kimi' && w.step === 'choose_provider') {
+        transition(telegramUserId, w.step, 'await_kimi_api_key', { ...w.data, provider: 'kimi' });
+        await sendMessage(chatId, 'Please send your Kimi (Moonshot) API key from platform.moonshot.cn:');
+        return;
+      }
       if (data === 'provider:others' && w.step === 'choose_provider') {
         setWizard(telegramUserId, 'choose_provider', { ...w.data, provider: 'other' });
         await sendMessage(
@@ -971,7 +983,7 @@ app.post('/telegram/webhook', async (req, res) => {
           const templateOk = Boolean(w.data.templateId);
           const providerOk = Boolean(w.data.provider);
           const presetOk = Boolean(w.data.modelPreset);
-          const keyOk = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
+          const keyOk = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey || w.data.openrouterApiKey || w.data.kimiApiKey);
 
           if (!templateOk || !providerOk || !presetOk || !keyOk) {
             await sendMessage(chatId, 'You’re missing some setup steps. Tap Status and finish the missing items.');
@@ -1081,6 +1093,14 @@ app.post('/telegram/webhook', async (req, res) => {
             const k = Buffer.from(w.data.anthropicApiKey.trim() + '\n').toString('base64');
             sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/anthropic.key'`);
           }
+          if (w.data.provider === 'openrouter' && w.data.openrouterApiKey) {
+            const k = Buffer.from(w.data.openrouterApiKey.trim() + '\n').toString('base64');
+            sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/openrouter.key'`);
+          }
+          if (w.data.provider === 'kimi' && w.data.kimiApiKey) {
+            const k = Buffer.from(w.data.kimiApiKey.trim() + '\n').toString('base64');
+            sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/moonshot.key'`);
+          }
 
           // Write tenant openclaw.json
           // Reuse existing gateway token if present; otherwise generate.
@@ -1091,8 +1111,10 @@ app.post('/telegram/webhook', async (req, res) => {
           db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
           // Map 'fast'/'smart' preset → real OpenClaw model ID per provider
           const WIZARD_MODEL_MAP: Record<string, Record<string, string>> = {
-            anthropic: { fast: 'anthropic/claude-3-5-sonnet', smart: 'anthropic/claude-3-opus' },
-            openai:    { fast: 'openai/gpt-3.5-turbo',        smart: 'openai/gpt-4o' },
+            anthropic:  { fast: 'anthropic/claude-3-5-sonnet', smart: 'anthropic/claude-3-opus' },
+            openai:     { fast: 'openai/gpt-3.5-turbo',        smart: 'openai/gpt-4o' },
+            kimi:       { fast: 'moonshot/moonshot-v1-8k',     smart: 'moonshot/moonshot-v1-128k' },
+            openrouter: { fast: 'openrouter/auto',              smart: 'openrouter/auto' },
           };
           const resolvedModel = WIZARD_MODEL_MAP[w.data.provider ?? '']?.[w.data.modelPreset ?? ''] ?? undefined;
           // Build auth profile so OpenClaw knows which credentials profile to use
@@ -1101,6 +1123,10 @@ app.post('/telegram/webhook', async (req, res) => {
             wizardAuthProfile['anthropic:default'] = { provider: 'anthropic', mode: 'api_key' };
           } else if (w.data.provider === 'openai') {
             wizardAuthProfile['openai:default'] = { provider: 'openai', mode: 'api_key' };
+          } else if (w.data.provider === 'openrouter') {
+            wizardAuthProfile['openrouter:default'] = { provider: 'openrouter', mode: 'api_key' };
+          } else if (w.data.provider === 'kimi') {
+            wizardAuthProfile['moonshot:default'] = { provider: 'moonshot', mode: 'api_key' };
           }
           const openclawConfig = {
             agents: {
@@ -1171,6 +1197,10 @@ app.post('/telegram/webhook', async (req, res) => {
             runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
           } else if (w.data.provider === 'anthropic') {
             runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\n\r')"`);
+          } else if (w.data.provider === 'openrouter') {
+            runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key | tr -d '\n\r')"`);
+          } else if (w.data.provider === 'kimi') {
+            runParts.push(`-e MOONSHOT_API_KEY="$(cat ${secretsDir}/moonshot.key | tr -d '\n\r')"`);
           }
           runParts.push(TENANT_RUNTIME_IMAGE);
           const runCmd = runParts.join(' ');
@@ -1341,7 +1371,7 @@ app.post('/telegram/webhook', async (req, res) => {
         }
 
         const botLink = r.bot_username ? `https://t.me/${r.bot_username}` : undefined;
-        const providerLabel = r.provider === 'openai' ? 'OpenAI' : r.provider === 'anthropic' ? 'Claude (Anthropic)' : r.provider ?? '—';
+        const providerLabel = r.provider === 'openai' ? 'OpenAI' : r.provider === 'anthropic' ? 'Claude (Anthropic)' : r.provider === 'openrouter' ? 'OpenRouter' : r.provider === 'kimi' ? 'Kimi (Moonshot)' : r.provider ?? '—';
 
         const statusLabel = r.status === 'archived' ? 'archived' : r.status === 'stopped' ? 'stopped' : 'active';
 
@@ -1841,7 +1871,7 @@ app.post('/telegram/webhook', async (req, res) => {
 
     if (cmd === 'status') {
       const hasKey = Boolean(w.data.openaiApiKey || w.data.anthropicApiKey);
-      const providerLabel = w.data.provider === 'openai' ? 'OpenAI' : w.data.provider === 'anthropic' ? 'Claude (Anthropic)' : w.data.provider === 'other' ? 'Other' : '—';
+      const providerLabel = w.data.provider === 'openai' ? 'OpenAI' : w.data.provider === 'anthropic' ? 'Claude (Anthropic)' : w.data.provider === 'openrouter' ? 'OpenRouter' : w.data.provider === 'kimi' ? 'Kimi (Moonshot)' : '—';
       const templateLabel = w.data.templateId === 'blank' ? 'Blank' : w.data.templateId === 'ops_starter' ? 'Ops Starter' : '—';
       const presetLabel = w.data.modelPreset ? (w.data.modelPreset === 'fast' ? 'Fast' : 'Smart') : '—';
 
@@ -2485,7 +2515,7 @@ app.post('/api/v1/agents', async (req, res) => {
 
   try {
     const userId = payload.sub as string;
-    const { name, provider, model, botToken, openaiApiKey, anthropicApiKey, openrouterApiKey } = req.body as {
+    const { name, provider, model, botToken, openaiApiKey, anthropicApiKey, openrouterApiKey, kimiApiKey } = req.body as {
       name?: string;
       provider?: string;
       model?: string;
@@ -2493,6 +2523,7 @@ app.post('/api/v1/agents', async (req, res) => {
       openaiApiKey?: string;
       anthropicApiKey?: string;
       openrouterApiKey?: string;
+      kimiApiKey?: string;
     };
 
     if (!name || !provider || !model || !botToken) {
@@ -2592,6 +2623,10 @@ app.post('/api/v1/agents', async (req, res) => {
           const k = Buffer.from(openrouterApiKey.trim() + '\n').toString('base64');
           sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/openrouter.key'`);
         }
+        if (provider === 'kimi' && kimiApiKey) {
+          const k = Buffer.from(kimiApiKey.trim() + '\n').toString('base64');
+          sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/moonshot.key'`);
+        }
 
         // Generate gateway token
         const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
@@ -2605,6 +2640,8 @@ app.post('/api/v1/agents', async (req, res) => {
           authProfile[`openai:default`] = { provider: 'openai', mode: 'api_key' };
         } else if (provider === 'openrouter') {
           authProfile[`openrouter:default`] = { provider: 'openrouter', mode: 'api_key' };
+        } else if (provider === 'kimi') {
+          authProfile[`moonshot:default`] = { provider: 'moonshot', mode: 'api_key' };
         }
 
         // Write openclaw.json
@@ -2673,6 +2710,8 @@ app.post('/api/v1/agents', async (req, res) => {
           runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
         } else if (provider === 'anthropic') {
           runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\n\r')"`);
+        } else if (provider === 'kimi') {
+          runParts.push(`-e MOONSHOT_API_KEY="$(cat ${secretsDir}/moonshot.key | tr -d '\n\r')"`);
         }
         runParts.push(TENANT_RUNTIME_IMAGE);
         const runCmd = runParts.join(' ');
