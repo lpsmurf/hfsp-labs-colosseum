@@ -591,6 +591,24 @@ async function sendMenu(chatId: number) {
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
+// API Key authentication for MCP endpoints
+const HFSP_API_KEY = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+function requireApiKey(req: any, res: any, next: any) {
+  // Skip auth for health check and webhook endpoints
+  if (req.path === '/health' || req.path === '/telegram/webhook') {
+    return next();
+  }
+  
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  
+  if (token !== HFSP_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid or missing API key' });
+  }
+  
+  next();
+}
+
 // CORS: allow ClawDrop wizard frontend
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:3001,https://app.hfsp.cloud,https://miniapp.hfsp.cloud').split(',');
 app.use((req: any, res: any, next: any) => {
@@ -604,6 +622,9 @@ app.use((req: any, res: any, next: any) => {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   next();
 });
+
+// Apply API key middleware AFTER CORS so preflight requests work
+app.use(requireApiKey);
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
