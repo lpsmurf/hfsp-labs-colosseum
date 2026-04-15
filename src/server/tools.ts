@@ -1,22 +1,30 @@
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { 
-  ToolInputMap, 
-  Service,
-  ListServicesResponseSchema,
-  QuoteServiceResponseSchema,
-  PayWithSolResponseSchema,
-  CreateOpenclawAgentResponseSchema,
-  GetAgentStatusResponseSchema,
+  ToolInputMap,
+  ListTiersResponseSchema,
+  QuoteTierResponseSchema,
+  VerifyPaymentResponseSchema,
+  DeployOpenclawInstanceResponseSchema,
+  GetDeploymentStatusResponseSchema,
 } from './schemas';
-import { readServicesFromFile } from '../services/catalog';
-import { getSOLPrice, getHERDPrice } from '../integrations/helius';
-import { saveAgent, getAgent } from '../db/memory';
+import { readTiersFromFile } from '../services/tiers';
+import { getSOLPrice } from '../integrations/helius';
+import { 
+  saveDeployment, 
+  getDeployment, 
+  savePayment, 
+  getPayment,
+  updatePaymentStatus,
+  updateDeploymentStatus,
+  addDeploymentLog,
+} from '../db/memory';
+import { Deployment } from '../models/deployment';
 import { logger } from '../utils/logger';
 
 export const tools: Tool[] = [
   {
-    name: 'list_services',
-    description: 'List all available Clawdrop services that can be deployed and provisioned',
+    name: 'list_tiers',
+    description: 'List all available Clawdrop tiers (services) that can be deployed and provisioned',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -24,14 +32,14 @@ export const tools: Tool[] = [
     },
   },
   {
-    name: 'quote_service',
-    description: 'Get a price quote for a service in SOL or HERD tokens',
+    name: 'quote_tier',
+    description: 'Get a price quote for a tier in SOL or HERD tokens',
     inputSchema: {
       type: 'object',
       properties: {
-        service_id: {
+        tier_id: {
           type: 'string',
-          description: 'The ID of the service to quote',
+          description: 'The ID of the tier to quote',
         },
         token: {
           type: 'string',
@@ -39,44 +47,40 @@ export const tools: Tool[] = [
           description: 'Token to quote in (SOL or HERD)',
         },
       },
-      required: ['service_id'],
+      required: ['tier_id'],
     },
   },
   {
-    name: 'pay_with_sol',
-    description: 'Pay for a service using SOL on devnet. Requires user approval.',
+    name: 'verify_payment',
+    description: 'Verify a Solana devnet transaction for payment',
     inputSchema: {
       type: 'object',
       properties: {
-        service_id: {
+        payment_id: {
           type: 'string',
-          description: 'The service to purchase',
+          description: 'The payment ID to verify',
         },
-        amount_sol: {
-          type: 'number',
-          description: 'Amount of SOL to send',
-        },
-        wallet_pubkey: {
+        tx_hash: {
           type: 'string',
-          description: 'Your Solana wallet public key',
-        },
-        approve: {
-          type: 'boolean',
-          description: 'User approval for payment',
+          description: 'The Solana devnet transaction hash',
         },
       },
-      required: ['service_id', 'amount_sol', 'wallet_pubkey', 'approve'],
+      required: ['payment_id', 'tx_hash'],
     },
   },
   {
-    name: 'create_openclaw_agent',
-    description: 'Deploy a new OpenClaw agent after payment is confirmed',
+    name: 'deploy_openclaw_instance',
+    description: 'Deploy a new OpenClaw agent instance after payment is confirmed',
     inputSchema: {
       type: 'object',
       properties: {
-        service_id: {
+        tier_id: {
           type: 'string',
-          description: 'The service ID that was purchased',
+          description: 'The tier ID to deploy',
+        },
+        payment_id: {
+          type: 'string',
+          description: 'The payment ID that verified this deployment',
         },
         agent_name: {
           type: 'string',
@@ -86,26 +90,34 @@ export const tools: Tool[] = [
           type: 'string',
           description: 'Description of the agent purpose',
         },
+        wallet_address: {
+          type: 'string',
+          description: 'Customer wallet address',
+        },
+        region: {
+          type: 'string',
+          description: 'Hosting region (default: us-east)',
+        },
         config: {
           type: 'object',
           description: 'Optional custom configuration for the agent',
         },
       },
-      required: ['service_id', 'agent_name'],
+      required: ['tier_id', 'payment_id', 'agent_name', 'wallet_address'],
     },
   },
   {
-    name: 'get_agent_status',
-    description: 'Check the status and health of a deployed OpenClaw agent',
+    name: 'get_deployment_status',
+    description: 'Check the status and health of a deployed OpenClaw instance',
     inputSchema: {
       type: 'object',
       properties: {
-        agent_id: {
+        deployment_id: {
           type: 'string',
-          description: 'The agent ID returned from create_openclaw_agent',
+          description: 'The deployment ID returned from deploy_openclaw_instance',
         },
       },
-      required: ['agent_id'],
+      required: ['deployment_id'],
     },
   },
 ];
@@ -118,16 +130,16 @@ export async function handleToolCall(
 
   try {
     switch (toolName) {
-      case 'list_services':
-        return await handleListServices(toolInput);
-      case 'quote_service':
-        return await handleQuoteService(toolInput);
-      case 'pay_with_sol':
-        return await handlePayWithSol(toolInput);
-      case 'create_openclaw_agent':
-        return await handleCreateAgent(toolInput);
-      case 'get_agent_status':
-        return await handleGetAgentStatus(toolInput);
+      case 'list_tiers':
+        return await handleListTiers(toolInput);
+      case 'quote_tier':
+        return await handleQuoteTier(toolInput);
+      case 'verify_payment':
+        return await handleVerifyPayment(toolInput);
+      case 'deploy_openclaw_instance':
+        return await handleDeployOpenclawInstance(toolInput);
+      case 'get_deployment_status':
+        return await handleGetDeploymentStatus(toolInput);
       default:
         throw new Error(`Unknown tool: ${toolName}`);
     }
@@ -137,23 +149,23 @@ export async function handleToolCall(
   }
 }
 
-async function handleListServices(input: unknown): Promise<string> {
-  ToolInputMap.list_services.parse(input);
-  const services = await readServicesFromFile();
-  const response = ListServicesResponseSchema.parse({
-    services,
-    total_count: services.length,
+async function handleListTiers(input: unknown): Promise<string> {
+  ToolInputMap.list_tiers.parse(input);
+  const tiers = await readTiersFromFile();
+  const response = ListTiersResponseSchema.parse({
+    tiers,
+    total_count: tiers.length,
   });
   return JSON.stringify(response);
 }
 
-async function handleQuoteService(input: unknown): Promise<string> {
-  const parsed = ToolInputMap.quote_service.parse(input);
-  const services = await readServicesFromFile();
-  const service = services.find(s => s.id === parsed.service_id);
+async function handleQuoteTier(input: unknown): Promise<string> {
+  const parsed = ToolInputMap.quote_tier.parse(input);
+  const tiers = await readTiersFromFile();
+  const tier = tiers.find(t => t.id === parsed.tier_id);
   
-  if (!service) {
-    throw new Error(`Service not found: ${parsed.service_id}`);
+  if (!tier) {
+    throw new Error(`Tier not found: ${parsed.tier_id}`);
   }
 
   const token = parsed.token || 'sol';
@@ -162,16 +174,16 @@ async function handleQuoteService(input: unknown): Promise<string> {
   let estimatedGas: number;
   
   if (token === 'sol') {
-    price = service.price_sol;
+    price = tier.price_sol;
     estimatedGas = 0.005; // 5k lamports
   } else {
-    price = service.price_herd;
+    price = tier.price_herd;
     estimatedGas = 0;
   }
 
-  const response = QuoteServiceResponseSchema.parse({
-    service_id: service.id,
-    service_name: service.name,
+  const response = QuoteTierResponseSchema.parse({
+    tier_id: tier.id,
+    tier_name: tier.name,
     price,
     token,
     estimated_gas: estimatedGas,
@@ -181,89 +193,123 @@ async function handleQuoteService(input: unknown): Promise<string> {
 
   logger.info(
     { 
-      service_id: service.id, 
+      tier_id: tier.id, 
       price, 
       token, 
       total: price + estimatedGas 
     },
-    'Service quoted'
+    'Tier quoted'
   );
 
   return JSON.stringify(response);
 }
 
-async function handlePayWithSol(input: unknown): Promise<string> {
-  const parsed = ToolInputMap.pay_with_sol.parse(input);
-
-  if (!parsed.approve) {
-    throw new Error('Payment requires user approval');
+async function handleVerifyPayment(input: unknown): Promise<string> {
+  const parsed = ToolInputMap.verify_payment.parse(input);
+  
+  // Get the payment from store
+  const payment = getPayment(parsed.payment_id);
+  if (!payment) {
+    throw new Error(`Payment not found: ${parsed.payment_id}`);
   }
 
-  // For demo: simulate devnet transaction
-  const mockTxHash = `devnet_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  // TODO: Real Helius verification
+  // For now, mark as confirmed if tx_hash provided
+  const confirmed = parsed.tx_hash && parsed.tx_hash.length > 0;
+  
+  if (confirmed) {
+    updatePaymentStatus(parsed.payment_id, 'confirmed', parsed.tx_hash);
+  } else {
+    updatePaymentStatus(parsed.payment_id, 'failed', parsed.tx_hash);
+  }
+
+  const solPrice = await getSOLPrice();
+  const amountUsd = payment.amount_sol * solPrice;
+
+  const response = VerifyPaymentResponseSchema.parse({
+    payment_id: parsed.payment_id,
+    verified: confirmed,
+    tx_hash: parsed.tx_hash,
+    amount_sol: payment.amount_sol,
+    amount_usd: amountUsd,
+    status: confirmed ? 'confirmed' : 'failed',
+    explorer_url: `https://solscan.io/tx/${parsed.tx_hash}?cluster=devnet`,
+  });
 
   logger.info(
     {
-      service_id: parsed.service_id,
-      amount: parsed.amount_sol,
-      wallet: parsed.wallet_pubkey,
-      tx_hash: mockTxHash,
+      payment_id: parsed.payment_id,
+      verified: confirmed,
+      amount: payment.amount_sol,
     },
-    'Payment processed (simulated for demo)'
+    'Payment verified'
   );
-
-  const response = PayWithSolResponseSchema.parse({
-    tx_hash: mockTxHash,
-    status: 'confirmed',
-    amount_sol: parsed.amount_sol,
-    timestamp: new Date().toISOString(),
-  });
 
   return JSON.stringify(response);
 }
 
-async function handleCreateAgent(input: unknown): Promise<string> {
-  const parsed = ToolInputMap.create_openclaw_agent.parse(input);
-  const services = await readServicesFromFile();
-  const service = services.find(s => s.id === parsed.service_id);
+async function handleDeployOpenclawInstance(input: unknown): Promise<string> {
+  const parsed = ToolInputMap.deploy_openclaw_instance.parse(input);
+  const tiers = await readTiersFromFile();
+  const tier = tiers.find(t => t.id === parsed.tier_id);
 
-  if (!service) {
-    throw new Error(`Service not found: ${parsed.service_id}`);
+  if (!tier) {
+    throw new Error(`Tier not found: ${parsed.tier_id}`);
   }
 
-  // Generate agent ID
-  const agentId = `agent_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-  const mockTxHash = `devnet_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  // Verify payment exists and is confirmed
+  const payment = getPayment(parsed.payment_id);
+  if (!payment) {
+    throw new Error(`Payment not found: ${parsed.payment_id}`);
+  }
 
-  // Save to memory store
-  saveAgent({
+  if (payment.status !== 'confirmed') {
+    throw new Error(`Payment not confirmed: ${parsed.payment_id}`);
+  }
+
+  // Generate deployment ID and agent ID
+  const deploymentId = `deploy_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const agentId = `agent_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+  // Create deployment record
+  const deployment: Deployment = {
+    deployment_id: deploymentId,
+    tier_id: parsed.tier_id,
     agent_id: agentId,
-    service_id: parsed.service_id,
     agent_name: parsed.agent_name,
-    payment_tx_hash: mockTxHash,
+    wallet_address: parsed.wallet_address,
+    payment_id: parsed.payment_id,
     status: 'provisioning',
+    endpoint: null,
     console_url: `https://clawdrop.live/agent/${agentId}`,
+    region: parsed.region || 'us-east',
+    capability_bundle: tier.capability_bundle,
+    config: parsed.config,
     deployed_at: new Date(),
     last_activity: new Date(),
     logs: [
       {
         timestamp: new Date(),
         level: 'info',
-        message: 'Agent provisioning started',
+        message: 'Deployment provisioning started',
       },
     ],
-  });
+  };
+
+  // Save to memory store
+  saveDeployment(deployment);
 
   logger.info(
     {
+      deployment_id: deploymentId,
       agent_id: agentId,
-      agent_name: parsed.agent_name,
-      service_id: parsed.service_id,
+      tier_id: parsed.tier_id,
     },
-    'Agent deployment initiated and saved to memory'
+    'Deployment created and saved to memory'
   );
 
-  const response = CreateOpenclawAgentResponseSchema.parse({
+  const response = DeployOpenclawInstanceResponseSchema.parse({
+    deployment_id: deploymentId,
     agent_id: agentId,
     agent_name: parsed.agent_name,
     status: 'provisioning',
@@ -274,29 +320,31 @@ async function handleCreateAgent(input: unknown): Promise<string> {
   return JSON.stringify(response);
 }
 
-async function handleGetAgentStatus(input: unknown): Promise<string> {
-  const parsed = ToolInputMap.get_agent_status.parse(input);
+async function handleGetDeploymentStatus(input: unknown): Promise<string> {
+  const parsed = ToolInputMap.get_deployment_status.parse(input);
 
   // Get from memory store
-  const agent = getAgent(parsed.agent_id);
+  const deployment = getDeployment(parsed.deployment_id);
 
-  if (!agent) {
-    throw new Error(`Agent not found: ${parsed.agent_id}`);
+  if (!deployment) {
+    throw new Error(`Deployment not found: ${parsed.deployment_id}`);
   }
 
-  const response = GetAgentStatusResponseSchema.parse({
-    agent_id: agent.agent_id,
-    status: agent.status,
-    uptime_seconds: Math.floor((Date.now() - agent.deployed_at.getTime()) / 1000),
-    last_activity: agent.last_activity.toISOString(),
-    logs: agent.logs.map(log => ({
+  const response = GetDeploymentStatusResponseSchema.parse({
+    deployment_id: deployment.deployment_id,
+    agent_id: deployment.agent_id,
+    status: deployment.status,
+    uptime_seconds: Math.floor((Date.now() - deployment.deployed_at.getTime()) / 1000),
+    last_activity: deployment.last_activity.toISOString(),
+    endpoint: deployment.endpoint || undefined,
+    logs: deployment.logs.map(log => ({
       timestamp: log.timestamp.toISOString(),
       level: log.level,
       message: log.message,
     })),
   });
 
-  logger.info({ agent_id: parsed.agent_id }, 'Agent status retrieved from memory');
+  logger.info({ deployment_id: parsed.deployment_id }, 'Deployment status retrieved');
 
   return JSON.stringify(response);
 }
