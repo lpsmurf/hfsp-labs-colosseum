@@ -249,7 +249,7 @@ type WizardData = {
   allowTokenReuse?: boolean;
   botUsername?: string; // without @
   templateId?: 'blank' | 'ops_starter';
-  provider?: 'openai' | 'anthropic' | 'other';
+  provider?: 'openai' | 'anthropic' | 'openrouter' | 'kimi' | 'other';
   openaiConnectMethod?: 'oauth_beta' | 'api_key';
   openaiApiKey?: string;
   anthropicApiKey?: string;
@@ -2900,6 +2900,215 @@ app.delete('/api/v1/agents/:id', async (req, res) => {
   } catch (error) {
     console.error('Agent deletion error:', error);
     res.status(500).json({ error: 'Failed to delete agent' });
+  }
+});
+
+// POST /api/v1/agents/deploy - Deploy a new agent (called by Clawdrop MCP)
+app.post('/api/v1/agents/deploy', async (req, res) => {
+  try {
+    const {
+      deployment_id,
+      tier_id,
+      region,
+      capability_bundle,
+      payment_verified,
+      wallet_address,
+      config,
+    } = req.body as {
+      deployment_id?: string;
+      tier_id?: string;
+      region?: string;
+      capability_bundle?: string;
+      payment_verified?: boolean;
+      wallet_address?: string;
+      config?: Record<string, any>;
+    };
+
+    if (!tier_id || !wallet_address) {
+      return res.status(400).json({ error: 'Missing required fields: tier_id, wallet_address' });
+    }
+
+    if (!payment_verified) {
+      return res.status(400).json({ error: 'Payment not verified' });
+    }
+
+    // Generate tenant ID
+    const tenantId = deployment_id || `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const dashboardPort = 30000 + Math.floor(Math.random() * 10000);
+    const gatewayToken = crypto.randomBytes(32).toString('hex');
+
+    // Determine provider from tier_id (simple mapping)
+    let provider = 'anthropic'; // default
+    if (tier_id.includes('openai')) provider = 'openai';
+    if (tier_id.includes('kimi')) provider = 'kimi';
+
+    // SSH to tenant VPS and set up directories
+    const tenantDir = `${TENANT_VPS_BASEDIR}/${tenantId}`;
+    const workspaceDir = `${tenantDir}/workspace`;
+    const secretsDir = `${tenantDir}/secrets`;
+
+    try {
+      sshTenant(`mkdir -p ${workspaceDir} ${secretsDir}`);
+    } catch (err) {
+      console.error(`Failed to create tenant directories for ${tenantId}:`, err);
+      return res.status(500).json({ error: 'Failed to provision tenant directories' });
+    }
+
+    // Create OpenClaw config
+    const openclawConfig = {
+      gateway: {
+        bind: 'lan',
+        mode: 'local',
+        auth: { mode: 'token', token: gatewayToken },
+        controlUi: {
+          enabled: true,
+          allowedOrigins: [`http://localhost:${dashboardPort}`, `http://127.0.0.1:${dashboardPort}`],
+        },
+      },
+      plugins: { entries: { telegram: { enabled: true } } },
+      channels: {
+        telegram: {
+          enabled: true,
+          accounts: {
+            default: {
+              enabled: true,
+              dmPolicy: 'pairing',
+              groupPolicy: 'disabled',
+              tokenFile: '/home/clawd/.openclaw/secrets/telegram.token',
+              streaming: 'off',
+            },
+          },
+        },
+      },
+      bindings: [{ agentId: 'main', match: { channel: 'telegram', accountId: 'default' } }],
+    };
+
+    const configB64 = Buffer.from(JSON.stringify(openclawConfig, null, 2)).toString('base64');
+    sshTenant(`bash -lc 'echo ${configB64} | base64 -d > ${tenantDir}/openclaw.json'`);
+
+    // Start tenant container
+    const containerName = `hfsp_${tenantId}`;
+    sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
+
+    const runParts = [
+      'docker run -d',
+      `--name ${containerName}`,
+      '--restart unless-stopped',
+      `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
+      `-v ${workspaceDir}:/tenant/workspace`,
+      `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
+      `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
+    ];
+
+    // Note: API keys would need to be passed separately in production
+    runParts.push(TENANT_RUNTIME_IMAGE);
+    const runCmd = runParts.join(' ');
+    sshTenant(runCmd);
+
+    // Fix permissions
+    sshTenant(`docker exec -u root ${containerName} bash -lc 'chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'`);
+
+    // Save tenant record
+    db.prepare(`
+      INSERT INTO tenants (tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, status)
+      VALUES (?, 0, ?, ?, 'blank', ?, 'smart', ?, ?, 'active')
+    `).run(tenantId, config?.agent_name || tier_id, tierIdToBotUsername(tier_id), provider, dashboardPort, gatewayToken);
+
+    const endpoint = `http://127.0.0.1:${dashboardPort}`;
+
+    res.json({
+      agent_id: tenantId,
+      endpoint,
+      status: 'provisioning',
+    });
+  } catch (error) {
+    console.error('Agent deployment error:', error);
+    res.status(500).json({ error: 'Failed to deploy agent', details: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// Helper to generate a bot username from tier_id
+function tierIdToBotUsername(tierId: string): string {
+  return `claw_${tierId.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now().toString(36).slice(-4)}_bot`;
+}
+
+// GET /api/v1/agents/:id/status - Get agent status
+app.get('/api/v1/agents/:id/status', async (req, res) => {
+  try {
+    const agentId = req.params.id;
+    const containerName = `hfsp_${agentId}`;
+
+    // Check container status via SSH
+    let containerStatus = 'unknown';
+    let logs: Array<{ timestamp: string; level: 'info' | 'warn' | 'error'; message: string }> = [];
+
+    try {
+      const dockerPs = sshTenant(`docker ps --filter name=${containerName} --format '{{.Status}}' 2>/dev/null || echo ''`);
+      if (dockerPs.includes('Up')) {
+        containerStatus = 'running';
+      } else {
+        containerStatus = 'stopped';
+      }
+
+      // Get recent logs
+      const dockerLogs = sshTenant(`docker logs --tail 20 ${containerName} 2>&1 || echo ''`);
+      logs = dockerLogs.split('\n').filter(Boolean).map((line, i) => ({
+        timestamp: new Date(Date.now() - (20 - i) * 1000).toISOString(),
+        level: line.includes('error') || line.includes('ERROR') ? 'error' : 'info',
+        message: line,
+      }));
+    } catch (err) {
+      console.error(`Failed to get container status for ${agentId}:`, err);
+      containerStatus = 'error';
+    }
+
+    // Get tenant info from DB
+    const tenant = db.prepare('SELECT status, dashboard_port, created_at FROM tenants WHERE tenant_id = ?').get(agentId) as any;
+
+    const uptimeSeconds = tenant?.created_at
+      ? Math.floor((Date.now() - new Date(tenant.created_at).getTime()) / 1000)
+      : 0;
+
+    res.json({
+      agent_id: agentId,
+      status: containerStatus === 'running' ? 'running' : containerStatus,
+      uptime_seconds: uptimeSeconds,
+      logs,
+      health: {
+        cpu_usage: 0, // Would need container stats
+        memory_usage: 0,
+        last_activity: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Agent status error:', error);
+    res.status(500).json({ error: 'Failed to get agent status' });
+  }
+});
+
+// GET /api/v1/agents/:id/logs - Get agent logs
+app.get('/api/v1/agents/:id/logs', async (req, res) => {
+  try {
+    const agentId = req.params.id;
+    const containerName = `hfsp_${agentId}`;
+
+    let logs: Array<{ timestamp: string; level: 'info' | 'warn' | 'error'; message: string }> = [];
+
+    try {
+      const dockerLogs = sshTenant(`docker logs --tail 100 ${containerName} 2>&1 || echo ''`);
+      logs = dockerLogs.split('\n').filter(Boolean).map((line, i) => ({
+        timestamp: new Date(Date.now() - (100 - i) * 1000).toISOString(),
+        level: line.includes('error') || line.includes('ERROR') ? 'error' : line.includes('warn') || line.includes('WARN') ? 'warn' : 'info',
+        message: line,
+      }));
+    } catch (err) {
+      console.error(`Failed to get logs for ${agentId}:`, err);
+    }
+
+    res.json({ logs });
+  } catch (error) {
+    console.error('Agent logs error:', error);
+    res.status(500).json({ error: 'Failed to get agent logs' });
   }
 });
 
