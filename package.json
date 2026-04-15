@@ -10,7 +10,9 @@
     "start": "node dist/index.js",
     "test": "vitest",
     "lint": "eslint src",
-    "test:tools": "tsx scripts/quick-test.ts"
+    "test:tools": "tsx scripts/quick-test.ts",
+    "monitor": "tsx scripts/monitor.ts",
+    "demo:advanced": "tsx scripts/demo-advanced.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
