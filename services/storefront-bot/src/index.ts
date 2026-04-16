@@ -3017,6 +3017,11 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       'docker run -d',
       `--name ${containerName}`,
       '--restart unless-stopped',
+      // Resource limits (kvm-4 tier: 1.5GB RAM, 0.5 CPU, 100 PIDs)
+      '--memory=1.5g',
+      '--memory-swap=1.5g',
+      '--cpus=0.5',
+      '--pids-limit=100',
       `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
       `-v ${workspaceDir}:/tenant/workspace`,
       `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
