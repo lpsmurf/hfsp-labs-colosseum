@@ -3213,8 +3213,8 @@ async function runCleanup() {
 }
 
 // Start server
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Storefront bot webhook listening on http://127.0.0.1:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Storefront bot webhook listening on http://0.0.0.0:${PORT}`);
   console.log(`DB: ${DB_PATH}`);
   // Configure the Mini App menu button on startup
   setupMenuButton().catch((e) => console.error('setupMenuButton error:', e));
