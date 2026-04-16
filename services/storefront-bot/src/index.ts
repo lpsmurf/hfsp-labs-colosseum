@@ -2936,6 +2936,9 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       capability_bundle,
       payment_verified,
       wallet_address,
+      telegram_token,
+      llm_provider,
+      llm_api_key,
       config,
     } = req.body as {
       deployment_id?: string;
@@ -2944,6 +2947,9 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       capability_bundle?: string;
       payment_verified?: boolean;
       wallet_address?: string;
+      telegram_token?: string;
+      llm_provider?: 'anthropic' | 'openai' | 'openrouter';
+      llm_api_key?: string;
       config?: Record<string, any>;
     };
 
@@ -3026,9 +3032,18 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       `-v ${workspaceDir}:/tenant/workspace`,
       `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
       `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
+      // Agent identification
+      `-e AGENT_ID="${tenantId}"`,
+      `-e OWNER_WALLET="${wallet_address || ''}"`,
+      // Telegram bot token (if provided)
+      `-e TELEGRAM_BOT_TOKEN="${telegram_token || ''}"`,
+      // LLM provider and API key
+      `-e LLM_PROVIDER="${llm_provider || 'anthropic'}"`,
+      `-e ANTHROPIC_API_KEY="${llm_provider === 'anthropic' ? (llm_api_key || '') : ''}"`,
+      `-e OPENAI_API_KEY="${llm_provider === 'openai' ? (llm_api_key || '') : ''}"`,
+      `-e OPENROUTER_API_KEY="${llm_provider === 'openrouter' ? (llm_api_key || '') : ''}"`,
     ];
 
-    // Note: API keys would need to be passed separately in production
     runParts.push(TENANT_RUNTIME_IMAGE);
     const runCmd = runParts.join(' ');
     sshTenant(runCmd);
