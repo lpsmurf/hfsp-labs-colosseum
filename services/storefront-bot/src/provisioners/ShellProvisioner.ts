@@ -349,4 +349,90 @@ export class ShellProvisioner extends BaseProvisioner {
       };
     }
   }
+
+  /**
+   * Get container creation time and last activity
+   */
+  private getContainerInfo(containerName: string): { created: Date; lastActivity?: Date } | null {
+    try {
+      // Get container creation time
+      const createdOutput = this.sshTenant(
+        `docker inspect --format='{{.Created}}' ${containerName} 2>/dev/null || echo ''`
+      );
+      if (!createdOutput) return null;
+      
+      const created = new Date(createdOutput);
+      
+      // Try to get last activity from container logs (last line timestamp)
+      let lastActivity: Date | undefined;
+      try {
+        const lastLogOutput = this.sshTenant(
+          `docker logs --tail 1 --timestamps ${containerName} 2>/dev/null | head -1 | cut -d' ' -f1 || echo ''`
+        );
+        if (lastLogOutput) {
+          lastActivity = new Date(lastLogOutput);
+        }
+      } catch {
+        // No logs available, use creation time as fallback
+      }
+      
+      return { created, lastActivity };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Cleanup containers inactive for more than specified hours
+   * Default: 24 hours
+   */
+  async cleanupInactiveContainers(maxInactiveHours: number = 24): Promise<{
+    cleaned: string[];
+    errors: string[];
+    skipped: string[];
+  }> {
+    const result = { cleaned: [] as string[], errors: [] as string[], skipped: [] as string[] };
+    const now = new Date();
+    const maxAgeMs = maxInactiveHours * 60 * 60 * 1000;
+    
+    try {
+      // Get all hfsp containers
+      const containersOutput = this.sshTenant(
+        'docker ps -a --format "{{.Names}}" | grep hfsp_ || true'
+      );
+      if (!containersOutput) return result;
+      
+      const containers = containersOutput.split('\n').filter(c => c.trim());
+      
+      for (const containerName of containers) {
+        try {
+          const info = this.getContainerInfo(containerName);
+          if (!info) {
+            result.errors.push(`${containerName}: could not get info`);
+            continue;
+          }
+          
+          // Use last activity if available, otherwise creation time
+          const lastActive = info.lastActivity || info.created;
+          const inactiveMs = now.getTime() - lastActive.getTime();
+          
+          if (inactiveMs > maxAgeMs) {
+            // Container is inactive - deprovision it
+            const tenantId = containerName.replace('hfsp_', '');
+            await this.deprovision(tenantId);
+            result.cleaned.push(`${containerName} (inactive for ${Math.round(inactiveMs / (1000 * 60 * 60))}h)`);
+          } else {
+            result.skipped.push(`${containerName} (active ${Math.round(inactiveMs / (1000 * 60 * 60))}h ago)`);
+          }
+        } catch (err) {
+          result.errors.push(`${containerName}: ${(err as Error).message}`);
+        }
+      }
+      
+      return result;
+    } catch (err) {
+      result.errors.push(`Cleanup failed: ${(err as Error).message}`);
+      return result;
+    }
+  }
 }
