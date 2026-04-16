@@ -2,6 +2,31 @@ import { execFileSync } from 'child_process';
 import { BaseProvisioner, ProvisioningConfig, ProvisioningResult, ProvisionerConfig } from './types';
 
 /**
+ * Resource limits per container tier
+ */
+const RESOURCE_LIMITS = {
+  // KVM 4 tier: 4 vCPU, 16GB RAM
+  'kvm-4': {
+    maxContainers: 6,
+    memory: '1.5g',
+    memorySwap: '1.5g',
+    cpus: '0.5',
+    pidsLimit: 100,
+  },
+  // KVM 8 tier: 8 vCPU, 32GB RAM
+  'kvm-8': {
+    maxContainers: 16,
+    memory: '1.5g',
+    memorySwap: '1.5g',
+    cpus: '0.5',
+    pidsLimit: 100,
+  },
+} as const;
+
+// Default to KVM 4 limits if tier not specified
+const DEFAULT_TIER = 'kvm-4';
+
+/**
  * ShellProvisioner: Single VPS provisioning via SSH + Docker
  * Extracts current bot provisioning logic into a reusable class
  */
@@ -9,15 +34,18 @@ export class ShellProvisioner extends BaseProvisioner {
   private vpsHost: string;
   private vpsUser: string;
   private sshOpts: string[];
+  private tier: keyof typeof RESOURCE_LIMITS;
 
   constructor(
     config: ProvisionerConfig,
     vpsHost: string = '187.124.173.69',
-    vpsUser: string = 'root'
+    vpsUser: string = 'root',
+    tier: keyof typeof RESOURCE_LIMITS = DEFAULT_TIER
   ) {
     super(config);
     this.vpsHost = vpsHost;
     this.vpsUser = vpsUser;
+    this.tier = tier in RESOURCE_LIMITS ? tier : DEFAULT_TIER;
     this.sshOpts = ['-i', config.sshKey, '-o', 'StrictHostKeyChecking=accept-new'];
   }
 
@@ -36,7 +64,38 @@ export class ShellProvisioner extends BaseProvisioner {
    * Safely quote string for shell usage
    */
   private shSingleQuote(s: string): string {
-    return `'${s.replace(/'/g, `'\\''`)}'`;
+    return `'${s.replace(/'/g, `'\''`)}'`;
+  }
+
+  /**
+   * Get current active container count
+   */
+  private getActiveContainerCount(): number {
+    try {
+      const output = this.sshTenant('docker ps -q | wc -l');
+      return parseInt(output, 10) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Check if VPS has capacity for new container
+   */
+  private checkCapacity(): { allowed: boolean; current: number; max: number; message?: string } {
+    const limits = RESOURCE_LIMITS[this.tier];
+    const current = this.getActiveContainerCount();
+    
+    if (current >= limits.maxContainers) {
+      return {
+        allowed: false,
+        current,
+        max: limits.maxContainers,
+        message: `VPS at capacity: ${current}/${limits.maxContainers} containers. Upgrade to ${this.tier === 'kvm-4' ? 'kvm-8' : 'higher tier'} tier or decommission existing agents.`,
+      };
+    }
+    
+    return { allowed: true, current, max: limits.maxContainers };
   }
 
   /**
@@ -44,6 +103,20 @@ export class ShellProvisioner extends BaseProvisioner {
    */
   async provision(cfg: ProvisioningConfig): Promise<ProvisioningResult> {
     try {
+      // Check capacity limits before provisioning
+      const capacity = this.checkCapacity();
+      if (!capacity.allowed) {
+        return {
+          success: false,
+          tenantId: cfg.tenantId,
+          dashboardPort: cfg.dashboardPort,
+          gatewayToken: '',
+          containerName: '',
+          vpsHost: this.vpsHost,
+          error: capacity.message,
+        };
+      }
+
       const {
         tenantId,
         agentName,
@@ -166,22 +239,32 @@ export class ShellProvisioner extends BaseProvisioner {
       // Stop/remove existing container if present
       this.sshTenant(`docker rm -f ${containerName} >/dev/null 2>&1 || true`);
 
-      // Start container
+      // Get resource limits for this tier
+      const limits = RESOURCE_LIMITS[this.tier];
+
+      // Start container with resource limits
       const runParts = [
         'docker run -d',
         `--name ${containerName}`,
         '--restart unless-stopped',
+        // Resource limits
+        `--memory=${limits.memory}`,
+        `--memory-swap=${limits.memorySwap}`,
+        `--cpus=${limits.cpus}`,
+        `--pids-limit=${limits.pidsLimit}`,
+        // Network
         `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
+        // Volumes
         `-v ${workspaceDir}:/tenant/workspace`,
         `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
         `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
       ];
       if (provider === 'openrouter') {
-        runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key | tr -d '\n\r')"`);
+        runParts.push(`-e OPENROUTER_API_KEY="$(cat ${secretsDir}/openrouter.key | tr -d '\\n\\r')"`);
       } else if (provider === 'openai') {
-        runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
+        runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\\n\\r')"`);
       } else if (provider === 'anthropic') {
-        runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\n\r')"`);
+        runParts.push(`-e ANTHROPIC_API_KEY="$(cat ${secretsDir}/anthropic.key | tr -d '\\n\\r')"`);
       }
       runParts.push(this.config.runtimeImage);
       const runCmd = runParts.join(' ');
@@ -247,16 +330,22 @@ export class ShellProvisioner extends BaseProvisioner {
   async getStatus(): Promise<any> {
     try {
       const info = this.sshTenant('docker ps --format "{{.Names}}" | grep hfsp_ | wc -l');
+      const current = parseInt(info, 10) || 0;
+      const limits = RESOURCE_LIMITS[this.tier];
       return {
         vpsHost: this.vpsHost,
-        activeContainers: parseInt(info, 10) || 0,
-        status: 'ok'
+        tier: this.tier,
+        activeContainers: current,
+        maxContainers: limits.maxContainers,
+        utilization: `${current}/${limits.maxContainers}`,
+        status: current >= limits.maxContainers ? 'at_capacity' : 'ok',
       };
     } catch (err) {
       return {
         vpsHost: this.vpsHost,
+        tier: this.tier,
         status: 'error',
-        error: (err as Error)?.message
+        error: (err as Error)?.message,
       };
     }
   }
