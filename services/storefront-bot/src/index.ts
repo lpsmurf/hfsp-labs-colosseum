@@ -1,3 +1,5 @@
+import { ShellProvisioner } from './provisioners/ShellProvisioner';
+import { ProvisionerConfig } from './provisioners/types';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -3170,6 +3172,42 @@ app.get('/api/v1/user/profile', (req, res) => {
   });
 });
 
+// Initialize provisioner for cleanup jobs
+const provisionerConfig: ProvisionerConfig = {
+  sshKey: TENANT_VPS_SSH_KEY,
+  runtimeImage: TENANT_RUNTIME_IMAGE,
+  basedir: TENANT_VPS_BASEDIR,
+};
+
+const provisioner = new ShellProvisioner(
+  provisionerConfig,
+  TENANT_VPS_HOST,
+  TENANT_VPS_USER,
+  'kvm-4' // Default tier, can be made configurable via env
+);
+
+// Schedule cleanup of inactive containers every 6 hours
+// Removes containers inactive for >24 hours
+const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const INACTIVE_THRESHOLD_HOURS = 24;
+
+async function runCleanup() {
+  try {
+    console.log(`[${new Date().toISOString()}] Running container cleanup...`);
+    const result = await provisioner.cleanupInactiveContainers(INACTIVE_THRESHOLD_HOURS);
+    if (result.cleaned.length > 0) {
+      console.log(`[Cleanup] Removed ${result.cleaned.length} inactive containers:`, result.cleaned);
+    }
+    if (result.errors.length > 0) {
+      console.error(`[Cleanup] Errors:`, result.errors);
+    }
+    console.log(`[${new Date().toISOString()}] Cleanup complete. Skipped: ${result.skipped.length}`);
+  } catch (err) {
+    console.error('[Cleanup] Failed:', err);
+  }
+}
+
+// Start server
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Storefront bot webhook listening on http://127.0.0.1:${PORT}`);
   console.log(`DB: ${DB_PATH}`);
@@ -3177,6 +3215,12 @@ app.listen(PORT, '127.0.0.1', () => {
   setupMenuButton().catch((e) => console.error('setupMenuButton error:', e));
   console.log(`Tenant VPS: ${TENANT_VPS_USER}@${TENANT_VPS_HOST} (key=${TENANT_VPS_SSH_KEY}) baseDir=${TENANT_VPS_BASEDIR}`);
   console.log(`Tenant runtime image: ${TENANT_RUNTIME_IMAGE}`);
+  
+  // Start periodic cleanup
+  console.log(`Starting container cleanup job (every ${CLEANUP_INTERVAL_MS / (60 * 60 * 1000)}h, threshold: ${INACTIVE_THRESHOLD_HOURS}h)`);
+  setInterval(runCleanup, CLEANUP_INTERVAL_MS);
+  // Run initial cleanup on startup
+  runCleanup();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
