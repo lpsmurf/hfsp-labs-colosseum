@@ -17,6 +17,7 @@ import {
   saveAgent,
   getAgent,
   listAgents,
+  listPublicAgents,
   updateAgentStatus,
   loadFromDisk,
   DeployedAgent,
@@ -194,6 +195,45 @@ export const tools: Tool[] = [
       required: ['agent_id', 'owner_wallet'],
     },
   },
+
+  {
+    name: 'list_agents',
+    description: 'List all your deployed Clawdrop agents with live status and subscription health.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        owner_wallet: { type: 'string', description: 'Your Solana wallet — returns all agents you own' },
+      },
+      required: ['owner_wallet'],
+    },
+  },
+  {
+    name: 'make_agent_public',
+    description: 'Publish your agent to the Clawdrop registry so others can discover and clone it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent_id: { type: 'string' },
+        owner_wallet: { type: 'string' },
+        public_description: { type: 'string', description: 'What this agent does — shown in the registry' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'e.g. ["travel","defi","research"]' },
+      },
+      required: ['agent_id', 'owner_wallet', 'public_description'],
+    },
+  },
+  {
+    name: 'browse_registry',
+    description: 'Browse public Clawdrop agent templates. Find useful agents others have deployed and clone them.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tag: { type: 'string', description: 'Filter by tag (e.g. "travel", "defi")' },
+        bundle: { type: 'string', description: 'Filter by capability bundle' },
+        limit: { type: 'number', description: 'Max results (default 10)' },
+      },
+      required: [],
+    },
+  },
   {
     name: 'top_up_credits',
     description: 'Add USDC credits to your agent for premium tool calls. Send USDC to CLAWDROP_WALLET_ADDRESS then provide the tx hash.',
@@ -222,6 +262,9 @@ export async function handleToolCall(toolName: string, toolInput: unknown): Prom
       case 'get_deployment_status': return await handleGetDeploymentStatus(toolInput);
       case 'cancel_subscription': return await handleCancelSubscription(toolInput);
       case 'renew_subscription': return await handleRenewSubscription(toolInput);
+            case 'list_agents':        return await handleListAgents(toolInput);
+      case 'make_agent_public':  return await handleMakeAgentPublic(toolInput);
+      case 'browse_registry':    return await handleBrowseRegistry(toolInput);
       case 'get_credits':       return await handleGetCredits(toolInput);
       case 'top_up_credits':    return await handleTopUpCredits(toolInput);
       default: throw new Error(`Unknown tool: ${toolName}`);
@@ -631,4 +674,66 @@ async function handleTopUpCredits(input: unknown): Promise<string> {
     new_balance_usd: ledger.balance_usd,
     message: `$${parsed.amount_usd} credits added. Balance: $${ledger.balance_usd.toFixed(4)}`,
   }, null, 2);
+}
+
+async function handleListAgents(input: unknown): Promise<string> {
+  const { owner_wallet } = (await import('zod')).z.object({ owner_wallet: (await import('zod')).z.string() }).parse(input);
+  const myAgents = listAgents(owner_wallet);
+  const now = Date.now();
+  const result = myAgents.map(a => {
+    const overdue = now - a.subscription.next_payment_due.getTime();
+    const warning = overdue > 0
+      ? overdue < 48 * 3600000
+        ? `Payment overdue — ${Math.floor(overdue / 3600000)}h into 48h grace period`
+        : 'Grace period expired — agent will be stopped soon'
+      : null;
+    return {
+      agent_id: a.agent_id,
+      agent_name: a.agent_name,
+      tier_id: a.tier_id,
+      status: a.status,
+      bundles: a.bundles,
+      next_payment_due: a.subscription.next_payment_due.toISOString(),
+      warning,
+    };
+  });
+  return JSON.stringify({ agents: result, total: result.length }, null, 2);
+}
+
+async function handleMakeAgentPublic(input: unknown): Promise<string> {
+  const z = (await import('zod')).z;
+  const parsed = z.object({
+    agent_id: z.string(),
+    owner_wallet: z.string(),
+    public_description: z.string(),
+    tags: z.array(z.string()).optional().default([]),
+  }).parse(input);
+  const agent = getAgent(parsed.agent_id);
+  if (!agent) throw new Error('Agent not found');
+  if (agent.owner_wallet !== parsed.owner_wallet) throw new Error('Unauthorized');
+  agent.is_public = true;
+  agent.public_description = parsed.public_description;
+  agent.tags = parsed.tags;
+  updateAgentStatus(parsed.agent_id, agent.status);
+  return JSON.stringify({ success: true, message: `Agent "${agent.agent_name}" is now public in the registry.` }, null, 2);
+}
+
+async function handleBrowseRegistry(input: unknown): Promise<string> {
+  const z = (await import('zod')).z;
+  const parsed = z.object({
+    tag: z.string().optional(),
+    bundle: z.string().optional(),
+    limit: z.number().default(10),
+  }).parse(input);
+  const agents = listPublicAgents(parsed.tag, parsed.bundle).slice(0, parsed.limit);
+  const result = agents.map(a => ({
+    agent_id: a.agent_id,
+    agent_name: a.agent_name,
+    description: a.public_description,
+    bundles: a.bundles,
+    tier_id: a.tier_id,
+    tags: a.tags ?? [],
+    clone_hint: `Run deploy_agent with bundles=${JSON.stringify(a.bundles)} and tier_id="${a.tier_id}"`,
+  }));
+  return JSON.stringify({ agents: result, total: result.length }, null, 2);
 }
