@@ -1,7 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { handleToolCall } from './tools';
-import { ToolInputMap } from './schemas';
+import { ToolInputSchemas } from './schemas';
 import { logger } from '../utils/logger';
 import { ZodError } from 'zod';
 
@@ -72,7 +72,7 @@ export class ClawdropAPIServer {
       logger.info({ tool: toolName, input }, 'Tool request received');
 
       // Validate input using schemas
-      const validator = (ToolInputMap as any)[toolName];
+      const validator = (ToolInputSchemas as any)[toolName];
       if (!validator) {
         res.status(400).json({
           success: false,

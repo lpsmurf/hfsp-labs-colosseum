@@ -1,115 +1,182 @@
 import { z } from 'zod';
-import { TierSchema } from '../models/tier';
-import { DeploymentSchema } from '../models/deployment';
-import { PaymentSchema } from '../models/payment';
 
-// ============================================================================
-// Re-export Models
-// ============================================================================
+// Solana base58 public key: 32-44 chars, base58 alphabet
+const SolanaWalletSchema = z
+  .string()
+  .min(32)
+  .max(44)
+  .regex(/^[1-9A-HJ-NP-Za-km-z]+$/, 'Invalid Solana wallet address (must be base58)');
 
-export type Tier = z.infer<typeof TierSchema>;
-export type Deployment = z.infer<typeof DeploymentSchema>;
-export type Payment = z.infer<typeof PaymentSchema>;
+// ─── Shared enums ─────────────────────────────────────────────────────────────
 
-// ============================================================================
-// Tool Request/Response Schemas (RENAMED)
-// ============================================================================
+export const PaymentTokenSchema = z.enum(['SOL', 'USDT', 'USDC', 'HERD']);
+export const BundleSchema = z.enum(['solana', 'research', 'treasury', 'travel-crypto-pro']);
+export const AgentStatusSchema = z.enum([
+  'provisioning',
+  'running',
+  'paused',
+  'failed',
+  'stopped',
+]);
 
-// LIST_TIERS (was list_services)
-export const ListTiersRequestSchema = z.object({});
+// ─── list_tiers ───────────────────────────────────────────────────────────────
 
-export const ListTiersResponseSchema = z.object({
-  tiers: z.array(TierSchema),
-  total_count: z.number(),
+export const ListTiersInputSchema = z.object({});
+
+export const TierInfoSchema = z.object({
+  tier_id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  price_usd: z.number(),
+  vps_type: z.enum(['shared-docker', 'dedicated-vps']),
+  vps_capacity: z.string(),
+  available_bundles: z.array(BundleSchema),
 });
 
-// QUOTE_TIER (was quote_service)
-export const QuoteTierRequestSchema = z.object({
-  tier_id: z.string().describe('The ID of the tier to quote'),
-  token: z.enum(['sol', 'herd']).default('sol').describe('Token to quote in'),
+export const ListTiersOutputSchema = z.object({
+  tiers: z.array(TierInfoSchema),
 });
 
-export const QuoteTierResponseSchema = z.object({
+// ─── quote_tier ───────────────────────────────────────────────────────────────
+
+export const QuoteTierInputSchema = z.object({
+  tier_id: z.string().describe('Tier to quote (tier_a, tier_b, tier_c)'),
+  payment_token: PaymentTokenSchema.default('SOL').describe(
+    'Token you want to pay with'
+  ),
+  bundles: z
+    .array(BundleSchema)
+    .default([])
+    .describe('Optional capability bundles (do not affect price)'),
+});
+
+export const QuoteTierOutputSchema = z.object({
   tier_id: z.string(),
   tier_name: z.string(),
-  price: z.number(),
-  token: z.enum(['sol', 'herd']),
-  estimated_gas: z.number().optional(),
-  total_with_gas: z.number(),
-  valid_until: z.string().datetime(),
+  price_usd: z.number(),
+  price_in_token: z.number(),
+  payment_token: PaymentTokenSchema,
+  fee_usd: z.number(),
+  fee_breakdown: z.string(),
+  bundles_included: z.array(BundleSchema),
+  quote_expires_at: z.string().datetime(),
 });
 
-// VERIFY_PAYMENT (was pay_with_sol)
-export const VerifyPaymentRequestSchema = z.object({
-  payment_id: z.string().describe('Payment ID to verify'),
-  tx_hash: z.string().describe('Solana devnet transaction hash'),
+// ─── deploy_agent ─────────────────────────────────────────────────────────────
+
+export const DeployAgentInputSchema = z.object({
+  tier_id: z.string().describe('Tier to deploy on (tier_a, tier_b, tier_c)'),
+  agent_name: z.string().min(3).max(64).describe('Display name for your agent'),
+  owner_wallet: z.string().describe('Your Solana wallet public key'),
+  payment_token: PaymentTokenSchema.describe('Token used for payment'),
+  payment_tx_hash: z.string().describe('Transaction hash proving payment'),
+  bundles: z
+    .array(BundleSchema)
+    .default([])
+    .describe('Capability bundles to install (solana, research, treasury, travel-crypto-pro)'),
+  telegram_token: z
+    .string()
+    .optional()
+    .describe('Telegram bot token (from @BotFather) — enables your agent on Telegram'),
+  llm_provider: z
+    .enum(['anthropic', 'openai', 'openrouter'])
+    .default('anthropic')
+    .describe('LLM provider for your agent'),
+  llm_api_key: z
+    .string()
+    .optional()
+    .describe('API key for your chosen LLM provider'),
 });
 
-export const VerifyPaymentResponseSchema = z.object({
-  payment_id: z.string(),
-  verified: z.boolean(),
-  tx_hash: z.string(),
-  amount_sol: z.number(),
-  amount_usd: z.number(),
-  status: z.enum(['pending', 'confirmed', 'failed']),
-  explorer_url: z.string().url(),
-});
-
-// DEPLOY_OPENCLAW_INSTANCE (was create_openclaw_agent)
-export const DeployOpenclawInstanceRequestSchema = z.object({
-  tier_id: z.string().describe('The tier to deploy'),
-  payment_id: z.string().describe('Payment ID that verified this deployment'),
-  agent_name: z.string().describe('Human-readable name for the agent'),
-  agent_description: z.string().optional().describe('Description of the agent'),
-  wallet_address: z.string().describe('Customer wallet address'),
-  region: z.string().default('us-east').describe('Hosting region'),
-  config: z.record(z.any()).optional().describe('Custom configuration'),
-});
-
-export const DeployOpenclawInstanceResponseSchema = z.object({
-  deployment_id: z.string(),
+export const DeployAgentOutputSchema = z.object({
   agent_id: z.string(),
   agent_name: z.string(),
-  status: z.enum(['provisioning', 'running', 'failed']),
+  tier_id: z.string(),
+  status: AgentStatusSchema,
+  bundles: z.array(BundleSchema),
   deployed_at: z.string().datetime(),
+  next_payment_due: z.string().datetime(),
   console_url: z.string().url().optional(),
+  message: z.string(),
 });
 
-// GET_DEPLOYMENT_STATUS (was get_agent_status)
-export const GetDeploymentStatusRequestSchema = z.object({
-  deployment_id: z.string().describe('The deployment ID'),
+// ─── get_deployment_status ────────────────────────────────────────────────────
+
+export const GetDeploymentStatusInputSchema = z.object({
+  agent_id: z.string().describe('The agent ID returned from deploy_agent'),
+  owner_wallet: SolanaWalletSchema.describe('Your Solana wallet public key (proves ownership)'),
 });
 
-export const GetDeploymentStatusResponseSchema = z.object({
-  deployment_id: z.string(),
+export const GetDeploymentStatusOutputSchema = z.object({
   agent_id: z.string(),
-  status: z.enum(['provisioning', 'running', 'paused', 'failed', 'stopped']),
+  agent_name: z.string(),
+  tier_id: z.string(),
+  status: AgentStatusSchema,
+  bundles: z.array(BundleSchema),
+  vps_ip: z.string().optional(),
+  console_url: z.string().url().optional(),
   uptime_seconds: z.number(),
   last_activity: z.string().datetime(),
-  endpoint: z.string().url().optional(),
-  logs: z.array(z.object({
-    timestamp: z.string().datetime(),
-    level: z.enum(['info', 'warn', 'error']),
-    message: z.string(),
-  })).optional(),
+  subscription: z.object({
+    next_payment_due: z.string().datetime(),
+    grace_period_end: z.string().datetime().nullable(),
+    amount_usd: z.number(),
+    payment_token: PaymentTokenSchema,
+    payments_made: z.number(),
+  }),
+  recent_logs: z.array(
+    z.object({
+      timestamp: z.string().datetime(),
+      level: z.enum(['info', 'warn', 'error']),
+      message: z.string(),
+    })
+  ),
+  warning: z.string().nullable(),
 });
 
-// ============================================================================
-// Tool Input/Output Maps
-// ============================================================================
+// ─── cancel_subscription ─────────────────────────────────────────────────────
 
-export const ToolInputMap = {
-  list_tiers: ListTiersRequestSchema,
-  quote_tier: QuoteTierRequestSchema,
-  verify_payment: VerifyPaymentRequestSchema,
-  deploy_openclaw_instance: DeployOpenclawInstanceRequestSchema,
-  get_deployment_status: GetDeploymentStatusRequestSchema,
-};
+export const CancelSubscriptionInputSchema = z.object({
+  agent_id: z.string().describe('The agent ID to cancel'),
+  owner_wallet: SolanaWalletSchema.describe('Your Solana wallet public key (proves ownership)'),
+  confirm: z
+    .literal(true)
+    .describe('Must be true to confirm cancellation — agent will be stopped'),
+});
 
-export const ToolOutputMap = {
-  list_tiers: ListTiersResponseSchema,
-  quote_tier: QuoteTierResponseSchema,
-  verify_payment: VerifyPaymentResponseSchema,
-  deploy_openclaw_instance: DeployOpenclawInstanceResponseSchema,
-  get_deployment_status: GetDeploymentStatusResponseSchema,
-};
+export const CancelSubscriptionOutputSchema = z.object({
+  agent_id: z.string(),
+  status: z.literal('stopped'),
+  message: z.string(),
+  stopped_at: z.string().datetime(),
+});
+
+
+// ─── renew_subscription ───────────────────────────────────────────────────────
+
+export const RenewSubscriptionInputSchema = z.object({
+  agent_id: z.string().describe('Agent ID to renew'),
+  owner_wallet: z.string().describe('Your Solana wallet public key (proves ownership)'),
+  payment_tx_hash: z.string().describe('Transaction hash of renewal payment'),
+  payment_token: z.enum(['SOL', 'USDC', 'USDT']).default('SOL'),
+});
+
+export const RenewSubscriptionOutputSchema = z.object({
+  agent_id: z.string(),
+  status: z.string(),
+  renewed_until: z.string(),
+  message: z.string(),
+  was_stopped: z.boolean(),
+  restarted: z.boolean(),
+});
+
+// ─── Tool input/output maps ───────────────────────────────────────────────────
+
+export const ToolInputSchemas = {
+  list_tiers: ListTiersInputSchema,
+  quote_tier: QuoteTierInputSchema,
+  deploy_agent: DeployAgentInputSchema,
+  get_deployment_status: GetDeploymentStatusInputSchema,
+  cancel_subscription: CancelSubscriptionInputSchema,
+  renew_subscription: RenewSubscriptionInputSchema,
+} as const;

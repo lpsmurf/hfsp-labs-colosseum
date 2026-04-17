@@ -1,28 +1,27 @@
+import 'dotenv/config';
 import { ClawdropMCPServer } from './server/mcp';
-import { ClawdropAPIServer } from './server/api';
 import { logger } from './utils/logger';
+import { startSubscriptionEnforcer } from './services/subscription-enforcer';
 
 async function main() {
   try {
-    // Check which mode to run
-    const mode = process.env.CLAWDROP_MODE || 'mcp';
-    
-    if (mode === 'api' || mode === 'both') {
-      // Start HTTP API server
-      const apiPort = parseInt(process.env.API_PORT || '3000', 10);
-      const apiServer = new ClawdropAPIServer(apiPort);
-      await apiServer.start();
-      logger.info({ port: apiPort }, 'API server started');
-    }
+    const server = new ClawdropMCPServer();
+    await server.start();
 
-    if (mode === 'mcp' || mode === 'both') {
-      // Start MCP server (stdio - blocking)
-      const server = new ClawdropMCPServer();
-      await server.start();
-      // MCP runs indefinitely on stdio
-    }
+    // Start subscription enforcer (hourly checks, 48-hour grace period)
+    const enforcerTimer = startSubscriptionEnforcer();
+    logger.info('Subscription enforcer started (hourly checks)');
+
+    // Graceful shutdown
+    const shutdown = () => {
+      clearInterval(enforcerTimer);
+      logger.info('Subscription enforcer stopped');
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
   } catch (error) {
-    logger.error(error, 'Failed to start Clawdrop server');
+    logger.error(error, 'Failed to start Clawdrop MCP server');
     process.exit(1);
   }
 }
