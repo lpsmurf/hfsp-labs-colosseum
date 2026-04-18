@@ -1,0 +1,55 @@
+Commons Clause License Condition v1.0
+
+The Software (as defined below) is provided to you by the copyright holders under the 
+terms of the MIT License, provided that you comply with the additional restrictions in 
+this Commons Clause.
+
+RESTRICTION: Without limiting other conditions in the MIT License, you may not use the 
+Software for any commercial purpose or for any public display (commercial or non-commercial).
+
+For purposes of this restriction, "commercial purpose" means using the Software, alone or in 
+combination with other code, materials, or services, in a manner intended to generate revenue, 
+monetary compensation, or other form of remuneration or commercial benefit, directly or indirectly.
+
+You may use the Software for educational, evaluation, and testing purposes.
+
+MIT License
+
+Copyright (c) 2026 HFSP Labs
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+1. The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+2. The above Commons Clause restriction applies to all derivative works.
+
+3. Proper attribution to HFSP Labs must be maintained in all derivative works.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+EXCEPTIONS & CLARIFICATIONS:
+
+1. HACKATHON EVALUATION: This software is provided for free evaluation and use by 
+   hackathon judges and participants for assessment purposes.
+
+2. ACADEMIC USE: Academic institutions may use this software for educational and 
+   research purposes.
+
+3. LICENSING: For commercial licensing inquiries, contact: info@asicgenesis.com
+
+4. TIMESTAMP VERIFICATION: The git commit history serves as timestamped evidence of 
+   original development and intellectual property ownership.

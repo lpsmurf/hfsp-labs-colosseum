@@ -1,0 +1,34 @@
+{
+  "name": "@hfsp-labs/colosseum",
+  "version": "1.0.0",
+  "description": "HFSP Labs unified monorepo for Clawdrop MCP and Agent Provisioning",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd packages/agent-provisioning && npm install && cd ../clawdrop-mcp && npm install",
+    "dev": "npm run dev --workspaces --parallel",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "keywords": [
+    "payment-protocol",
+    "x402",
+    "agent-provisioning",
+    "solana",
+    "web3",
+    "hackathon"
+  ],
+  "author": "HFSP Labs",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpsmurf/hfsp-labs-colosseum.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lpsmurf/hfsp-labs-colosseum/issues"
+  },
+  "homepage": "https://hfsp.labs"
+}
