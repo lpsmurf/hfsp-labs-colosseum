@@ -10,6 +10,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { logger } from '../utils/logger';
 import * as phase4Store from '../db/phase4-store';
+import { provisionAfterPayment } from './openrouter';
 
 const router = Router();
 
@@ -174,10 +175,16 @@ router.post('/payment-confirmed', async (req, res) => {
     });
 
     // TODO: Week 2 - Trigger OpenRouter provisioning asynchronously
-    // This would call the provisioning service to set up the user's API access
-    // provisioner.provisionOpenRouterAccount(userId, herdAmount).catch(err => {
-    //   logger.error(`Provisioning failed for ${userId}:`, err);
-    // });
+    // This provisions API access after successful payment
+    provisionAfterPayment(userId, herdAmount).then(result => {
+      if (result.success) {
+        logger.info({ userId, keyId: result.keyId }, 'OpenRouter auto-provisioned after payment');
+      } else {
+        logger.error({ userId, error: result.error }, 'OpenRouter auto-provisioning failed');
+      }
+    }).catch(err => {
+      logger.error({ userId, error: err }, 'OpenRouter provisioning error');
+    });
 
     logger.info({ eventId }, 'Webhook processed successfully');
 

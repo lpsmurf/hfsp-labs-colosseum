@@ -12,6 +12,7 @@ import transactionRouter from '../api/routes/transactions';
 import authRouter from './auth';
 import paymentRouter from './payment';
 import webhooksRouter from './webhooks';
+import openRouterRouter from './openrouter';
 import healthRouter from '../api/routes/health';
 import { apiLimiter, strictLimiter } from '../middleware/rate-limit';
 
@@ -84,6 +85,9 @@ export class ClawdropAPIServer {
     
     // Webhook routes (webhook-specific rate limiting)
     this.app.use('/webhooks', webhooksRouter);
+    
+    // OpenRouter provisioning routes (Week 2)
+    this.app.use('/api/v1/openrouter', apiLimiter, openRouterRouter);
     
     // Health checks (comprehensive)
     this.app.use('/health', healthRouter);
