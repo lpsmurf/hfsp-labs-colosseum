@@ -1,0 +1,112 @@
+[
+  {
+    "id": "treasury-agent",
+    "name": "Treasury Agent",
+    "description": "AI-powered treasury management agent that monitors balances, manages cash flow, and optimizes yields",
+    "category": "treasury",
+    "capability_bundle": "treasury-ops",
+    "features": ["balance-monitoring", "cash-flow-management", "yield-optimization"],
+    "price_sol": 5.0,
+    "price_herd": 500.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "treasury-agent-pro",
+    "name": "Treasury Agent Pro",
+    "description": "Advanced treasury agent with multi-sig support, advanced yield optimization, and risk analytics",
+    "category": "treasury",
+    "capability_bundle": "treasury-ops-pro",
+    "features": ["multi-sig-support", "advanced-yield-optimization", "risk-analytics"],
+    "price_sol": 8.5,
+    "price_herd": 850.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "research-execution",
+    "name": "Research-to-Execution Agent",
+    "description": "Autonomous agent that researches market opportunities, analyzes data, and executes trades",
+    "category": "research",
+    "capability_bundle": "research-crypto",
+    "features": ["market-research", "data-analysis", "trade-execution"],
+    "price_sol": 3.0,
+    "price_herd": 300.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "research-execution-pro",
+    "name": "Research-to-Execution Pro",
+    "description": "Enterprise research agent with backtesting, sentiment analysis, on-chain signals, and risk modeling",
+    "category": "research",
+    "capability_bundle": "research-crypto-pro",
+    "features": ["backtesting", "sentiment-analysis", "on-chain-signals", "risk-modeling"],
+    "price_sol": 6.0,
+    "price_herd": 600.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "wallet-policy-mgr",
+    "name": "Wallet Policy Manager",
+    "description": "Manage spending policies, transaction approvals, and risk controls for your wallet",
+    "category": "wallet",
+    "capability_bundle": "wallet-controls",
+    "features": ["spending-policies", "transaction-approvals", "risk-controls"],
+    "price_sol": 2.0,
+    "price_herd": 200.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "wallet-policy-enterprise",
+    "name": "Wallet Policy Enterprise",
+    "description": "Multi-wallet policy manager with team controls, approval workflows, and detailed audit logs",
+    "category": "wallet",
+    "capability_bundle": "wallet-controls-enterprise",
+    "features": ["multi-wallet-support", "team-controls", "approval-workflows", "audit-logs"],
+    "price_sol": 4.5,
+    "price_herd": 450.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "travel-crypto-pro",
+    "name": "Travel Crypto Pro",
+    "description": "Travel-focused crypto agent with real-time exchange rates, payment optimization, and compliance",
+    "category": "agent",
+    "capability_bundle": "travel-crypto-pro",
+    "features": ["exchange-rates", "payment-optimization", "compliance-checks"],
+    "price_sol": 2.5,
+    "price_herd": 250.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "defi-auto-rebalancer",
+    "name": "DeFi Auto-Rebalancer",
+    "description": "Automatically rebalances DeFi portfolios based on target allocations and market conditions",
+    "category": "finance",
+    "capability_bundle": "defi-management",
+    "features": ["portfolio-rebalancing", "market-monitoring", "auto-execution"],
+    "price_sol": 3.5,
+    "price_herd": 350.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "nft-portfolio-mgr",
+    "name": "NFT Portfolio Manager",
+    "description": "Manage, monitor, and trade NFT portfolios with floor price analytics and market insights",
+    "category": "finance",
+    "capability_bundle": "nft-management",
+    "features": ["portfolio-tracking", "floor-price-analytics", "market-insights"],
+    "price_sol": 4.0,
+    "price_herd": 400.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "governance-voter",
+    "name": "Governance Voter",
+    "description": "Autonomous governance participation agent that monitors proposals and votes on behalf of your holdings",
+    "category": "agent",
+    "capability_bundle": "governance",
+    "features": ["proposal-monitoring", "voting-automation", "governance-tracking"],
+    "price_sol": 1.5,
+    "price_herd": 150.0,
+    "deployment_type": "openclaw"
+  }
+]
