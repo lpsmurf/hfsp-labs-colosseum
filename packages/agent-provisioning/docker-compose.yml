@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: hfsp-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"      # bind to loopback — nginx proxies externally
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DB_PATH: /app/data/storefront.sqlite
+      TELEGRAM_BOT_TOKEN_FILE: /secrets/hfsp_agent_bot.token
+      HFSP_DB_SECRET_FILE: /secrets/hfsp_db_secret
+      SOLANA_NETWORK: ${SOLANA_NETWORK:-mainnet-beta}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
+      SOLANA_WALLET_ADDRESS: ${SOLANA_WALLET_ADDRESS}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://app.piercalito.com}
+      WEBAPP_URL: ${WEBAPP_URL:-https://app.piercalito.com}
+    volumes:
+      - ./data:/app/data
+      - /home/hfsp2/.openclaw/secrets:/secrets:ro
+    networks:
+      - hfsp-network
+
+  wizard:
+    build:
+      context: ./services/clawdrop-wizard
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.piercalito.com}
+    container_name: hfsp-wizard
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5173:80"        # nginx inside, proxied externally
+    networks:
+      - hfsp-network
+    depends_on:
+      - api
+
+networks:
+  hfsp-network:
+    driver: bridge

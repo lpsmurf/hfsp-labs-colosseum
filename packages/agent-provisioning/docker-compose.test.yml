@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  test-container:
+    build:
+      context: ./tenant-runtime-image
+      dockerfile: Dockerfile
+    container_name: test-env-vars
+    environment:
+      telegram_token: ${telegram_token}
+      llm_api_key: ${llm_api_key}
+      # Also set standard names that the entrypoint might use
+      TELEGRAM_BOT_TOKEN: ${telegram_token}
+      ANTHROPIC_API_KEY: ${llm_api_key}
+    command: ["/bin/bash", "-c", "echo '=== Environment Variables ===' && env | grep -E '(telegram_token|llm_api_key|TELEGRAM|ANTHROPIC|OPENAI)' | sort && echo '' && echo '=== Verification ===' && if [[ -n \"\${telegram_token}\" ]]; then echo '✓ telegram_token is set (length:' \${#telegram_token})'; else echo '✗ telegram_token is NOT set'; fi && if [[ -n \"\${llm_api_key}\" ]]; then echo '✓ llm_api_key is set (length:' \${#llm_api_key})'; else echo '✗ llm_api_key is NOT set'; fi"]
