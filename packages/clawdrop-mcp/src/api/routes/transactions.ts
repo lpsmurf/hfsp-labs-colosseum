@@ -268,14 +268,14 @@ transactionRouter.get('/history/:wing', async (req: Request, res: Response) => {
     const history = await getWingHistoryHook(wing);
 
     logger.info(
-      { wing, transactions: history?.length || 0 },
+      { wing, transactions: history.transactions?.length || 0 },
       '[TX_API_HISTORY_RETRIEVED] Wing history retrieved'
     );
 
     res.json({
       wing,
-      count: history?.length || 0,
-      transactions: history || [],
+      count: history.transactions?.length || 0,
+      transactions: history.transactions || [],
       page: Number(page),
       limit: Number(limit),
     });
@@ -305,9 +305,9 @@ transactionRouter.get('/search', async (req: Request, res: Response) => {
     const results = await searchTransactionsHook(keyword);
 
     // Filter by wing if provided
-    let filtered = results;
+    let filtered = results.results || [];
     if (wing && typeof wing === 'string') {
-      filtered = results.filter((tx: any) => tx.wing === wing);
+      filtered = filtered.filter((tx: any) => tx.wing === wing);
     }
 
     logger.info(

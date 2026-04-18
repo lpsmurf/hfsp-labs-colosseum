@@ -7,8 +7,8 @@
 
 import { Request } from 'express';
 
-export type TransactionType = 'swap' | 'flight' | 'transfer' | 'booking';
-export type FeeType = 'swap' | 'transfer' | 'booking';
+export type TransactionType = 'swap' | 'flight' | 'transfer';
+export type FeeType = 'swap' | 'transfer' | 'flight';
 
 export interface ClawdropRequestContext {
   // From x402 middleware (transaction classification)

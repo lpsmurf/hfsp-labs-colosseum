@@ -86,7 +86,7 @@ export async function generatePaymentQuote(
     if (tier_id) {
       feeType = 'swap';
     } else if (req.body.flight_booking_value || req.body.hotel_booking_value) {
-      feeType = 'booking';
+      feeType = 'flight';
     }
 
     // Get token prices
@@ -102,7 +102,7 @@ export async function generatePaymentQuote(
       quote = await getPaymentQuote(tier_id, amount_sol, from_token);
       feeCalc = calculateSwapFee(amount_sol, solPrice);
       
-    } else if (feeType === 'booking' && req.body.booking_value_usd) {
+    } else if (feeType === 'flight' && req.body.booking_value_usd) {
       // Booking quote
       feeCalc = calculateBookingFee(req.body.booking_value_usd, solPrice);
       quote = {
@@ -279,14 +279,10 @@ export async function executePayment(
     
     // Record error in transaction hooks
     try {
-      await onTransactionErrorHook(req, {
-        transaction_id: req.clawdrop?.transactionId || 'unknown',
-        transaction_type: req.clawdrop?.feeType || 'transfer',
-        status: 'failed',
-        fee_sol: req.clawdrop?.feeAmount || 0,
-        fee_usd: req.clawdrop?.feeUsd || 0,
-        wallet_address: req.body?.wallet_address || 'unknown',
-      }, error);
+      await onTransactionErrorHook(
+        req.clawdrop?.feeType || 'transfer',
+        error
+      );
     } catch (hookError) {
       logger.warn({ error: hookError }, '[PAYMENT_HOOK_ERROR] Error hook failed');
     }
@@ -309,14 +305,10 @@ export async function recordTransactionSuccess(
 ): Promise<void> {
   try {
     // Call after success hook
-    await afterTransactionSuccessHook(req, {
-      transaction_id: req.clawdrop?.transactionId || 'unknown',
-      transaction_type: req.clawdrop?.feeType || 'transfer',
-      status: 'success',
-      fee_sol: req.clawdrop?.feeAmount || 0,
-      fee_usd: req.clawdrop?.feeUsd || 0,
-      wallet_address: req.body?.wallet_address || 'unknown',
-    });
+    await afterTransactionSuccessHook(
+      req.clawdrop?.feeType || 'transfer',
+      req.clawdrop?.metadata
+    );
 
     logger.info(
       { tx_id: req.clawdrop?.transactionId },

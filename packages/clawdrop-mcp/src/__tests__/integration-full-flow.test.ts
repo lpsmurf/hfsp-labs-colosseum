@@ -16,7 +16,7 @@
 import request from 'supertest';
 import { ClawdropAPIServer } from '../server/api';
 import { classifyTransaction } from '../services/transaction-classifier';
-import { calculateSwapFee, calculateTransferFee, calculateBookingFee } from '../services/fee-collector';
+import { calculateSwapFee, calculateTransferFee, calculateFlightFee } from '../services/fee-collector';
 import { getPaymentQuote } from '../services/payment';
 
 describe('[INTEGRATION_TEST] Full Payment Flow', () => {
@@ -86,7 +86,7 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
     });
 
     it('should calculate booking fee (0.5%)', () => {
-      const quote = calculateBookingFee(850, 250); // $850 booking
+      const quote = calculateFlightFee(850, 250); // $850 booking
       
       expect(quote.fee_sol).toBe(0.017); // $4.25 / $250 = 0.017 SOL
       expect(quote.fee_usd_estimate).toBe(4.25); // 850 * 0.005
@@ -94,7 +94,7 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
     });
 
     it('should apply minimum fee floor for small bookings', () => {
-      const quote = calculateBookingFee(10, 250); // Small $10 booking
+      const quote = calculateFlightFee(10, 250); // Small $10 booking
       
       expect(quote.fee_sol).toBeGreaterThanOrEqual(0.00005); // MIN_FEE_SOL
     });
