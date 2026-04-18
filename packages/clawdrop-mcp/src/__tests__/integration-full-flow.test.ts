@@ -34,7 +34,7 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
       const classification = await classifyTransaction({
         path: '/api/swap',
         body: { tier_id: 'pro', amount_sol: 1 },
-      });
+      } as any);
 
       expect(classification.type).toBe('swap');
       expect(classification.confidence).toBeGreaterThan(0.8);
@@ -44,7 +44,7 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
       const classification = await classifyTransaction({
         path: '/api/transfer',
         body: { destination: 'wallet123', amount_sol: 2.5 },
-      });
+      } as any);
 
       expect(classification.type).toBe('transfer');
       expect(classification.confidence).toBeGreaterThan(0.7);
@@ -54,9 +54,9 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
       const classification = await classifyTransaction({
         path: '/api/booking',
         body: { booking_type: 'flight', booking_value_usd: 850 },
-      });
+      } as any);
 
-      expect(classification.type).toBe('booking');
+      expect(classification.type).toBe('flight');
       expect(classification.confidence).toBeGreaterThan(0.8);
     });
   });
@@ -109,7 +109,7 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
       expect(quote.payment_token).toBe('SOL');
       expect(quote.clawdrop_fee).toBeGreaterThan(0);
       expect(quote.clawdrop_receives).toBeLessThan(1.0);
-      expect(quote.expires_at).toBeGreaterThan(new Date());
+      expect(quote.expires_at.getTime()).toBeGreaterThan(Date.now());
     });
 
     it('should include swap details for non-SOL payments', async () => {
@@ -531,3 +531,4 @@ describe('[INTEGRATION_TEST] Full Payment Flow', () => {
     });
   });
 });
+

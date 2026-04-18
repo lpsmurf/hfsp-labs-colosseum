@@ -9,8 +9,8 @@
  */
 
 import { Router } from 'express';
-import { logger } from '../utils/logger';
-import { healthCheck as hfspHealthCheck } from '../integrations/hfsp';
+import { logger } from '../../utils/logger';
+import { healthCheck as hfspHealthCheck } from '../../integrations/hfsp';
 import axios from 'axios';
 
 const router = Router();
