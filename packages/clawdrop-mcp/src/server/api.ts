@@ -8,6 +8,13 @@ import { x402Middleware } from '../middleware/x402';
 import paymentMiddleware from '../middleware/payment';
 import transactionRouter from '../api/routes/transactions';
 
+// Week 1 Phase 4 Routes
+import authRouter from './auth';
+import paymentRouter from './payment';
+import webhooksRouter from './webhooks';
+import healthRouter from '../api/routes/health';
+import { apiLimiter, strictLimiter } from '../middleware/rate-limit';
+
 /**
  * Express HTTP API server for Clawdrop
  * 
@@ -65,10 +72,28 @@ export class ClawdropAPIServer {
   }
 
   private setupRoutes(): void {
-    // ========================================================================
-    // Health Check
-    // ========================================================================
-    this.app.get('/health', (req: Request, res: Response) => {
+    // ===================================================================
+    // Phase 4 Week 1: Authentication & Payment Routes
+    // ===================================================================
+    
+    // Authentication routes (strict rate limiting)
+    this.app.use('/api/v1/auth', strictLimiter, authRouter);
+    
+    // Payment routes (API rate limiting + auth required)
+    this.app.use('/api/v1/payment', apiLimiter, paymentRouter);
+    
+    // Webhook routes (webhook-specific rate limiting)
+    this.app.use('/webhooks', webhooksRouter);
+    
+    // Health checks (comprehensive)
+    this.app.use('/health', healthRouter);
+    
+    logger.info({}, '[API_ROUTES_SETUP] Phase 4 Week 1 routes mounted');
+
+    // ===================================================================
+    // Legacy Health Check (backward compatibility)
+    // ===================================================================
+    this.app.get('/health/legacy', (req: Request, res: Response) => {
       res.json({
         status: 'ok',
         service: 'clawdrop-api',
