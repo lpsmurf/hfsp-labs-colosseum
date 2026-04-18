@@ -1,4 +1,5 @@
 import { Tool } from '@modelcontextprotocol/sdk/types';
+import axios from 'axios';
 import {
   ToolInputSchemas,
   ListTiersOutputSchema,
@@ -28,6 +29,247 @@ import { logger } from '../utils/logger';
 
 // Load persisted state on startup
 loadFromDisk();
+
+// ─── Birdeye Integration ──────────────────────────────────────────────────────
+
+interface TokenAnalytics {
+  mint: string;
+  symbol: string;
+  name: string;
+  price_usd: number;
+  price_change_24h: number;
+  market_cap?: number;
+  liquidity?: number;
+  holder_count?: number;
+  volume_24h?: number;
+  price_source?: string;
+}
+
+interface WalletAnalytics {
+  wallet: string;
+  total_value_usd: number;
+  holdings: Array<{
+    mint: string;
+    symbol: string;
+    balance: number;
+    value_usd: number;
+    percentage_of_portfolio: number;
+  }>;
+}
+
+interface CacheEntry {
+  data: any;
+  expiresAt: number;
+}
+
+class BirdeyeCache {
+  private store = new Map<string, CacheEntry>();
+
+  get(key: string): any | null {
+    const entry = this.store.get(key);
+    if (!entry || Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+
+  set(key: string, data: any, ttlSeconds: number) {
+    this.store.set(key, {
+      data,
+      expiresAt: Date.now() + ttlSeconds * 1000
+    });
+  }
+
+  clear() {
+    this.store.clear();
+  }
+}
+
+const birdeyeCache = new BirdeyeCache();
+
+const BIRDEYE_CACHE_TTL = {
+  PRICE: 300,      // 5 minutes
+  TRENDING: 600,   // 10 minutes
+  WALLET: 300,     // 5 minutes
+  META: 3600,      // 1 hour
+};
+
+const BIRDEYE_API_KEY = process.env.BIRDEYE_API_KEY!;
+const BIRDEYE_BASE_URL = 'https://public-api.birdeye.so';
+const JUPITER_PRICE = 'https://price.jup.ag/v6/price';
+
+const birdeyeApi = axios.create({
+  baseURL: BIRDEYE_BASE_URL,
+  headers: {
+    'X-API-KEY': BIRDEYE_API_KEY || 'demo',
+    'Accept': 'application/json',
+  },
+  timeout: 10000,
+});
+
+// Retry on 521 errors
+birdeyeApi.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    const config = err.config;
+    if (!config || !config.retry) {
+      config.retry = 0;
+    }
+    if (err.response?.status === 521 && config.retry < 3) {
+      config.retry++;
+      const delay = Math.pow(2, config.retry) * 1000;
+      logger.warn({ retry: config.retry, delay }, 'Retrying Birdeye API (521 error)');
+      await new Promise(r => setTimeout(r, delay));
+      return birdeyeApi(config);
+    }
+    return Promise.reject(err);
+  }
+);
+
+async function getTokenPriceWithFallback(mint: string): Promise<any> {
+  try {
+    const res = await birdeyeApi.get(`/defi/price?token_address=${mint}&chain=solana`);
+    if (res.data?.success !== false) {
+      return { price_usd: res.data?.price || res.data?.value, source: 'birdeye' };
+    }
+  } catch (err: any) {
+    logger.warn({ mint, error: err.message }, 'Birdeye price failed, falling back to Jupiter');
+  }
+
+  try {
+    const res = await axios.get(`${JUPITER_PRICE}?ids=${mint}`);
+    const price = res.data.data?.[mint]?.price;
+    return { price_usd: price, source: 'jupiter' };
+  } catch (err: any) {
+    logger.error({ mint, error: err.message }, 'Both Birdeye and Jupiter price failed');
+    return { price_usd: 0, source: 'none' };
+  }
+}
+
+async function birdeyeGetTokenMeta(mint: string) {
+  try {
+    const res = await birdeyeApi.get(`/defi/v3/token/meta-data/single?tokenAddress=${mint}`);
+    return res.data?.data || res.data;
+  } catch (err: any) {
+    if (err.response?.status === 403) {
+      logger.warn('Birdeye v3 metadata requires higher permissions, using fallback');
+    }
+    return { symbol: 'UNKNOWN', name: 'Unknown Token' };
+  }
+}
+
+async function birdeyeGetTokenPrice(mint: string) {
+  return getTokenPriceWithFallback(mint);
+}
+
+async function birdeyeGetTrendingTokens() {
+  const res = await birdeyeApi.get('/defi/token_trending?limit=10');
+  return res.data?.data || res.data;
+}
+
+async function birdeyeGetWalletTokens(wallet: string) {
+  const res = await birdeyeApi.get(`/v1/wallet/token_list?address=${wallet}`);
+  return res.data?.data || res.data;
+}
+
+// ─── Risk Policy Integration ─────────────────────────────────────────────────
+
+type RiskTier = 'GREEN' | 'YELLOW' | 'RED';
+
+interface PolicyDecision {
+  action: 'swap' | 'send' | 'stake';
+  token_mint: string;
+  risk_tier: RiskTier;
+  decision: 'allowed' | 'warned' | 'blocked';
+  reason_if_blocked?: string;
+  warning_message?: string;
+}
+
+const WHITELIST = (process.env.WHITELIST_TOKENS || 'So11111111111111111111111111111111111111112,EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+  .split(',')
+  .filter(Boolean);
+
+const RISK_POLICY = process.env.RISK_POLICY || 'normal';
+
+async function assessTokenRisk(mint: string): Promise<{ tier: RiskTier; confidence: number; flags: string[]; reasoning: string; recommendation: 'proceed' | 'caution' | 'block' }> {
+  const API_KEY = process.env.DD_XYZ_API_KEY;
+
+  if (!API_KEY) {
+    logger.warn('DD_XYZ_API_KEY not set, returning YELLOW risk');
+    return {
+      tier: 'YELLOW',
+      confidence: 50,
+      flags: ['api_key_missing'],
+      reasoning: 'Risk API not configured - proceeding with caution',
+      recommendation: 'caution',
+    };
+  }
+
+  try {
+    const res = await axios.get(`https://dd.xyz/api/v1/token_risk?address=${mint}`, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` },
+      timeout: 10000,
+    });
+
+    const tier = (res.data.tier || 'yellow').toUpperCase() as RiskTier;
+    return {
+      tier,
+      confidence: res.data.confidence || 80,
+      flags: res.data.flags || [],
+      reasoning: res.data.reasoning || 'No specific issues detected',
+      recommendation: tier === 'GREEN' ? 'proceed' : tier === 'RED' ? 'block' : 'caution',
+    };
+  } catch (err) {
+    logger.error({ err, mint }, 'Failed to assess token risk');
+    return {
+      tier: 'YELLOW',
+      confidence: 50,
+      flags: ['api_error'],
+      reasoning: 'Unable to assess risk - API error',
+      recommendation: 'caution',
+    };
+  }
+}
+
+async function executeWithRiskCheck(
+  action: 'swap' | 'send' | 'stake',
+  tokenMint: string,
+  _amount: number
+): Promise<PolicyDecision> {
+  if (WHITELIST.includes(tokenMint)) {
+    return { action, token_mint: tokenMint, risk_tier: 'GREEN', decision: 'allowed' };
+  }
+
+  const risk = await assessTokenRisk(tokenMint);
+
+  if (risk.tier === 'GREEN') {
+    return { action, token_mint: tokenMint, risk_tier: 'GREEN', decision: 'allowed' };
+  }
+
+  if (risk.tier === 'YELLOW') {
+    const strictMode = RISK_POLICY === 'strict';
+    return {
+      action, token_mint: tokenMint, risk_tier: 'YELLOW',
+      decision: strictMode ? 'blocked' : 'warned',
+      warning_message: strictMode ? `Blocked: ${risk.reasoning}` : `⚠️ Caution: ${risk.reasoning}`,
+      reason_if_blocked: strictMode ? risk.reasoning : undefined,
+    };
+  }
+
+  return {
+    action, token_mint: tokenMint, risk_tier: 'RED', decision: 'blocked',
+    reason_if_blocked: `🚫 Blocked for safety: ${risk.reasoning}`,
+  };
+}
+
+function getRiskEmoji(tier: RiskTier): string {
+  switch (tier) {
+    case 'GREEN': return '🟢';
+    case 'YELLOW': return '🟡';
+    case 'RED': return '🔴';
+  }
+}
 
 // ─── Tool definitions (JSON Schema for MCP protocol) ─────────────────────────
 
@@ -248,6 +490,69 @@ export const tools: Tool[] = [
       required: ['agent_id', 'owner_wallet', 'amount_usd', 'payment_tx_hash'],
     },
   },
+  // Birdeye tools
+  {
+    name: 'get_token_analytics',
+    description: 'Get detailed analytics for a token (price, liquidity, holder count, volume)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mint: {
+          type: 'string',
+          description: 'Token mint address (e.g., EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v for USDC)'
+        }
+      },
+      required: ['mint'],
+    },
+  },
+  {
+    name: 'get_market_overview',
+    description: 'Get trending tokens on Solana (top 10 by volume/activity)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_wallet_analytics',
+    description: 'Analyze a wallet\'s token holdings and portfolio value',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        wallet: {
+          type: 'string',
+          description: 'Solana wallet address to analyze'
+        }
+      },
+      required: ['wallet'],
+    },
+  },
+  // Risk Policy tool
+  {
+    name: 'check_token_risk',
+    description: 'Assess the on-chain risk of a token before transacting (Green/Yellow/Red)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mint: {
+          type: 'string',
+          description: 'Token mint address to check'
+        },
+        action: {
+          type: 'string',
+          enum: ['swap', 'send', 'stake'],
+          description: 'Type of transaction you plan to do'
+        },
+        amount: {
+          type: 'number',
+          description: 'Amount (for context)',
+          default: 0
+        },
+      },
+      required: ['mint', 'action'],
+    },
+  },
 ];
 
 // ─── Tool dispatcher ──────────────────────────────────────────────────────────
@@ -267,6 +572,12 @@ export async function handleToolCall(toolName: string, toolInput: unknown): Prom
       case 'browse_registry':    return await handleBrowseRegistry(toolInput);
       case 'get_credits':       return await handleGetCredits(toolInput);
       case 'top_up_credits':    return await handleTopUpCredits(toolInput);
+      // Birdeye tools
+      case 'get_token_analytics': return await handleGetTokenAnalytics(toolInput);
+      case 'get_market_overview': return await handleGetMarketOverview(toolInput);
+      case 'get_wallet_analytics': return await handleGetWalletAnalytics(toolInput);
+      // Risk Policy tool
+      case 'check_token_risk': return await handleCheckTokenRisk(toolInput);
       default: throw new Error(`Unknown tool: ${toolName}`);
     }
   } catch (error) {
@@ -736,4 +1047,166 @@ async function handleBrowseRegistry(input: unknown): Promise<string> {
     clone_hint: `Run deploy_agent with bundles=${JSON.stringify(a.bundles)} and tier_id="${a.tier_id}"`,
   }));
   return JSON.stringify({ agents: result, total: result.length }, null, 2);
+}
+
+// ─── Birdeye Handlers ─────────────────────────────────────────────────────────
+
+async function handleGetTokenAnalytics(input: unknown): Promise<string> {
+  const parsed = input as { mint: string };
+  if (!parsed.mint) throw new Error('mint parameter required');
+
+  const mint = parsed.mint;
+  const cacheKey = `token:${mint}`;
+
+  // Check cache
+  const cached = birdeyeCache.get(cacheKey);
+  if (cached) {
+    return JSON.stringify(cached, null, 2);
+  }
+
+  // Fetch from API with fallback
+  const [meta, price] = await Promise.all([
+    birdeyeGetTokenMeta(mint).catch(() => ({ symbol: 'UNKNOWN', name: 'Unknown Token' })),
+    birdeyeGetTokenPrice(mint),
+  ]);
+
+  // Build result with fallback handling
+  const result: TokenAnalytics = {
+    mint,
+    symbol: meta?.symbol || 'UNKNOWN',
+    name: meta?.name || 'Unknown Token',
+    price_usd: price?.price_usd || 0,
+    price_change_24h: price?.price_change_24h || meta?.price24hChangePercent || 0,
+    market_cap: meta?.market_cap || meta?.fdv,
+    liquidity: meta?.liquidity,
+    holder_count: meta?.holder_count,
+    volume_24h: meta?.volume_24h || meta?.volume24hUSD,
+    price_source: price?.source || 'unknown',
+  };
+
+  // Cache result
+  birdeyeCache.set(cacheKey, result, BIRDEYE_CACHE_TTL.PRICE);
+
+  return JSON.stringify(result, null, 2);
+}
+
+async function handleGetMarketOverview(_input: unknown): Promise<string> {
+  const cacheKey = 'trending';
+
+  // Check cache
+  const cached = birdeyeCache.get(cacheKey);
+  if (cached) {
+    return JSON.stringify(cached, null, 2);
+  }
+
+  // Fetch from API
+  const data = await birdeyeGetTrendingTokens();
+
+  // Format top 10 from v3 API response
+  const tokens = data?.coins || data?.data || [];
+  const trending = tokens.slice(0, 10).map((t: any) => ({
+    mint: t.address || t.token_address,
+    symbol: t.symbol,
+    name: t.name,
+    price_usd: t.price,
+    price_change_24h: t.price24hChangePercent || t.price_change_24h,
+    volume_24h: t.volume24hUSD || t.volume_24h,
+  }));
+
+  const result = {
+    count: trending.length,
+    tokens: trending,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Cache result
+  birdeyeCache.set(cacheKey, result, BIRDEYE_CACHE_TTL.TRENDING);
+
+  return JSON.stringify(result, null, 2);
+}
+
+async function handleGetWalletAnalytics(input: unknown): Promise<string> {
+  const parsed = input as { wallet: string };
+  if (!parsed.wallet) throw new Error('wallet parameter required');
+
+  const wallet = parsed.wallet;
+  const cacheKey = `wallet:${wallet}`;
+
+  // Check cache
+  const cached = birdeyeCache.get(cacheKey);
+  if (cached) {
+    return JSON.stringify(cached, null, 2);
+  }
+
+  // Fetch wallet tokens (may fail with 403 if API key lacks permissions)
+  let tokens: any[] = [];
+  try {
+    const data = await birdeyeGetWalletTokens(wallet);
+    tokens = data?.items || data?.tokens || data || [];
+  } catch (err: any) {
+    logger.warn({ wallet, error: err.message }, 'Birdeye wallet fetch failed, returning empty');
+    // Return empty portfolio if wallet API fails
+    return JSON.stringify({
+      wallet,
+      total_value_usd: 0,
+      holdings: [],
+      note: 'Wallet analytics temporarily unavailable (API permissions)',
+    }, null, 2);
+  }
+
+  // Calculate total value
+  let totalValue = 0;
+  const holdings = [];
+
+  for (const token of tokens) {
+    const value = token.value_usd || token.valueUsd || 0;
+    totalValue += value;
+    holdings.push({
+      mint: token.address || token.mint,
+      symbol: token.symbol || 'UNKNOWN',
+      balance: token.ui_amount || token.balance || 0,
+      value_usd: value,
+      percentage_of_portfolio: 0,
+    });
+  }
+
+  // Calculate percentages
+  for (const h of holdings) {
+    h.percentage_of_portfolio = totalValue > 0
+      ? Math.round((h.value_usd / totalValue) * 100 * 100) / 100
+      : 0;
+  }
+
+  // Sort by value
+  holdings.sort((a: any, b: any) => b.value_usd - a.value_usd);
+
+  const result: WalletAnalytics = {
+    wallet,
+    total_value_usd: totalValue,
+    holdings,
+  };
+
+  // Cache result
+  birdeyeCache.set(cacheKey, result, BIRDEYE_CACHE_TTL.WALLET);
+
+  return JSON.stringify(result, null, 2);
+}
+
+// ─── Risk Policy Handler ──────────────────────────────────────────────────────
+
+async function handleCheckTokenRisk(input: unknown): Promise<string> {
+  const parsed = input as { mint: string; action: 'swap' | 'send' | 'stake'; amount?: number };
+  if (!parsed.mint) throw new Error('mint parameter required');
+  if (!parsed.action) throw new Error('action parameter required');
+
+  const result = await executeWithRiskCheck(parsed.action, parsed.mint, parsed.amount || 0);
+
+  const emoji = getRiskEmoji(result.risk_tier);
+  const summary = result.decision === 'blocked'
+    ? `${emoji} ${result.reason_if_blocked}`
+    : result.decision === 'warned'
+    ? `${emoji} ${result.warning_message}`
+    : `${emoji} Safe to proceed`;
+
+  return JSON.stringify({ ...result, summary }, null, 2);
 }
