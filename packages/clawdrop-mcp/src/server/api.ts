@@ -4,10 +4,25 @@ import { handleToolCall } from './tools';
 import { ToolInputSchemas } from './schemas';
 import { logger } from '../utils/logger';
 import { ZodError } from 'zod';
+import { x402Middleware } from '../middleware/x402';
+import paymentMiddleware from '../middleware/payment';
+import transactionRouter from '../api/routes/transactions';
 
 /**
  * Express HTTP API server for Clawdrop
- * Wraps MCP tools in REST endpoints
+ * 
+ * Middleware Stack:
+ * 1. CORS & JSON parsing
+ * 2. Request logging
+ * 3. x402 Payment Protocol (classifies transactions)
+ * 4. Payment Pipeline (quotes, execution, fee collection)
+ * 5. Route handlers (MCP tools & transaction APIs)
+ * 6. Error handling
+ * 
+ * Architecture:
+ * - Transaction routes flow through x402 → payment middleware → MemPalace
+ * - Fee collection happens automatically on all transactions
+ * - Multi-wing isolation: swap/flight/transfer keep separate conversation memory
  */
 
 export class ClawdropAPIServer {
@@ -37,15 +52,46 @@ export class ClawdropAPIServer {
       logger.info({ method: req.method, path: req.path }, 'HTTP request');
       next();
     });
+
+    // ========================================================================
+    // x402 Payment Protocol Middleware
+    // ========================================================================
+    // Classifies all transactions and attaches payment metadata
+    this.app.use('/api/swap', x402Middleware);
+    this.app.use('/api/transfer', x402Middleware);
+    this.app.use('/api/booking', x402Middleware);
+    
+    logger.info({}, '[API_MIDDLEWARE_SETUP] x402 middleware attached to payment routes');
   }
 
   private setupRoutes(): void {
-    // Health check endpoint
+    // ========================================================================
+    // Health Check
+    // ========================================================================
     this.app.get('/health', (req: Request, res: Response) => {
-      res.json({ status: 'ok', service: 'clawdrop-api', timestamp: new Date().toISOString() });
+      res.json({
+        status: 'ok',
+        service: 'clawdrop-api',
+        timestamp: new Date().toISOString(),
+        features: {
+          x402_enabled: true,
+          mempalace_enabled: true,
+          fee_collection_enabled: true,
+          multi_wing_routing: true,
+        },
+      });
     });
 
-    // Tool endpoints - one per tool
+    // ========================================================================
+    // Transaction APIs (with x402 + payment middleware)
+    // ========================================================================
+    this.app.use('/api', transactionRouter);
+
+    logger.info({}, '[API_ROUTES_SETUP] Transaction routes mounted at /api');
+
+    // ========================================================================
+    // Legacy MCP Tool Endpoints (without x402, for compatibility)
+    // ========================================================================
     this.app.post('/api/tools/list_tiers', this.handleToolRequest.bind(this, 'list_tiers'));
     this.app.post('/api/tools/quote_tier', this.handleToolRequest.bind(this, 'quote_tier'));
     this.app.post('/api/tools/verify_payment', this.handleToolRequest.bind(this, 'verify_payment'));
@@ -55,16 +101,80 @@ export class ClawdropAPIServer {
     // Also support GET for list_tiers (no input needed)
     this.app.get('/api/tools/list_tiers', this.handleToolRequest.bind(this, 'list_tiers'));
 
+    // ========================================================================
+    // API Documentation
+    // ========================================================================
+    this.app.get('/api/docs', (req: Request, res: Response) => {
+      res.json({
+        service: 'Clawdrop Payment Protocol',
+        version: '2.0',
+        description: 'x402 Payment-Required protocol with multi-wing transaction routing',
+        endpoints: {
+          transactions: {
+            'GET /api/quote': {
+              description: 'Generate payment quote without executing',
+              params: ['wallet_address', 'tier_id', 'amount_sol', 'from_token'],
+            },
+            'POST /api/swap': {
+              description: 'Token swap with fee collection',
+              body: ['wallet_address', 'tier_id', 'from_token', 'amount_sol'],
+            },
+            'POST /api/transfer': {
+              description: 'Direct SOL transfer',
+              body: ['wallet_address', 'destination', 'amount_sol'],
+            },
+            'POST /api/booking': {
+              description: 'Flight/hotel booking payment',
+              body: ['wallet_address', 'booking_type', 'booking_value_usd'],
+            },
+            'GET /api/history/:wing': {
+              description: 'Retrieve transaction history for wing (swap/transfer/booking)',
+              params: ['wing'],
+            },
+            'GET /api/search': {
+              description: 'Search transaction history',
+              query: ['keyword', 'wing'],
+            },
+            'GET /api/stats': {
+              description: 'Get transaction statistics and memory summary',
+            },
+          },
+          tools: {
+            'POST /api/tools/list_tiers': 'List available subscription tiers',
+            'POST /api/tools/quote_tier': 'Get pricing for tier',
+            'POST /api/tools/verify_payment': 'Verify payment on-chain',
+          },
+        },
+        features: {
+          'x402_protocol': 'HTTP 402 Payment Required standard',
+          'fee_models': {
+            'swap': '0.35% of transaction value',
+            'transfer': '$0.05 flat (~0.0002 SOL at $250/SOL)',
+            'booking': '0.5% of booking value',
+          },
+          'mempalace_integration': 'Persistent transaction memory with multi-wing isolation',
+          'multi_wing_routing': 'Separate conversation state per transaction type',
+          'code_signatures': '[HFSP_X402_*], [PAYMENT_*], [FEE_*], [MEMPALACE_*], [WING_*]',
+        },
+      });
+    });
+
     // 404 handler
     this.app.use((req: Request, res: Response) => {
       res.status(404).json({
         success: false,
         error: `Endpoint not found: ${req.method} ${req.path}`,
+        hint: 'See /api/docs for available endpoints',
       });
     });
   }
 
-  private async handleToolRequest(toolName: string, req: Request, res: Response, next: NextFunction): Promise<void> {
+  private async handleToolRequest(
+    toolName: string,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       // Get input from request body or query params
       const input = req.body || req.query || {};
@@ -114,7 +224,10 @@ export class ClawdropAPIServer {
   private setupErrorHandling(): void {
     // Global error handler
     this.app.use((error: any, req: Request, res: Response, next: NextFunction) => {
-      logger.error({ error: error.message, path: req.path }, 'HTTP error');
+      logger.error(
+        { error: error.message, path: req.path, code: error.code },
+        'HTTP error'
+      );
 
       const statusCode = error.statusCode || 500;
       const message = error.message || 'Internal server error';
@@ -122,6 +235,7 @@ export class ClawdropAPIServer {
       res.status(statusCode).json({
         success: false,
         error: message,
+        timestamp: new Date().toISOString(),
       });
     });
   }
@@ -129,7 +243,11 @@ export class ClawdropAPIServer {
   public async start(): Promise<void> {
     return new Promise((resolve) => {
       this.app.listen(this.port, () => {
-        logger.info({ port: this.port }, 'Clawdrop API server started');
+        logger.info(
+          { port: this.port },
+          '[API_SERVER_STARTED] Clawdrop API server started with x402 + MemPalace'
+        );
+        logger.info({}, '[API_FEATURES_ENABLED] x402 protocol, multi-wing routing, fee collection');
         resolve();
       });
     });
