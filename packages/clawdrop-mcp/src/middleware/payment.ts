@@ -34,22 +34,10 @@ import {
 import { MemPalaceClient } from '../integrations/mempalace';
 import { sendDevnetPayment, getBalance } from '../integrations/solana-payment';
 import { logger } from '../utils/logger';
+import '../types/request'; // Import unified request types
 
-// Extend Express Request to include payment context
-declare global {
-  namespace Express {
-    interface Request {
-      clawdrop?: {
-        feeType?: FeeType;
-        feeAmount?: number;
-        feeUsd?: number;
-        quote?: any;
-        transactionId?: string;
-        metadata?: Record<string, any>;
-      };
-    }
-  }
-}
+// Use FeeType from fee-collector
+export { FeeType };
 
 interface PaymentRequest {
   wallet_address: string;

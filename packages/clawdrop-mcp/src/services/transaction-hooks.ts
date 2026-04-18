@@ -56,89 +56,83 @@ export async function beforeTransactionHook(
 
 /**
  * Hook: After successful transaction - Save to MemPalace
+ * Simplified signature for direct usage
  */
 export async function afterTransactionSuccessHook(
-  req: Request,
-  context: TransactionContext
+  transactionType: 'swap' | 'flight' | 'transfer',
+  metadata?: Record<string, any>
 ): Promise<void> {
   try {
-    if (!req.clawdrop) return;
-
     const mempalace = getMemPalaceClient();
 
     // Check if MemPalace is available
     const healthy = await mempalace.isHealthy();
     if (!healthy) {
-      logger.warn({
-        wing: context.transaction_type,
-      }, '[MEMPALACE_WARN] MemPalace server not available');
+      logger.warn(
+        { wing: transactionType },
+        '[MEMPALACE_WARN] MemPalace server not available'
+      );
       return;
     }
 
-    // Save transaction to MemPalace
+    // Save to MemPalace with minimal context
     await mempalace.saveTransaction(
-      context.transaction_type,
-      { sol: context.fee_sol, usd: context.fee_usd },
-      context.wallet_address,
+      transactionType,
+      { sol: 0, usd: 0 },
+      'system',
       {
-        transaction_id: context.transaction_id,
-        confidence: context.confidence,
-        amount: context.amount,
+        transaction_id: generateTransactionId(),
+        status: 'success',
         timestamp: new Date().toISOString(),
-        ...context.metadata,
+        ...metadata,
       }
     );
 
-    logger.info({
-      transaction_id: context.transaction_id,
-      wing: context.transaction_type,
-      fee_sol: context.fee_sol,
-    }, '[MEMPALACE_TX_SAVED] Transaction memory stored');
-
+    logger.info({ wing: transactionType }, '[MEMPALACE_TX_SAVED] Transaction saved');
   } catch (error) {
-    logger.warn({
-      error: error instanceof Error ? error.message : String(error),
-      transaction_id: context.transaction_id,
-    }, '[MEMPALACE_HOOK_WARN] After transaction hook failed');
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      '[MEMPALACE_HOOK_WARN] After transaction hook failed'
+    );
   }
 }
 
 /**
  * Hook: On transaction error - Log failed attempt
+ * Simplified signature for direct usage
  */
 export async function onTransactionErrorHook(
-  req: Request,
-  context: TransactionContext,
+  transactionType: 'swap' | 'flight' | 'transfer',
   error: Error
 ): Promise<void> {
   try {
-    if (!req.clawdrop) return;
-
     const mempalace = getMemPalaceClient();
 
     // Log failed transaction attempt
     await mempalace.saveTransaction(
-      context.transaction_type,
-      { sol: context.fee_sol, usd: context.fee_usd },
-      context.wallet_address,
+      transactionType,
+      { sol: 0, usd: 0 },
+      'system',
       {
-        transaction_id: context.transaction_id,
+        transaction_id: generateTransactionId(),
         status: 'failed',
         error: error.message,
         timestamp: new Date().toISOString(),
       }
     );
 
-    logger.warn({
-      transaction_id: context.transaction_id,
-      wing: context.transaction_type,
-      error: error.message,
-    }, '[MEMPALACE_TX_ERROR] Transaction failed, saved to memory');
-
+    logger.warn(
+      {
+        wing: transactionType,
+        error: error.message,
+      },
+      '[MEMPALACE_TX_ERROR] Transaction failed, saved to memory'
+    );
   } catch (hookError) {
-    logger.warn({
-      error: hookError instanceof Error ? hookError.message : String(hookError),
-    }, '[MEMPALACE_HOOK_WARN] Error hook failed');
+    logger.warn(
+      { error: hookError instanceof Error ? hookError.message : String(hookError) },
+      '[MEMPALACE_HOOK_WARN] Error hook failed'
+    );
   }
 }
 
