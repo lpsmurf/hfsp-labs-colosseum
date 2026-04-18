@@ -21,7 +21,7 @@ export const FEE_RATES = {
   MIN_FEE_SOL: 0.00005,          // minimum fee (dust protection)
 } as const;
 
-export type FeeType = 'swap' | 'transfer' | 'booking';
+export type FeeType = 'swap' | 'transfer' | 'flight';
 
 export interface FeeEvent {
   type: FeeType;
@@ -78,9 +78,9 @@ export function calculateTransferFee(solPriceUsd = 250): FeeCalculation {
 }
 
 /**
- * Calculate fee for a booking (flight/hotel)
+ * Calculate fee for a flight/booking transaction
  */
-export function calculateBookingFee(bookingValueUsd: number, solPriceUsd = 250): FeeCalculation {
+export function calculateFlightFee(bookingValueUsd: number, solPriceUsd = 250): FeeCalculation {
   const fee_usd = bookingValueUsd * FEE_RATES.BOOKING_PERCENT;
   const fee_sol = fee_usd / solPriceUsd;
   return {
@@ -90,6 +90,9 @@ export function calculateBookingFee(bookingValueUsd: number, solPriceUsd = 250):
     clawdrop_wallet: getFeeWallet(),
   };
 }
+
+// Alias for backward compatibility
+export const calculateBookingFee = calculateFlightFee;
 
 /**
  * Collect fee on-chain by sending SOL to Clawdrop fee wallet
@@ -181,7 +184,7 @@ export function getFeeSummary(): {
     by_type: {
       swap: { count: 0, sol: 0 },
       transfer: { count: 0, sol: 0 },
-      booking: { count: 0, sol: 0 },
+      flight: { count: 0, sol: 0 },
     } as Record<FeeType, { count: number; sol: number }>,
     collected_on_chain: 0,
     pending_collection: 0,

@@ -166,18 +166,23 @@ export async function recordTransactionStart(
     const { wallet_address } = req.body as PaymentRequest;
     
     // Call before transaction hook (generates transaction ID)
-    await beforeTransactionHook(
-      req.clawdrop?.feeType || 'transfer',
-      wallet_address,
-      {
-        fee_sol: req.clawdrop?.feeAmount,
-        fee_usd: req.clawdrop?.feeUsd,
-        quote: req.clawdrop?.quote,
-      }
-    );
+    await beforeTransactionHook(req, {
+      transaction_type: req.clawdrop?.feeType || 'transfer',
+      wallet_address: wallet_address,
+      fee_sol: req.clawdrop?.feeAmount || 0,
+      fee_usd: req.clawdrop?.feeUsd || 0,
+      status: 'pending',
+    });
 
     // Attach transaction metadata
-    await attachTransactionMetadataHook(req.clawdrop?.feeType || 'transfer');
+    await attachTransactionMetadataHook(req, res, {
+      transaction_id: req.headers['x-transaction-id'] as string,
+      transaction_type: req.clawdrop?.feeType || 'transfer',
+      status: 'pending',
+      fee_sol: req.clawdrop?.feeAmount || 0,
+      fee_usd: req.clawdrop?.feeUsd || 0,
+      wallet_address: wallet_address,
+    });
 
     // Store in request context
     if (!req.clawdrop) req.clawdrop = {};
@@ -274,7 +279,14 @@ export async function executePayment(
     
     // Record error in transaction hooks
     try {
-      await onTransactionErrorHook(req.clawdrop?.feeType || 'transfer', error);
+      await onTransactionErrorHook(req, {
+        transaction_id: req.clawdrop?.transactionId || 'unknown',
+        transaction_type: req.clawdrop?.feeType || 'transfer',
+        status: 'failed',
+        fee_sol: req.clawdrop?.feeAmount || 0,
+        fee_usd: req.clawdrop?.feeUsd || 0,
+        wallet_address: req.body?.wallet_address || 'unknown',
+      }, error);
     } catch (hookError) {
       logger.warn({ error: hookError }, '[PAYMENT_HOOK_ERROR] Error hook failed');
     }
@@ -297,10 +309,14 @@ export async function recordTransactionSuccess(
 ): Promise<void> {
   try {
     // Call after success hook
-    await afterTransactionSuccessHook(
-      req.clawdrop?.feeType || 'transfer',
-      req.clawdrop?.metadata
-    );
+    await afterTransactionSuccessHook(req, {
+      transaction_id: req.clawdrop?.transactionId || 'unknown',
+      transaction_type: req.clawdrop?.feeType || 'transfer',
+      status: 'success',
+      fee_sol: req.clawdrop?.feeAmount || 0,
+      fee_usd: req.clawdrop?.feeUsd || 0,
+      wallet_address: req.body?.wallet_address || 'unknown',
+    });
 
     logger.info(
       { tx_id: req.clawdrop?.transactionId },
