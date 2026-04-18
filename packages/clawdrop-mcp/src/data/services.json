@@ -1,0 +1,92 @@
+[
+  {
+    "id": "treasury-agent",
+    "name": "Treasury Agent",
+    "description": "AI-powered treasury management agent that monitors balances, manages cash flow, and optimizes yields across multiple pools and protocols",
+    "category": "treasury",
+    "price_sol": 5.0,
+    "price_herd": 500.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "treasury-agent-pro",
+    "name": "Treasury Agent Pro",
+    "description": "Advanced treasury agent with multi-sig support, advanced yield optimization, and risk analytics dashboard",
+    "category": "treasury",
+    "price_sol": 8.5,
+    "price_herd": 850.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "research-execution",
+    "name": "Research-to-Execution Agent",
+    "description": "Autonomous agent that researches market opportunities, analyzes data, and executes trades with pre-approved parameters",
+    "category": "research",
+    "price_sol": 3.0,
+    "price_herd": 300.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "research-execution-pro",
+    "name": "Research-to-Execution Pro",
+    "description": "Enterprise research agent with backtesting, sentiment analysis, on-chain signals, and risk modeling",
+    "category": "research",
+    "price_sol": 6.0,
+    "price_herd": 600.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "wallet-policy-mgr",
+    "name": "Wallet Policy Manager",
+    "description": "Manage spending policies, transaction approvals, and risk controls for your wallet with rules-based automation",
+    "category": "wallet",
+    "price_sol": 2.0,
+    "price_herd": 200.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "wallet-policy-enterprise",
+    "name": "Wallet Policy Enterprise",
+    "description": "Multi-wallet policy manager with team controls, approval workflows, and detailed audit logs",
+    "category": "wallet",
+    "price_sol": 4.5,
+    "price_herd": 450.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "global-payout-agent",
+    "name": "Global Payout Agent",
+    "description": "Automate vendor payments and global payouts with multi-currency support through Airwallex Connected Accounts",
+    "category": "finance",
+    "price_sol": 4.0,
+    "price_herd": 400.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "payout-agent-plus",
+    "name": "Global Payout Agent Plus",
+    "description": "Advanced payout agent with batch processing, recurring payments, compliance reporting, and FX optimization",
+    "category": "finance",
+    "price_sol": 7.0,
+    "price_herd": 700.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "portfolio-monitor",
+    "name": "Portfolio Monitor & Alerts",
+    "description": "Real-time monitoring of your crypto holdings with custom alerts, rebalancing recommendations, and risk analysis",
+    "category": "treasury",
+    "price_sol": 1.5,
+    "price_herd": 150.0,
+    "deployment_type": "openclaw"
+  },
+  {
+    "id": "portfolio-monitor-pro",
+    "name": "Portfolio Monitor Pro",
+    "description": "Enterprise portfolio tracking with tax lot accounting, performance attribution, stress testing, and whale alerts",
+    "category": "treasury",
+    "price_sol": 3.5,
+    "price_herd": 350.0,
+    "deployment_type": "openclaw"
+  }
+]
