@@ -172,16 +172,19 @@ export async function recordTransactionStart(
       fee_sol: req.clawdrop?.feeAmount || 0,
       fee_usd: req.clawdrop?.feeUsd || 0,
       status: 'pending',
+      transaction_id: req.headers['x-transaction-id'] as string || 'unknown',
+      confidence: 0.8,
     });
 
     // Attach transaction metadata
     await attachTransactionMetadataHook(req, res, {
-      transaction_id: req.headers['x-transaction-id'] as string,
+      transaction_id: req.headers['x-transaction-id'] as string || 'unknown',
       transaction_type: req.clawdrop?.feeType || 'transfer',
       status: 'pending',
       fee_sol: req.clawdrop?.feeAmount || 0,
       fee_usd: req.clawdrop?.feeUsd || 0,
       wallet_address: wallet_address,
+      confidence: 0.8,
     });
 
     // Store in request context
@@ -281,7 +284,7 @@ export async function executePayment(
     try {
       await onTransactionErrorHook(
         req.clawdrop?.feeType || 'transfer',
-        error
+        error instanceof Error ? error : new Error(String(error))
       );
     } catch (hookError) {
       logger.warn({ error: hookError }, '[PAYMENT_HOOK_ERROR] Error hook failed');

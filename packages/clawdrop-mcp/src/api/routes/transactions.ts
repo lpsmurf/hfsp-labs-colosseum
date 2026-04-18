@@ -51,7 +51,7 @@ transactionRouter.get('/quote', async (req: Request, res: Response) => {
       path: '/api/quote',
       query: req.query,
       body: {},
-    });
+    } as any);
 
     logger.info(
       { wallet: wallet_address, classification, tier_id, amount: amount_sol },
@@ -257,15 +257,15 @@ transactionRouter.get('/history/:wing', async (req: Request, res: Response) => {
     const { wing } = req.params;
     const { page = '1', limit = '50' } = req.query;
 
-    if (!['swap', 'transfer', 'booking'].includes(wing)) {
+    if (!['swap', 'transfer', 'flight'].includes(wing)) {
       return res.status(400).json({
         error: '[TX_API_INVALID_WING] Invalid wing type',
-        valid_wings: ['swap', 'transfer', 'booking'],
+        valid_wings: ['swap', 'transfer', 'flight'],
       });
     }
 
     // Get wing history via MemPalace
-    const history = await getWingHistoryHook(wing);
+    const history = await getWingHistoryHook(wing as 'swap' | 'flight' | 'transfer');
 
     logger.info(
       { wing, transactions: history.transactions?.length || 0 },
