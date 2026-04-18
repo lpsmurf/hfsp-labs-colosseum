@@ -10,21 +10,7 @@ import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 import { classifyTransaction } from '../services/transaction-classifier';
 import { calculateSwapFee, calculateTransferFee, calculateBookingFee, FEE_RATES } from '../services/fee-collector';
-
-declare global {
-  namespace Express {
-    interface Request {
-      clawdrop?: {
-        transaction_type: 'swap' | 'flight' | 'transfer';
-        transaction_confidence: number;
-        fee_sol: number;
-        fee_usd: number;
-        fee_type: string;
-        clawdrop_wallet: string;
-      };
-    }
-  }
-}
+import '../types/request'; // Import unified request types
 
 export interface X402Options {
   solPrice?: number;
@@ -73,8 +59,7 @@ export function x402Middleware(options: X402Options = {}) {
           break;
 
         case 'flight':
-        case 'booking':
-          // Extract booking amount from request
+          // Extract booking amount from request (flights, hotels, etc.)
           const bookingValue = parseFloat(req.body?.amount_usd || req.body?.booking_amount || '0');
           feeCalc = calculateBookingFee(bookingValue, config.solPrice);
           break;
