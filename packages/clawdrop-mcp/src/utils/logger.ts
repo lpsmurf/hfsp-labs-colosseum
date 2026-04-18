@@ -14,14 +14,21 @@ function redactValue(val: string): string {
   return `${val.slice(0, 4)}...${val.slice(-4)}`;
 }
 
-function sanitize(obj: unknown): unknown {
+function sanitize(obj: unknown, seen = new WeakSet()): unknown {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  
+  // Check for circular references
+  if (seen.has(obj)) {
+    return '[Circular]';
+  }
+  seen.add(obj);
+  
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     if (SENSITIVE_FIELDS.has(key.toLowerCase())) {
       result[key] = typeof value === 'string' ? redactValue(value) : '***';
     } else {
-      result[key] = sanitize(value);
+      result[key] = sanitize(value, seen);
     }
   }
   return result;
