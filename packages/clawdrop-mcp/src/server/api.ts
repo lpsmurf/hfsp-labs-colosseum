@@ -8,11 +8,14 @@ import { x402Middleware } from '../middleware/x402';
 import paymentMiddleware from '../middleware/payment';
 import transactionRouter from '../api/routes/transactions';
 
-// Week 1 Phase 4 Routes
+// Phase 4 Routes
 import authRouter from './auth';
 import paymentRouter from './payment';
 import webhooksRouter from './webhooks';
 import openRouterRouter from './openrouter';
+import analyticsRouter from './analytics';
+import teamsRouter from './teams';
+import monitoringRouter from './monitoring';
 import healthRouter from '../api/routes/health';
 import { apiLimiter, strictLimiter } from '../middleware/rate-limit';
 
@@ -88,6 +91,15 @@ export class ClawdropAPIServer {
     
     // OpenRouter provisioning routes (Week 2)
     this.app.use('/api/v1/openrouter', apiLimiter, openRouterRouter);
+    
+    // Analytics routes (Week 3)
+    this.app.use('/api/v1/analytics', apiLimiter, analyticsRouter);
+    
+    // Team/Organization routes (Week 3)
+    this.app.use('/api/v1/teams', apiLimiter, teamsRouter);
+    
+    // Monitoring routes (Week 3)
+    this.app.use('/api/v1/monitoring', apiLimiter, monitoringRouter);
     
     // Health checks (comprehensive)
     this.app.use('/health', healthRouter);
