@@ -1,114 +1,95 @@
 /**
- * OpenRouter Integration for Phase 4 Week 2
+ * OpenRouter Integration Routes
  * 
- * Provides API key provisioning and management:
- * - POST /api/v1/openrouter/provision - Create new API key for user
- * - GET /api/v1/openrouter/keys/:userId - List user's keys
- * - DELETE /api/v1/openrouter/keys/:keyId - Revoke key
- * - GET /api/v1/openrouter/usage/:userId - Get usage stats
- * 
- * Integration with Week 1 webhook flow:
- * When payment confirmed → automatically provision OpenRouter access
+ * Week 3: OpenRouter API key provisioning and management
+ * - POST /api/v1/openrouter/keys - Create new API key
+ * - GET /api/v1/openrouter/keys - List user's API keys
+ * - DELETE /api/v1/openrouter/keys/:keyId - Revoke API key
+ * - GET /api/v1/openrouter/usage - Get usage statistics
  */
 
 import { Router } from 'express';
-import axios from 'axios';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
-import * as phase4Store from '../db/phase4-store';
 
 const router = Router();
 
-// OpenRouter API configuration
-const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY; // Master key for provisioning
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+// In-memory key store (replace with DB in production)
+interface ApiKey {
+  id: string;
+  userId: string;
+  key: string;
+  name: string;
+  tier: string;
+  credits: number;
+  createdAt: Date;
+  lastUsedAt?: Date;
+}
+
+const apiKeys = new Map<string, ApiKey>(); // keyId -> ApiKey
+const userKeys = new Map<string, string[]>(); // userId -> keyIds
 
 /**
- * POST /api/v1/openrouter/provision
- * Create new OpenRouter API key for authenticated user
- * Requires: JWT auth + payment verification
+ * POST /api/v1/openrouter/keys
+ * Create a new OpenRouter API key
  */
 router.post(
-  '/provision',
+  '/keys',
   authMiddleware,
   async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.userId!;
-      const { tier = 'standard', label = 'HFSP Access' } = req.body;
+      const { name, tier = 'standard' } = req.body;
 
-      // Verify user has active payment
-      const transactions = Array.from(phase4Store.getStoreStats().transactions as any)
-        .filter((t: any) => t.userId === userId && t.status === 'confirmed');
-      
-      if (transactions.length === 0) {
-        return res.status(402).json({
-          error: 'Payment Required',
-          message: 'No confirmed payments found. Please complete payment first.'
-        });
-      }
+      // Check if user has enough credits
+      // In production, verify credit balance before provisioning
 
-      // Calculate credits based on tier
-      const creditTiers: Record<string, number> = {
-        'basic': 50,      // $50 worth
-        'standard': 100,  // $100 worth
-        'premium': 500,   // $500 worth
-        'enterprise': 2000 // $2000 worth
-      };
+      // Create key via OpenRouter API (mock for now)
+      const keyData = await provisionOpenRouterKey(userId, tier, 1000);
 
-      const credits = creditTiers[tier] || creditTiers.standard;
-
-      // Call OpenRouter API to create key
-      // Note: This is a mock implementation - real OpenRouter provisioning
-      // would use their partner API if available
-      const apiKey = await provisionOpenRouterKey(userId, tier, credits);
-
-      // Store key in database
-      const keyRecord = {
-        id: `key_${Date.now()}`,
+      const apiKey: ApiKey = {
+        id: `key_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId,
-        apiKey: apiKey.key,
+        key: keyData.key,
+        name: name || `Key ${Date.now()}`,
         tier,
-        credits,
-        label,
+        credits: 1000,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        status: 'active'
       };
 
-      logger.info({
-        userId,
-        keyId: keyRecord.id,
-        tier,
-        credits
-      }, 'OpenRouter key provisioned');
+      apiKeys.set(apiKey.id, apiKey);
+
+      // Add to user's keys
+      const userKeyList = userKeys.get(userId) || [];
+      userKeyList.push(apiKey.id);
+      userKeys.set(userId, userKeyList);
+
+      logger.info({ userId, keyId: apiKey.id, tier }, 'OpenRouter API key created');
 
       res.json({
         success: true,
         key: {
-          id: keyRecord.id,
-          apiKey: apiKey.key,
-          tier,
-          credits,
-          expiresAt: keyRecord.expiresAt.toISOString()
+          id: apiKey.id,
+          name: apiKey.name,
+          tier: apiKey.tier,
+          credits: apiKey.credits,
+          createdAt: apiKey.createdAt,
+          // Only show the full key once on creation
+          token: apiKey.key,
         },
-        usage: {
-          endpoint: `${OPENROUTER_API_URL}/chat/completions`,
-          documentation: 'https://openrouter.ai/docs'
-        }
       });
     } catch (error) {
-      logger.error({ error: error, userId: req.userId }, 'OpenRouter provisioning failed');
-      res.status(500).json({
-        error: 'Provisioning Failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error({ error, userId: req.userId }, 'Key creation failed');
+      res.status(500).json({ error: 'Failed to create API key' });
     }
   }
 );
 
 /**
  * GET /api/v1/openrouter/keys
- * List all OpenRouter keys for authenticated user
+ * List user's API keys (without full tokens)
  */
 router.get(
   '/keys',
@@ -116,34 +97,36 @@ router.get(
   async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.userId!;
-      
-      // Get keys from database
-      // (In real implementation, query from phase4Store or separate key store)
-      const keys: any[] = []; // Placeholder
+      const keyIds = userKeys.get(userId) || [];
+
+      const keys = keyIds
+        .map(id => apiKeys.get(id))
+        .filter(Boolean)
+        .map((key: any) => ({
+          id: key.id,
+          name: key.name,
+          tier: key.tier,
+          credits: key.credits,
+          createdAt: key.createdAt,
+          lastUsedAt: key.lastUsedAt,
+          // Mask the actual key
+          tokenPreview: key.key.slice(0, 8) + '...' + key.key.slice(-4),
+        }));
 
       res.json({
         success: true,
-        keys: keys.map(k => ({
-          id: k.id,
-          tier: k.tier,
-          label: k.label,
-          createdAt: k.createdAt,
-          expiresAt: k.expiresAt,
-          status: k.status,
-          // Don't return full API key, just masked version
-          apiKeyPreview: `${k.apiKey.slice(0, 8)}...${k.apiKey.slice(-4)}`
-        }))
+        keys,
       });
     } catch (error) {
       logger.error({ error, userId: req.userId }, 'Key listing failed');
-      res.status(500).json({ error: 'Failed to list keys' });
+      res.status(500).json({ error: 'Failed to list API keys' });
     }
   }
 );
 
 /**
  * DELETE /api/v1/openrouter/keys/:keyId
- * Revoke an OpenRouter API key
+ * Revoke an API key
  */
 router.delete(
   '/keys/:keyId',
@@ -153,20 +136,27 @@ router.delete(
       const { keyId } = req.params;
       const userId = req.userId!;
 
-      // Verify key belongs to user
-      // (In real implementation, check ownership)
-      
-      // Revoke via OpenRouter API
-      await revokeOpenRouterKey(keyId);
+      const apiKey = apiKeys.get(keyId);
+      if (!apiKey || apiKey.userId !== userId) {
+        return res.status(404).json({ error: 'Key not found' });
+      }
 
-      logger.info({ userId, keyId }, 'OpenRouter key revoked');
+      // Revoke via OpenRouter API
+      await revokeOpenRouterKey(apiKey.key);
+
+      // Remove from stores
+      apiKeys.delete(keyId);
+      const userKeyList = userKeys.get(userId) || [];
+      userKeys.set(userId, userKeyList.filter(id => id !== keyId));
+
+      logger.info({ userId, keyId }, 'OpenRouter API key revoked');
 
       res.json({
         success: true,
-        message: 'API key revoked successfully'
+        message: 'API key revoked successfully',
       });
     } catch (error) {
-      logger.error({ error, keyId: req.params.keyId }, 'Key revocation failed');
+      logger.error({ error, userId: req.userId, keyId: req.params.keyId }, 'Key revocation failed');
       res.status(500).json({ error: 'Failed to revoke key' });
     }
   }
@@ -197,7 +187,7 @@ router.get(
         }
       });
     } catch (error) {
-      logger.error({ error: error, userId: userId }, 'Usage fetch failed');
+      logger.error({ error, userId: req.userId }, 'Usage fetch failed');
       res.status(500).json({ error: 'Failed to fetch usage' });
     }
   }

@@ -195,8 +195,8 @@ router.post(
   '/:teamId/members',
   authMiddleware,
   async (req: AuthenticatedRequest, res) => {
+    const { teamId } = req.params;
     try {
-      const { teamId } = req.params;
       const userId = req.userId!;
       const { walletAddress, role = 'member' } = req.body;
 
