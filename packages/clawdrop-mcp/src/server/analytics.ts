@@ -271,7 +271,7 @@ router.get(
           totalPayments: transactions.length,
           confirmedPayments: confirmedTx.length,
           totalHerdCredits: confirmedTx.reduce((sum: number, t: any) => sum + (t.herdAmount || 0), 0),
-          lastPayment: confirmedTx[0]?.createdAt || null,
+          lastPayment: confirmedTx.length > 0 ? (confirmedTx[0] as any).createdAt : null,
         },
         openRouter: {
           // In production, fetch from OpenRouter usage API
