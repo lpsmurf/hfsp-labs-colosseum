@@ -97,7 +97,7 @@ router.post(
         }
       });
     } catch (error) {
-      logger.error({ error, userId: req.userId }, 'OpenRouter provisioning failed');
+      logger.error({ error: error, userId: req.userId }, 'OpenRouter provisioning failed');
       res.status(500).json({
         error: 'Provisioning Failed',
         message: error instanceof Error ? error.message : 'Unknown error'
@@ -197,7 +197,7 @@ router.get(
         }
       });
     } catch (error) {
-      logger.error({ error, userId }, 'Usage fetch failed');
+      logger.error({ error: error, userId: userId }, 'Usage fetch failed');
       res.status(500).json({ error: 'Failed to fetch usage' });
     }
   }
