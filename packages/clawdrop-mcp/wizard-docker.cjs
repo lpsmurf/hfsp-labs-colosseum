@@ -553,16 +553,17 @@ async function stepPayment(tier) {
   info('Payment Options:');
   info('  1. SOL (devnet for testing)');
   info('  2. USDC');
-  info('  3. Skip (demo mode)\n');
+  info('  3. HERD');
+  info('  4. Skip (demo mode)\n');
   
-  const choice = await ask('Select (1-3): ');
+  const choice = await ask('Select (1-4): ');
   
-  if (choice === '3') {
+  if (choice === '4') {
     warn('Demo mode — no payment required');
     return { method: 'demo', tx_hash: 'demo_' + Date.now() };
   }
   
-  const token = choice === '2' ? 'USDC' : 'SOL';
+  const token = choice === '2' ? 'USDC' : choice === '3' ? 'HERD' : 'SOL';
   
   console.log(`\n📝 Send ${tier.price_sol} ${token} to:`);
   console.log(`   ${c.cyan}3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw${c.reset}`);

@@ -1387,11 +1387,14 @@ async function handleDeploymentWalkthrough(input: unknown): Promise<string> {
   const parsed = z.object({
     step: z.number().default(0),
     selected_tier: z.string().optional(),
-    llm_provider: z.string().optional(),
     selected_token: z.string().optional(),
-    telegram_token: z.string().optional(),
-    agent_name: z.string().optional(),
     owner_wallet: z.string().optional(),
+    agent_name: z.string().optional(),
+    bundles: z.array(z.enum(['solana', 'research', 'treasury'])).optional(),
+    llm_provider: z.enum(['anthropic', 'openai', 'openrouter']).optional(),
+    llm_api_key: z.string().optional(),
+    telegram_token: z.string().optional(),
+    detected_tx: z.string().optional(),
   }).parse(input ?? {});
 
   const PAYMENT_WALLET = process.env.PAYMENT_RECEIVER_WALLET || '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
@@ -1504,8 +1507,10 @@ async function handleDeploymentWalkthrough(input: unknown): Promise<string> {
       owner_wallet: parsed.owner_wallet,
       payment_token: parsed.selected_token,
       payment_tx_hash: `devnet_walkthrough_${Date.now()}`, // dev bypass
-      bundles: ['solana', 'research'],
+      bundles: parsed.bundles || ['solana', 'research'],
       telegram_token: parsed.telegram_token,
+      llm_provider: parsed.llm_provider || 'anthropic',
+      llm_api_key: parsed.llm_api_key,
     };
 
     const deployResult = await handleDeployAgent(deployInput);

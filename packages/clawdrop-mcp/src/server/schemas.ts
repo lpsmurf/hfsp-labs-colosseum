@@ -67,7 +67,7 @@ export const QuoteTierOutputSchema = z.object({
 export const DeployAgentInputSchema = z.object({
   tier_id: z.string().describe('Tier to deploy on (tier_a, tier_b, tier_c)'),
   agent_name: z.string().min(3).max(64).describe('Display name for your agent'),
-  owner_wallet: z.string().describe('Your Solana wallet public key'),
+  owner_wallet: SolanaWalletSchema.describe('Your Solana wallet public key'),
   payment_token: PaymentTokenSchema.describe('Token used for payment'),
   payment_tx_hash: z.string().describe('Transaction hash proving payment'),
   bundles: z
@@ -175,10 +175,12 @@ export const RenewSubscriptionOutputSchema = z.object({
 export const StartDeploymentWalkthroughInputSchema = z.object({
   step: z.number().min(0).max(5).default(0),
   selected_tier: z.string().optional(),
-  llm_provider: z.string().optional(),
   selected_token: z.string().optional(),
   owner_wallet: z.string().optional(),
   agent_name: z.string().optional(),
+  bundles: z.array(BundleSchema).default([]).optional(),
+  llm_provider: z.enum(['anthropic', 'openai', 'openrouter']).optional(),
+  llm_api_key: z.string().optional(),
   telegram_token: z.string().optional(),
   detected_tx: z.string().optional(),
 });
