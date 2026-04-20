@@ -296,6 +296,7 @@ async function deployAgent(config) {
   
   // Call HFSP API to deploy on tenant VPS
   const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
+  const hfspKey = process.env.HFSP_API_KEY || 'test-dev-key-12345';
   
   log('Calling HFSP provisioning API...');
   info(`  API: ${hfspUrl}`);
@@ -315,10 +316,13 @@ async function deployAgent(config) {
     },
   };
   
-  // Call HFSP deploy API
+  // Call HFSP deploy API with auth
   const response = await fetch(`${hfspUrl}/api/v1/agents/deploy`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${hfspKey}`,
+    },
     body: JSON.stringify(deployPayload),
   });
   
