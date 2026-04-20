@@ -369,7 +369,7 @@ async function verifyPayment(txHash, tier, wallet) {
     
     // Call Helius API to get transaction
     const response = await fetch(
-      `https://api.helius.xyz/v0/transactions/?api-key=${heliusApiKey}`,
+      `https://api-devnet.helius.xyz/v0/transactions/?api-key=${heliusApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
