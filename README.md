@@ -1,117 +1,133 @@
-# HFSP Labs - Colosseum Hackathon Submission
+# Clawdrop - Quick Start Guide
 
-A unified monorepo containing the complete HFSP Labs payment protocol ecosystem.
-
-## Overview
-
-HFSP Labs is advancing Web3 infrastructure with innovative payment solutions:
-
-- **Clawdrop MCP**: Advanced payment protocol with dynamic pricing, multi-asset support, and transaction management
-- **Agent Provisioning**: Intelligent provisioning system with automated service deployment and management
-
-## Repository Structure
-
-```
-hfsp-labs-colosseum/
-├── packages/
-│   ├── agent-provisioning/     # Service provisioning and deployment
-│   │   ├── services/           # Clawdrop Wizard, Storefront Bot, Webapp
-│   │   └── [application code]
-│   │
-│   └── clawdrop-mcp/           # Core payment protocol implementation
-│       ├── src/                # TypeScript source
-│       ├── scripts/            # Demo and test scripts
-│       └── bin/                # CLI tools
-│
-├── LICENSE                     # Commons Clause + MIT License
-├── TECHNICAL_INNOVATIONS.md    # Document of unique architectural approaches
-└── README.md                   # This file
-```
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- TypeScript
-- Git
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
-cd hfsp-labs-colosseum
-
-# Install dependencies for both packages
-cd packages/agent-provisioning && npm install && cd ../..
-cd packages/clawdrop-mcp && npm install && cd ../..
-```
-
-### Development
-
-Each package has its own development configuration:
-
-```bash
-# Agent Provisioning
-cd packages/agent-provisioning
-npm run dev
-
-# Clawdrop MCP  
-cd packages/clawdrop-mcp
-npm run dev
-```
-
-## Technical Highlights
-
-See [TECHNICAL_INNOVATIONS.md](TECHNICAL_INNOVATIONS.md) for detailed documentation of:
-
-- **x402 Payment Protocol**: Dynamic fee adjustment based on transaction type and network state
-- **Multi-Asset Transaction Routing**: Semantic routing with real-time price feeds
-- **Advanced Provisioning System**: Intelligent deployment across multiple infrastructure providers
-- **Real-time Fee Collection**: Automated billing with multiple fee models
-
-## IP & Licensing
-
-This project uses a **Commons Clause + MIT License**:
-
-✅ **Permitted:**
-- Evaluation and testing (including for hackathon judging)
-- Forking and local deployment for assessment
-- Contributing improvements via pull requests
-
-❌ **Not Permitted Without License:**
-- Commercial use or monetization
-- Repackaging as your own product
-- Removal or modification of attribution
-
-See [LICENSE](LICENSE) for full terms.
-
-## Architecture & Innovation Timeline
-
-Development timeline and architectural decisions are tracked in:
-- **Git commit history** with timestamps proving development progression
-- **TECHNICAL_INNOVATIONS.md** documenting unique problem-solving approaches
-- **Source code comments** highlighting proprietary algorithms and techniques
-
-This creates an auditable record of original development.
-
-## For Colosseum Hackathon Judges
-
-This monorepo submission includes:
-- ✓ Complete source code in single repository
-- ✓ Full git history with development timeline
-- ✓ Comprehensive technical documentation
-- ✓ Clear IP licensing and attribution
-- ✓ Original architectural innovations
-- ✓ Production-ready code quality
-
-## Contact
-
-**HFSP Labs**
-- Website: (Coming Soon)
-- Email: info@asicgenesis.com
+Deploy AI agents on Solana in 60 seconds.
 
 ---
 
-**Last Updated:** April 18, 2026
-**Submission Date:** Colosseum Hackathon 2026
+## 🚀 Option 1: CLI (Fastest / Best for Demo)
+
+### One-line install
+```bash
+npx github:lpsmurf/hfsp-labs-colosseum
+```
+
+### Demo mode (no typing - perfect for video)
+```bash
+CLAWDROP_DEMO=1 npx github:lpsmurf/hfsp-labs-colosseum
+```
+
+### What it does
+1. Downloads the repo (~2MB)
+2. Installs dependencies on first run (~30s)
+3. Starts the API server automatically
+4. Runs interactive 6-step deployment:
+   - **Step 1**: Select tier (Hobbyist / Production / Enterprise)
+   - **Step 2**: Select LLM provider (Anthropic / OpenAI / OpenRouter)
+   - **Step 3**: Select payment token (SOL / USDC / HERD / EURC)
+   - **Step 4**: Show payment wallet + amount
+   - **Step 5**: Auto-detect payment on devnet
+   - **Step 6**: Deploy agent + show agent ID
+
+---
+
+## 🌐 Option 2: Web Wizard (Product Feel)
+
+### Run locally
+```bash
+git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
+cd hfsp-labs-colosseum/packages/agent-provisioning/services/clawdrop-wizard
+npm install
+npm run dev
+```
+
+### Or use the deployed version
+The wizard is served as part of the Agent Provisioning stack:
+- Backend: `storefront-bot` (port 3001)
+- Frontend: `clawdrop-wizard` (port 3003)
+
+### What it does
+- Full React UI for agent provisioning
+- Connect wallet via Phantom
+- Select tier, model, and bundles
+- Pay with any Solana token
+- Deploy and manage agents visually
+
+---
+
+## 🏗️ Architecture
+
+```
+User
+├── CLI (npx) ────────→ MCP API (port 3000) ───→ HFSP Provisioning (port 3001)
+└── Web Browser ─────→ Wizard UI (port 3003) ───→ HFSP Provisioning (port 3001)
+```
+
+### Services
+| Service | Port | Role |
+|---------|------|------|
+| `clawdrop-mcp` | 3000 | MCP server / API / orchestration |
+| `storefront-bot` | 3001 | Agent provisioning backend |
+| `clawdrop-wizard` | 3003 | React frontend for provisioning |
+
+---
+
+## 💰 Payment Flow (Devnet)
+
+1. User selects **Production** tier + **SOL**
+2. CLI shows:
+   - Amount: `0.05 SOL`
+   - Wallet: `3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw`
+3. User sends payment via Phantom
+4. CLI auto-detects on-chain via **Helius RPC**
+5. Agent deploys immediately
+
+---
+
+## 📹 For Video Recording
+
+### Terminal commands
+```bash
+# Start all services
+npm run start
+
+# Run demo (auto-answers)
+CLAWDROP_DEMO=1 npx github:lpsmurf/hfsp-labs-colosseum
+
+# Or interactive
+npx github:lpsmurf/hfsp-labs-colosseum
+```
+
+### Expected output
+```
+🐾 Clawdrop - Deploy OpenClaw Agent
+═══════════════════════════════════════
+📦 [Step 1/6] Which tier?
+→ Selecting: 2 (Production)
+🤖 [Step 2/6] Which AI model provider?
+→ Selecting: 1 (Anthropic)
+💰 [Step 3/6] Which payment token?
+→ Selecting: 1 (SOL)
+📡 [Step 5/6] Watching blockchain...
+✓ Payment detected!
+🚀 [Step 6/6] Deploying...
+✅ Agent Deployed! ID: agent_xxx
+```
+
+---
+
+## 🔧 Tech Stack
+
+- **Solana**: Web3.js + Helius RPC (devnet)
+- **AI**: Anthropic Claude / OpenAI GPT / OpenRouter
+- **Backend**: Express + TypeScript + SQLite
+- **Frontend**: React + Vite
+- **CLI**: Node.js + HTTP API
+- **Deployment**: Docker containers on VPS
+
+---
+
+## 📝 GitHub
+
+[github.com/lpsmurf/hfsp-labs-colosseum](https://github.com/lpsmurf/hfsp-labs-colosseum)
+
+Built for **Colosseum Hackathon 2026** — HFSP Labs
