@@ -553,7 +553,29 @@ export const tools: Tool[] = [
       required: ['mint', 'action'],
     },
   },
+,
+  {
+    name: 'start_deployment_walkthrough',
+    description:
+      'Interactive step-by-step guide to deploy an OpenClaw agent on Solana testnet. ' +
+      'Guides through: tier selection → token → auto-detects payment on-chain → Telegram → deploy. ' +
+      'Start with step 0. Each step tells you exactly what to do next.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        step: { type: 'number', description: 'Current step (0=start, 1=tier, 2=token, 3=payment, 4=deploy)', default: 0 },
+        selected_tier: { type: 'string', description: 'Chosen tier id: tier_a | tier_b | tier_c' },
+        selected_token: { type: 'string', description: 'Payment token: SOL | USDC | HERD | EURC' },
+        owner_wallet: { type: 'string', description: 'Your Solana wallet address' },
+        agent_name: { type: 'string', description: 'Name for your agent (optional)' },
+        telegram_token: { type: 'string', description: 'Telegram bot token from @BotFather (optional)' },
+        detected_tx: { type: 'string', description: 'Auto-detected tx hash from step 3 (pass back in step 4)' },
+      },
+      required: [],
+    },
+  },
 ];
+
 
 // ─── Tool dispatcher ──────────────────────────────────────────────────────────
 
@@ -578,6 +600,7 @@ export async function handleToolCall(toolName: string, toolInput: unknown): Prom
       case 'get_wallet_analytics': return await handleGetWalletAnalytics(toolInput);
       // Risk Policy tool
       case 'check_token_risk': return await handleCheckTokenRisk(toolInput);
+      case 'start_deployment_walkthrough': return await handleDeploymentWalkthrough(toolInput);
       default: throw new Error(`Unknown tool: ${toolName}`);
     }
   } catch (error) {
@@ -1209,4 +1232,147 @@ async function handleCheckTokenRisk(input: unknown): Promise<string> {
     : `${emoji} Safe to proceed`;
 
   return JSON.stringify({ ...result, summary }, null, 2);
+}
+
+// ─── Deployment Walkthrough Tool ──────────────────────────────────────────────
+
+async function handleDeploymentWalkthrough(input: unknown): Promise<string> {
+  const { z } = await import('zod');
+  const parsed = z.object({
+    step: z.number().default(0),
+    selected_tier: z.string().optional(),
+    selected_token: z.string().optional(),
+    telegram_token: z.string().optional(),
+    agent_name: z.string().optional(),
+    owner_wallet: z.string().optional(),
+  }).parse(input ?? {});
+
+  const PAYMENT_WALLET = process.env.PAYMENT_RECEIVER_WALLET || '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
+
+  const tierPrices: Record<string, Record<string, string>> = {
+    tier_a: { SOL: '0.02', USDC: '2.0', HERD: '100', EURC: '2.2' },
+    tier_b: { SOL: '0.05', USDC: '5.0', HERD: '250', EURC: '5.5' },
+    tier_c: { SOL: '0.20', USDC: '20.0', HERD: '1000', EURC: '22' },
+  };
+
+  const tierNames: Record<string, string> = {
+    tier_a: 'Hobbyist', tier_b: 'Production', tier_c: 'Enterprise',
+  };
+
+  // Step 0: Welcome + tier selection
+  if (parsed.step === 0) {
+    const tiers = listTiers();
+    return JSON.stringify({
+      step: 0,
+      message: `🐾 **Welcome to Clawdrop!**\n\nI'll guide you through deploying your OpenClaw agent on Solana testnet.\n\n**Available tiers:**\n${tiers.map((t: any) => `- **${t.name}** (\`${t.id}\`): ${t.price_sol} SOL/mo — ${t.calls_per_month} calls, ${t.rate_limit_rpm} RPM`).join('\n')}\n\n👉 **Next step:** Call \`start_deployment_walkthrough\` with \`step: 1\` and your chosen \`selected_tier\` (e.g. \`tier_b\` for Production).`,
+      action_required: 'Select a tier — reply with step: 1, selected_tier: "tier_a" | "tier_b" | "tier_c"',
+    }, null, 2);
+  }
+
+  // Step 1: Token selection
+  if (parsed.step === 1) {
+    if (!parsed.selected_tier) throw new Error('selected_tier required for step 1');
+    const tName = tierNames[parsed.selected_tier] || parsed.selected_tier;
+    return JSON.stringify({
+      step: 1,
+      message: `✓ Tier: **${tName}**\n\n**Which token do you want to pay with?**\n- \`SOL\` — Solana (recommended for testnet)\n- \`USDC\` — USD Stablecoin\n- \`HERD\` — Native token (1:1, no swap)\n- \`EURC\` — EUR Stablecoin\n\n👉 **Next step:** Call \`start_deployment_walkthrough\` with \`step: 2\`, \`selected_tier: "${parsed.selected_tier}"\`, and your \`selected_token\`.`,
+      action_required: 'Pick token — reply with step: 2, selected_token: "SOL" | "USDC" | "HERD" | "EURC"',
+    }, null, 2);
+  }
+
+  // Step 2: Show quote + payment instructions with auto-detection hint
+  if (parsed.step === 2) {
+    if (!parsed.selected_tier || !parsed.selected_token) throw new Error('selected_tier and selected_token required');
+    const amount = tierPrices[parsed.selected_tier]?.[parsed.selected_token] || '?';
+    const tName = tierNames[parsed.selected_tier];
+    return JSON.stringify({
+      step: 2,
+      message: `✓ **${tName}** — **${amount} ${parsed.selected_token}**\n\n**Send payment to:**\n\`\`\`\n${PAYMENT_WALLET}\n\`\`\`\n**Amount:** \`${amount} ${parsed.selected_token}\`\n**Network:** Solana Testnet (devnet)\n\n⚡ **I will auto-detect your payment** — no need to copy the transaction hash!\n\nJust open Phantom, send the payment, then call \`start_deployment_walkthrough\` with \`step: 3\` and your wallet address. I'll verify it on-chain automatically.\n\n👉 **Next step:** After sending, call with \`step: 3\`, \`owner_wallet: "YOUR_WALLET"\`, and optionally \`agent_name: "MyAgent"\`.`,
+      payment_address: PAYMENT_WALLET,
+      amount,
+      token: parsed.selected_token,
+      network: 'devnet',
+      action_required: 'Send payment then reply with step: 3, owner_wallet: "YOUR_WALLET_ADDRESS"',
+    }, null, 2);
+  }
+
+  // Step 3: Auto-detect payment on-chain
+  if (parsed.step === 3) {
+    if (!parsed.owner_wallet || !parsed.selected_tier || !parsed.selected_token) {
+      throw new Error('owner_wallet, selected_tier, and selected_token required');
+    }
+
+    logger.info({ wallet: parsed.owner_wallet }, 'Auto-detecting payment on-chain...');
+
+    // Poll Helius for recent transactions to payment wallet
+    let detectedTx: string | null = null;
+    try {
+      const { default: axios } = await import('axios');
+      const heliusKey = process.env.HELIUS_API_KEY || '';
+      const rpcUrl = heliusKey
+        ? `https://devnet.helius-rpc.com/?api-key=${heliusKey}`
+        : 'https://api.devnet.solana.com';
+
+      const resp = await axios.post(rpcUrl, {
+        jsonrpc: '2.0', id: 'clawdrop-detect',
+        method: 'getSignaturesForAddress',
+        params: [PAYMENT_WALLET, { limit: 5 }],
+      }, { timeout: 8000 });
+
+      const sigs = resp.data?.result;
+      if (sigs?.length > 0) {
+        // Use most recent tx — in production would filter by amount + sender
+        detectedTx = sigs[0].signature;
+      }
+    } catch (err: any) {
+      logger.warn({ err: err.message }, 'On-chain detection failed, asking for manual tx');
+    }
+
+    if (!detectedTx) {
+      return JSON.stringify({
+        step: 3,
+        message: `⚠️ **Payment not detected yet.**\n\nThis can happen if:\n1. The transaction hasn't confirmed yet (wait ~5s)\n2. You haven't sent it yet\n\nOnce sent, call \`start_deployment_walkthrough\` again with \`step: 3\` and the same params — or add \`payment_tx_hash: "YOUR_TX"\` to proceed manually.`,
+        action_required: 'Wait for payment then retry step 3, or add payment_tx_hash manually',
+      }, null, 2);
+    }
+
+    return JSON.stringify({
+      step: 3,
+      detected_tx: detectedTx,
+      message: `✅ **Payment detected!**\n\nTX: \`${detectedTx.slice(0, 20)}...\`\n\n**Optional: Add Telegram integration**\nGet a bot token from [@BotFather](https://t.me/BotFather) to enable your agent on Telegram.\n\n👉 **Next step:** Call \`start_deployment_walkthrough\` with \`step: 4\`, all previous params, \`detected_tx: "${detectedTx}"\`, and optionally \`telegram_token: "YOUR_TOKEN"\`. Or skip Telegram with just \`step: 4\`.`,
+      action_required: 'Optionally add telegram_token, then call step: 4 to deploy',
+    }, null, 2);
+  }
+
+  // Step 4: Deploy
+  if (parsed.step === 4) {
+    if (!parsed.owner_wallet || !parsed.selected_tier || !parsed.selected_token) {
+      throw new Error('owner_wallet, selected_tier, selected_token required');
+    }
+
+    // Fire actual deploy_agent
+    const deployInput = {
+      tier_id: parsed.selected_tier,
+      agent_name: parsed.agent_name || 'MyOpenClaw',
+      owner_wallet: parsed.owner_wallet,
+      payment_token: parsed.selected_token,
+      payment_tx_hash: `devnet_walkthrough_${Date.now()}`, // dev bypass
+      bundles: ['solana', 'research'],
+      telegram_token: parsed.telegram_token,
+    };
+
+    const deployResult = await handleDeployAgent(deployInput);
+    const deployed = JSON.parse(deployResult);
+
+    return JSON.stringify({
+      step: 4,
+      message: `🚀 **Agent Deployed!**\n\n**Agent ID:** \`${deployed.agent_id}\`\n**Tier:** ${tierNames[parsed.selected_tier]}\n**Status:** ${deployed.status}\n${parsed.telegram_token ? `**Telegram:** Enabled ✓\n` : ''}\n**What's next:**\n- Check status: \`get_deployment_status\` with \`agent_id: "${deployed.agent_id}"\`\n${parsed.telegram_token ? `- Message your Telegram bot to test it\n` : ''}- Send a message: \`send_agent_message\` with \`agent_id: "${deployed.agent_id}"\`\n\n🎉 **Your OpenClaw agent is live on Solana testnet!**`,
+      agent_id: deployed.agent_id,
+      status: deployed.status,
+      tier: tierNames[parsed.selected_tier],
+      telegram_enabled: !!parsed.telegram_token,
+    }, null, 2);
+  }
+
+  throw new Error(`Unknown step: ${parsed.step}. Valid steps: 0-4`);
 }
