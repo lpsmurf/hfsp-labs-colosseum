@@ -39,27 +39,27 @@ const TIERS: Record<string, Tier> = {
 
   tier_a: {
     id: "tier_a",
-    name: "Tier A - Starter",
-    description: "Shared Docker container, perfect for experiments and prototypes",
-    vps_type: "shared-docker",
-    vps_capacity: "2GB RAM, 1 vCPU, Shared",
-    price_sol: 0.5, // ~$100/month at $200/SOL
-    price_usd: 100,
-    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"], // All bundles available
-    max_agents: 5,
+    name: "🚀 Production",
+    description: "Dedicated VPS for serious agents",
+    vps_type: "dedicated-vps",
+    vps_capacity: "4GB RAM, 2 vCPU, Dedicated",
+    price_sol: 0.4,
+    price_usd: 99,
+    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
+    max_agents: 1,
     monthly_renewal: true,
   },
 
   tier_b: {
     id: "tier_b",
-    name: "Tier B - Professional",
-    description: "Dedicated VPS, for production-grade agents",
+    name: "🏢 Enterprise",
+    description: "Custom infrastructure with SLA",
     vps_type: "dedicated-vps",
-    vps_capacity: "4GB RAM, 2 vCPU, Dedicated",
-    price_sol: 1.0, // ~$200/month at $200/SOL
-    price_usd: 200,
-    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"], // All bundles available
-    max_agents: 1,
+    vps_capacity: "16GB RAM, 4 vCPU, Dedicated",
+    price_sol: 2.0,
+    price_usd: 499,
+    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
+    max_agents: 5,
     monthly_renewal: true,
   },
 
@@ -71,6 +71,32 @@ const TIERS: Record<string, Tier> = {
     vps_capacity: "Custom",
     price_sol: 2.0, // Custom pricing
     price_usd: 400,
+    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
+    max_agents: 5,
+    monthly_renewal: true,
+  },
+
+  tier_pro: {
+    id: "tier_pro",
+    name: "🚀 Production",
+    description: "Dedicated VPS for serious agents",
+    vps_type: "dedicated-vps",
+    vps_capacity: "4GB RAM, 2 vCPU, Dedicated",
+    price_sol: 0.4,
+    price_usd: 99,
+    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
+    max_agents: 1,
+    monthly_renewal: true,
+  },
+
+  tier_enterprise: {
+    id: "tier_enterprise",
+    name: "🏢 Enterprise",
+    description: "Custom infrastructure with SLA",
+    vps_type: "dedicated-vps",
+    vps_capacity: "16GB RAM, 4 vCPU, Dedicated",
+    price_sol: 2.0,
+    price_usd: 499,
     bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
     max_agents: 5,
     monthly_renewal: true,

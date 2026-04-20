@@ -40,7 +40,7 @@ export const ListTiersOutputSchema = z.object({
 // ─── quote_tier ───────────────────────────────────────────────────────────────
 
 export const QuoteTierInputSchema = z.object({
-  tier_id: z.string().describe('Tier to quote (tier_a, tier_b, tier_c)'),
+  tier_id: z.string().describe('Tier to quote: tier_explorer, tier_a, or tier_b'),
   payment_token: PaymentTokenSchema.default('SOL').describe(
     'Token you want to pay with'
   ),
@@ -65,7 +65,7 @@ export const QuoteTierOutputSchema = z.object({
 // ─── deploy_agent ─────────────────────────────────────────────────────────────
 
 export const DeployAgentInputSchema = z.object({
-  tier_id: z.string().describe('Tier to deploy on (tier_a, tier_b, tier_c)'),
+  tier_id: z.string().describe('Tier to deploy on: tier_explorer, tier_a, or tier_b'),
   agent_name: z.string().min(3).max(64).describe('Display name for your agent'),
   owner_wallet: SolanaWalletSchema.describe('Your Solana wallet public key'),
   payment_token: PaymentTokenSchema.describe('Token used for payment'),

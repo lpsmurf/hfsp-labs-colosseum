@@ -66,7 +66,7 @@ const TIERS = [
     max_agents: 1,
   },
   {
-    id: 'tier_pro',
+    id: 'tier_a',
     name: '🚀 Production',
     description: 'Dedicated VPS for serious agents',
     price_usd: 99,
@@ -75,7 +75,7 @@ const TIERS = [
     max_agents: 1,
   },
   {
-    id: 'tier_enterprise',
+    id: 'tier_b',
     name: '🏢 Enterprise',
     description: 'Custom infrastructure with SLA',
     price_usd: 499,
