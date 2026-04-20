@@ -1,19 +1,18 @@
 {
-  "name": "@hfsp-labs/colosseum",
+  "name": "@hfsp-labs/clawdrop",
   "version": "1.0.0",
   "description": "HFSP Labs unified monorepo for Clawdrop MCP and Agent Provisioning",
   "private": true,
+  "bin": {
+    "clawdrop-mcp": "./packages/clawdrop-mcp/bin/clawdrop-mcp.sh"
+  },
+  "scripts": {
+    "postinstall": "cd packages/clawdrop-mcp && npm install && npm run build",
+    "start": "cd packages/clawdrop-mcp && npm start"
+  },
   "workspaces": [
     "packages/*"
   ],
-  "scripts": {
-    "install:all": "npm install && cd packages/agent-provisioning && npm install && cd ../clawdrop-mcp && npm install",
-    "dev": "npm run dev --workspaces --parallel",
-    "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces",
-    "prepare": "cd packages/clawdrop-mcp && npm install --legacy-peer-deps && npm run build"
-  },
   "keywords": [
     "payment-protocol",
     "x402",
