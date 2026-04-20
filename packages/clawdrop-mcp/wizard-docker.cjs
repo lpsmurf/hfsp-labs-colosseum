@@ -538,17 +538,21 @@ async function stepShowStatus(metadata) {
   console.log(`  Status:     ${c.yellow}${metadata.status}${c.reset}`);
   console.log(`  Tier:       ${metadata.tier}`);
   console.log(`  Endpoint:   ${c.cyan}${metadata.endpoint}${c.reset}`);
+  console.log(`  Tenant VPS: 187.124.173.69`);
   console.log(`  Created:    ${metadata.created_at}`);
   console.log();
   
-  log('HFSP will:');
-  info('  1. Create container on tenant VPS (187.124.173.69)');
-  info('  2. Allocate port automatically');
-  info('  3. Set up reverse proxy + SSL');
-  info('  4. Start OpenClaw gateway\n');
+  log('Commands:');
+  console.log(`  Logs:     ssh root@187.124.173.69 "docker logs hfsp_${metadata.agent_id}"`);
+  console.log(`  Stop:     ssh root@187.124.173.69 "docker stop hfsp_${metadata.agent_id}"`);
+  console.log(`  Restart:  ssh root@187.124.173.69 "docker restart hfsp_${metadata.agent_id}"`);
+  console.log(`  Remove:   ssh root@187.124.173.69 "docker rm -f hfsp_${metadata.agent_id}"`);
+  console.log(`  Data:     ${metadata.data_dir}`);
+  console.log();
   
-  log('Check status:');
-  info(`  HFSP API: curl ${process.env.HFSP_URL || 'http://localhost:3001'}/api/v1/agents/${metadata.agent_id}`);
+  if (metadata.status === 'provisioning') {
+    console.log(`${c.yellow}⏳ Provisioning in progress... Container starting on tenant VPS.${c.reset}\n`);
+  }
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
