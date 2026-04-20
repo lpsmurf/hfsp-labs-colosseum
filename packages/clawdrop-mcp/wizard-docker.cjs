@@ -530,6 +530,45 @@ async function stepDeploy(config) {
   }
 }
 
+async function waitForAgentReady(metadata, maxAttempts = 30) {
+  const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
+  const hfspKey = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+  
+  log(`Waiting for agent container to start...`);
+  info(`  Agent ID: ${metadata.agent_id}`);
+  info(`  Max wait: ${maxAttempts * 2} seconds`);
+  console.log();
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`${hfspUrl}/api/v1/agents/${metadata.agent_id}/status`, {
+        headers: { 'Authorization': `Bearer ${hfspKey}` },
+      });
+      
+      if (response.ok) {
+        const status = await response.json();
+        
+        if (status.status === 'running') {
+          success('Agent container is running! ✅\n');
+          return true;
+        }
+        
+        process.stdout.write(`\r  ⏳ Attempt ${i + 1}/${maxAttempts} — Status: ${status.status || 'unknown'}`);
+      }
+    } catch (err) {
+      process.stdout.write(`\r  ⏳ Attempt ${i + 1}/${maxAttempts} — Waiting for container...`);
+    }
+    
+    await sleep(2000); // Wait 2 seconds between checks
+  }
+  
+  console.log(); // New line after progress
+  error('Agent container did not start within expected time.');
+  info('You can check logs manually:');
+  info(`  ssh root@187.124.173.69 "docker logs hfsp_${metadata.agent_id}"`);
+  return false;
+}
+
 async function stepShowStatus(metadata) {
   console.log(`\n${c.bold}📊 Agent Status:${c.reset}\n`);
   
@@ -627,7 +666,13 @@ async function main() {
     
     const metadata = await stepDeploy(deploymentConfig);
     await stepShowStatus(metadata);
-    await stepPairAgent(metadata, config);
+    
+    // Wait for container to be running before pairing
+    const isReady = await waitForAgentReady(metadata);
+    
+    if (isReady && config.telegram_token) {
+      await stepPairAgent(metadata, config);
+    }
     
     console.log(`${c.green}${c.bold}🎉 Your OpenClaw agent is live!${c.reset}\n`);
     
