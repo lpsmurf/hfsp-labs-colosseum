@@ -10,14 +10,14 @@
     ],
     "status": "provisioning",
     "console_url": "https://test.example.com",
-    "deployed_at": "2026-04-18T23:45:40.897Z",
-    "last_activity": "2026-04-18T23:45:40.897Z",
+    "deployed_at": "2026-04-19T21:54:10.797Z",
+    "last_activity": "2026-04-19T21:54:10.797Z",
     "subscription": {
       "tier_id": "tier_a",
       "amount_usd": 29,
       "payment_token": "SOL",
-      "started_at": "2026-04-18T23:45:40.897Z",
-      "next_payment_due": "2026-05-18T23:45:40.897Z",
+      "started_at": "2026-04-19T21:54:10.797Z",
+      "next_payment_due": "2026-05-19T21:54:10.797Z",
       "grace_period_end": null,
       "payment_history": [
         {
@@ -25,7 +25,7 @@
           "amount": 0.2,
           "token": "SOL",
           "tx_hash": "test_hash_123",
-          "timestamp": "2026-04-18T23:45:40.897Z",
+          "timestamp": "2026-04-19T21:54:10.797Z",
           "fee_charged_usd": 1,
           "jupiter_swap": false
         }
@@ -33,7 +33,7 @@
     },
     "logs": [
       {
-        "timestamp": "2026-04-18T23:45:40.897Z",
+        "timestamp": "2026-04-19T21:54:10.797Z",
         "level": "info",
         "message": "Test deployment"
       }
@@ -49,14 +49,14 @@
     ],
     "status": "running",
     "console_url": "https://test2.example.com",
-    "deployed_at": "2026-04-18T23:45:40.900Z",
-    "last_activity": "2026-04-18T23:45:40.901Z",
+    "deployed_at": "2026-04-19T21:54:10.800Z",
+    "last_activity": "2026-04-19T21:54:10.800Z",
     "subscription": {
       "tier_id": "tier_b",
       "amount_usd": 99,
       "payment_token": "SOL",
-      "started_at": "2026-04-18T23:45:40.900Z",
-      "next_payment_due": "2026-05-18T23:45:40.900Z",
+      "started_at": "2026-04-19T21:54:10.800Z",
+      "next_payment_due": "2026-05-19T21:54:10.800Z",
       "grace_period_end": null,
       "payment_history": []
     },
@@ -72,17 +72,137 @@
     ],
     "status": "running",
     "console_url": "https://test3.example.com",
-    "deployed_at": "2026-04-18T23:45:40.902Z",
-    "last_activity": "2026-04-18T23:45:40.902Z",
+    "deployed_at": "2026-04-19T21:54:10.801Z",
+    "last_activity": "2026-04-19T21:54:10.801Z",
     "subscription": {
       "tier_id": "tier_c",
       "amount_usd": 299,
       "payment_token": "SOL",
-      "started_at": "2026-04-18T23:45:40.902Z",
-      "next_payment_due": "2026-05-18T23:45:40.902Z",
+      "started_at": "2026-04-19T21:54:10.801Z",
+      "next_payment_due": "2026-05-19T21:54:10.801Z",
       "grace_period_end": null,
       "payment_history": []
     },
     "logs": []
+  },
+  {
+    "agent_id": "agent_1776680367836_k4aeqt",
+    "tier_id": "tier_b",
+    "agent_name": "DemoAgent",
+    "owner_wallet": "3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw",
+    "bundles": [
+      "solana",
+      "research"
+    ],
+    "status": "provisioning",
+    "console_url": "http://127.0.0.1:36081",
+    "deployed_at": "2026-04-20T10:19:30.387Z",
+    "last_activity": "2026-04-20T10:19:30.387Z",
+    "subscription": {
+      "tier_id": "tier_b",
+      "amount_usd": 200,
+      "payment_token": "SOL",
+      "started_at": "2026-04-20T10:19:30.387Z",
+      "next_payment_due": "2026-05-20T10:19:30.387Z",
+      "grace_period_end": null,
+      "payment_history": [
+        {
+          "payment_id": "pay_1776680367836",
+          "amount": 1,
+          "token": "SOL",
+          "tx_hash": "devnet_walkthrough_1776680367835",
+          "timestamp": "2026-04-20T10:19:30.387Z",
+          "fee_charged_usd": 0.7000000000000001,
+          "jupiter_swap": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "timestamp": "2026-04-20T10:19:30.387Z",
+        "level": "info",
+        "message": "Provisioning started. Tier: tier_b. Bundles: solana, research"
+      }
+    ]
+  },
+  {
+    "agent_id": "agent_1776681219522_3izglf",
+    "tier_id": "tier_a",
+    "agent_name": "DemoAgent",
+    "owner_wallet": "HFSPdemo1776681208525",
+    "bundles": [
+      "solana",
+      "research"
+    ],
+    "status": "provisioning",
+    "console_url": "http://127.0.0.1:38770",
+    "deployed_at": "2026-04-20T10:33:42.114Z",
+    "last_activity": "2026-04-20T10:33:42.114Z",
+    "subscription": {
+      "tier_id": "tier_a",
+      "amount_usd": 100,
+      "payment_token": "SOL",
+      "started_at": "2026-04-20T10:33:42.114Z",
+      "next_payment_due": "2026-05-20T10:33:42.114Z",
+      "grace_period_end": null,
+      "payment_history": [
+        {
+          "payment_id": "pay_1776681219522",
+          "amount": 0.5,
+          "token": "SOL",
+          "tx_hash": "devnet_walkthrough_1776681219521",
+          "timestamp": "2026-04-20T10:33:42.114Z",
+          "fee_charged_usd": 0.35000000000000003,
+          "jupiter_swap": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "timestamp": "2026-04-20T10:33:42.114Z",
+        "level": "info",
+        "message": "Provisioning started. Tier: tier_a. Bundles: solana, research"
+      }
+    ]
+  },
+  {
+    "agent_id": "agent_1776686582393_s6uubu",
+    "tier_id": "tier_a",
+    "agent_name": "DemoAgent",
+    "owner_wallet": "HFSPdemo1776686570031",
+    "bundles": [
+      "solana",
+      "research"
+    ],
+    "status": "provisioning",
+    "console_url": "http://127.0.0.1:34023",
+    "deployed_at": "2026-04-20T12:03:05.207Z",
+    "last_activity": "2026-04-20T12:03:05.207Z",
+    "subscription": {
+      "tier_id": "tier_a",
+      "amount_usd": 100,
+      "payment_token": "SOL",
+      "started_at": "2026-04-20T12:03:05.207Z",
+      "next_payment_due": "2026-05-20T12:03:05.207Z",
+      "grace_period_end": null,
+      "payment_history": [
+        {
+          "payment_id": "pay_1776686582393",
+          "amount": 0.5,
+          "token": "SOL",
+          "tx_hash": "devnet_walkthrough_1776686582392",
+          "timestamp": "2026-04-20T12:03:05.207Z",
+          "fee_charged_usd": 0.35000000000000003,
+          "jupiter_swap": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "timestamp": "2026-04-20T12:03:05.207Z",
+        "level": "info",
+        "message": "Provisioning started. Tier: tier_a. Bundles: solana, research"
+      }
+    ]
   }
 ]

@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 # Copy package files
 COPY package.json ./
 COPY tsconfig.json ./
-COPY fix-imports.js ./
+COPY fix-imports.cjs ./
 
 # Install dependencies
 RUN npm install

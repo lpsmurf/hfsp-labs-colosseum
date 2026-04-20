@@ -1240,6 +1240,7 @@ async function handleDeploymentWalkthrough(input: unknown): Promise<string> {
   const parsed = z.object({
     step: z.number().default(0),
     selected_tier: z.string().optional(),
+    llm_provider: z.string().optional(),
     selected_token: z.string().optional(),
     telegram_token: z.string().optional(),
     agent_name: z.string().optional(),
