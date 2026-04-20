@@ -138,6 +138,7 @@ export class ClawdropAPIServer {
     this.app.post('/api/tools/verify_payment', this.handleToolRequest.bind(this, 'verify_payment'));
     this.app.post('/api/tools/deploy_openclaw_instance', this.handleToolRequest.bind(this, 'deploy_openclaw_instance'));
     this.app.post('/api/tools/get_deployment_status', this.handleToolRequest.bind(this, 'get_deployment_status'));
+    this.app.post('/api/tools/start_deployment_walkthrough', this.handleToolRequest.bind(this, 'start_deployment_walkthrough'));
 
     // Also support GET for list_tiers (no input needed)
     this.app.get('/api/tools/list_tiers', this.handleToolRequest.bind(this, 'list_tiers'));
