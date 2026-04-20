@@ -296,57 +296,57 @@ async function deployAgent(config) {
   
   // Call HFSP API to deploy on tenant VPS
   const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
-  const hfspKey = process.env.HFSP_API_KEY || '';
   
   log('Calling HFSP provisioning API...');
   info(`  API: ${hfspUrl}`);
   info(`  Tenant VPS: 187.124.173.69`);
   
-  const deployRequest = {
-    name: config.agent_name,
+  const deployPayload = {
+    deployment_id: `clawdrop-${config.agent_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
     tier_id: config.tier.id,
+    payment_verified: config.payment.method !== 'demo',
     wallet_address: config.wallet,
-    bundles: config.bundles,
     telegram_token: config.telegram_token,
     llm_provider: config.llm_provider,
     llm_api_key: config.llm_api_key,
-    payment_verified: config.payment.method !== 'demo',
-    payment_tx: config.payment.tx_hash,
+    config: {
+      agent_name: config.agent_name,
+      bundles: config.bundles,
+    },
   };
   
-  // For now, simulate the API call and create local config
-  // In production, this would POST to HFSP
-  const agentConfig = generateAgentConfig(config);
-  fs.writeFileSync(
-    path.join(dataDir, 'agent.json'),
-    JSON.stringify(agentConfig, null, 2)
-  );
+  // Call HFSP deploy API
+  const response = await fetch(`${hfspUrl}/api/v1/agents/deploy`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deployPayload),
+  });
   
-  // Save deployment metadata
-  const containerName = `clawdrop-${config.agent_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`HFSP deploy failed: ${response.status} - ${error}`);
+  }
+  
+  const result = await response.json();
+  
+  // Save deployment metadata locally
   const metadata = {
-    agent_id: containerName,
+    agent_id: result.agent_id,
     name: config.agent_name,
     tier: config.tier.id,
     bundles: config.bundles,
     wallet: config.wallet,
-    endpoint: `https://${containerName}.clawdrop.live`,
+    endpoint: result.endpoint,
+    status: result.status || 'provisioning',
     created_at: new Date().toISOString(),
-    status: 'provisioning',
     data_dir: dataDir,
-    hfsp_deploy_request: deployRequest,
+    hfsp_response: result,
   };
   
   fs.writeFileSync(
     path.join(dataDir, 'deployment.json'),
     JSON.stringify(metadata, null, 2)
   );
-  
-  // Note: In production, HFSP handles:
-  // - Container creation on tenant VPS (187.124.173.69)
-  // - Port allocation
-  // - Reverse proxy setup
-  // - SSL certificate
   
   return metadata;
 }
