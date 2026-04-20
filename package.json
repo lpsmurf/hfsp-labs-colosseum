@@ -1,41 +1,27 @@
 {
   "name": "@hfsp-labs/clawdrop",
   "version": "1.0.0",
-  "description": "HFSP Labs unified monorepo for Clawdrop MCP and Agent Provisioning",
+  "description": "HFSP Labs - Clawdrop: Deploy AI agents on Solana in 60 seconds",
   "private": true,
+  "main": "./packages/clawdrop-mcp/dist/api-server.js",
   "bin": {
-    "clawdrop": "./packages/clawdrop-mcp/cli.cjs",
-    "clawdrop-mcp": "./packages/clawdrop-mcp/bin/clawdrop-mcp.sh"
+    "clawdrop": "./packages/clawdrop-mcp/cli.cjs"
   },
   "scripts": {
-    "postinstall": "cd packages/clawdrop-mcp && npm install && npm run build",
-    "start": "cd packages/clawdrop-mcp && npm run start:api",
+    "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
     "cli": "node packages/clawdrop-mcp/cli.cjs"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "keywords": [
-    "payment-protocol",
-    "x402",
-    "agent-provisioning",
     "solana",
-    "web3",
-    "hackathon"
+    "ai-agent",
+    "mcp",
+    "deployment",
+    "hackathon",
+    "clawdrop"
   ],
   "author": "HFSP Labs",
-  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "https://github.com/lpsmurf/hfsp-labs-colosseum.git"
-  },
-  "bugs": {
-    "url": "https://github.com/lpsmurf/hfsp-labs-colosseum/issues"
-  },
-  "homepage": "https://hfsp.labs",
-  "bin": {
-    "clawdrop": "./mcp-server.js"
-  },
-  "main": "./mcp-server.js",
-  "type": "module"
+  }
 }
