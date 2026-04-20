@@ -12,7 +12,8 @@ import * as nacl from 'tweetnacl';
 import { PublicKey, Connection } from '@solana/web3.js';
 import QRCode from 'qrcode';
 
-const PORT = Number(process.env.PORT ?? 3000);
+// Start server
+const PORT = Number(process.env.PORT ?? 3001);
 const TOKEN_FILE = process.env.TELEGRAM_BOT_TOKEN_FILE ?? '/home/clawd/.openclaw/secrets/hfsp_agent_bot.token';
 const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'storefront.sqlite');
 
