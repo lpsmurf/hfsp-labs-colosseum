@@ -1,0 +1,33 @@
+{
+  "name": "Sol test",
+  "version": "1.0.0",
+  "description": "Clawdrop agent: Sol test",
+  "llm": {
+    "provider": "openrouter",
+    "model": "claude-sonnet-4-6",
+    "api_key": "${LLM_API_KEY}"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "${TELEGRAM_BOT_TOKEN}"
+    }
+  },
+  "bundles": [
+    "solana",
+    "research",
+    "treasury"
+  ],
+  "wallet": {
+    "address": "3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw"
+  },
+  "log": {
+    "level": "info"
+  },
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+  "created_at": "2026-04-20T19:28:49.960Z",
+  "tier": "tier_explorer"
+}
