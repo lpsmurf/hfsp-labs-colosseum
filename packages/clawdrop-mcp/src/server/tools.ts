@@ -553,7 +553,6 @@ export const tools: Tool[] = [
       required: ['mint', 'action'],
     },
   },
-,
   {
     name: 'start_deployment_walkthrough',
     description:
