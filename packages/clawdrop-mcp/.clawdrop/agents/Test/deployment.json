@@ -1,0 +1,20 @@
+{
+  "agent_id": "clawdrop-test",
+  "name": "Test",
+  "tier": "tier_explorer",
+  "bundles": [
+    "solana",
+    "research",
+    "treasury"
+  ],
+  "wallet": "3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw",
+  "endpoint": "http://127.0.0.1:37279",
+  "status": "provisioning",
+  "created_at": "2026-04-20T20:42:59.686Z",
+  "data_dir": "/home/clawd/.openclaw/workspace/hfsp-labs-colosseum/packages/clawdrop-mcp/.clawdrop/agents/Test",
+  "hfsp_response": {
+    "agent_id": "clawdrop-test",
+    "endpoint": "http://127.0.0.1:37279",
+    "status": "provisioning"
+  }
+}
