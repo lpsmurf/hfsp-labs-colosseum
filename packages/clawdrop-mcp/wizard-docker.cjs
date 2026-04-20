@@ -555,7 +555,58 @@ async function stepShowStatus(metadata) {
   }
 }
 
-// ─── Main ───────────────────────────────────────────────────────────────────
+async function stepPairAgent(metadata, config) {
+  if (!config.telegram_token) {
+    info('No Telegram token provided — skipping pairing step.');
+    return;
+  }
+  
+  console.log(`\n${c.bold}📱 Telegram Pairing:${c.reset}\n`);
+  
+  log('Your agent needs to be paired with Telegram.');
+  info('1. Find your bot on Telegram (search for the bot username)');
+  info('2. Send /start to the bot');
+  info('3. The bot will reply with a pairing code');
+  info('4. Enter the pairing code below\n');
+  
+  const pairingCode = await ask('Pairing code (or press Enter to skip): ');
+  
+  if (!pairingCode) {
+    warn('Pairing skipped. You can pair later using:');
+    info(`  curl -H "Authorization: Bearer ${process.env.HFSP_API_KEY || 'test-dev-key-12345'}" \\\`);
+    info(`    -X POST http://localhost:3001/api/v1/agents/${metadata.agent_id}/pair \\\`);
+    info(`    -d '{"pairingCode":"YOUR_CODE"}'`);
+    return;
+  }
+  
+  log('Submitting pairing code...');
+  
+  try {
+    const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
+    const hfspKey = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+    
+    const response = await fetch(`${hfspUrl}/api/v1/agents/${metadata.agent_id}/pair`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${hfspKey}`,
+      },
+      body: JSON.stringify({ pairingCode: pairingCode.trim() }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Pairing failed');
+    }
+    
+    success('Agent paired successfully! 🎉');
+    info('Your bot is now active and responding to messages.');
+    
+  } catch (err) {
+    error('Pairing failed:', err.message);
+    warn('You can retry pairing later using the API.');
+  }
+}
 
 async function main() {
   try {
@@ -576,6 +627,7 @@ async function main() {
     
     const metadata = await stepDeploy(deploymentConfig);
     await stepShowStatus(metadata);
+    await stepPairAgent(metadata, config);
     
     console.log(`${c.green}${c.bold}🎉 Your OpenClaw agent is live!${c.reset}\n`);
     
