@@ -62,45 +62,6 @@ const TIERS: Record<string, Tier> = {
     max_agents: 5,
     monthly_renewal: true,
   },
-
-  tier_c: {
-    id: "tier_c",
-    name: "Tier C - Enterprise",
-    description: "Custom VPS, contact for custom pricing",
-    vps_type: "dedicated-vps",
-    vps_capacity: "Custom",
-    price_sol: 2.0, // Custom pricing
-    price_usd: 400,
-    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
-    max_agents: 5,
-    monthly_renewal: true,
-  },
-
-  tier_pro: {
-    id: "tier_pro",
-    name: "🚀 Production",
-    description: "Dedicated VPS for serious agents",
-    vps_type: "dedicated-vps",
-    vps_capacity: "4GB RAM, 2 vCPU, Dedicated",
-    price_sol: 0.4,
-    price_usd: 99,
-    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
-    max_agents: 1,
-    monthly_renewal: true,
-  },
-
-  tier_enterprise: {
-    id: "tier_enterprise",
-    name: "🏢 Enterprise",
-    description: "Custom infrastructure with SLA",
-    vps_type: "dedicated-vps",
-    vps_capacity: "16GB RAM, 4 vCPU, Dedicated",
-    price_sol: 2.0,
-    price_usd: 499,
-    bundles_included: ["solana", "research", "treasury", "travel-crypto-pro"],
-    max_agents: 5,
-    monthly_renewal: true,
-  },
 };
 
 /**
