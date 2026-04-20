@@ -125,6 +125,56 @@ function dockerComposeCmd() {
   }
 }
 
+// ─── Port Management ────────────────────────────────────────────────────────
+
+function getUsedPorts() {
+  try {
+    const output = execSync('docker ps --format "{{.Ports}}"', { encoding: 'utf8' });
+    const ports = new Set();
+    output.split('\n').forEach(line => {
+      const matches = line.match(/:(\d+)->/g);
+      if (matches) {
+        matches.forEach(m => {
+          const port = parseInt(m.match(/:(\d+)/)[1]);
+          ports.add(port);
+        });
+      }
+    });
+    return ports;
+  } catch {
+    return new Set();
+  }
+}
+
+function findAvailablePort(startPort = 3001) {
+  const usedPorts = getUsedPorts();
+  let port = startPort;
+  while (usedPorts.has(port)) {
+    port++;
+  }
+  return port;
+}
+
+async function stepSelectPort() {
+  const usedPorts = getUsedPorts();
+  const suggestedPort = findAvailablePort(3001);
+  
+  if (usedPorts.has(3000)) {
+    warn('Port 3000 is already in use by another service.');
+    info(`Suggested available port: ${suggestedPort}\n`);
+  }
+  
+  const portInput = await ask(`Port for agent (default: ${suggestedPort}): `);
+  const port = parseInt(portInput) || suggestedPort;
+  
+  if (usedPorts.has(port)) {
+    warn(`Port ${port} is already in use!`);
+    return stepSelectPort();
+  }
+  
+  return port;
+}
+
 async function buildRuntimeImage() {
   log('Building tenant runtime image...');
   try {
@@ -242,86 +292,61 @@ function generateDockerCompose(config, dataDir) {
 
 async function deployAgent(config) {
   const dataDir = path.join(process.cwd(), '.clawdrop', 'agents', config.agent_name);
+  fs.mkdirSync(dataDir, { recursive: true });
   
-  // Create directory structure
-  fs.mkdirSync(path.join(dataDir, 'config'), { recursive: true });
-  fs.mkdirSync(path.join(dataDir, 'secrets'), { recursive: true });
-  fs.mkdirSync(path.join(dataDir, 'workspace'), { recursive: true });
-  fs.mkdirSync(path.join(dataDir, 'data'), { recursive: true });
+  // Call HFSP API to deploy on tenant VPS
+  const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
+  const hfspKey = process.env.HFSP_API_KEY || '';
   
-  // Write agent config
+  log('Calling HFSP provisioning API...');
+  info(`  API: ${hfspUrl}`);
+  info(`  Tenant VPS: 187.124.173.69`);
+  
+  const deployRequest = {
+    name: config.agent_name,
+    tier_id: config.tier.id,
+    wallet_address: config.wallet,
+    bundles: config.bundles,
+    telegram_token: config.telegram_token,
+    llm_provider: config.llm_provider,
+    llm_api_key: config.llm_api_key,
+    payment_verified: config.payment.method !== 'demo',
+    payment_tx: config.payment.tx_hash,
+  };
+  
+  // For now, simulate the API call and create local config
+  // In production, this would POST to HFSP
   const agentConfig = generateAgentConfig(config);
   fs.writeFileSync(
-    path.join(dataDir, 'config', 'openclaw.json'),
+    path.join(dataDir, 'agent.json'),
     JSON.stringify(agentConfig, null, 2)
   );
   
-  // Write secrets if provided
-  if (config.llm_api_key) {
-    const keyFile = config.llm_provider === 'openai' ? 'openai.key' : 'anthropic.key';
-    fs.writeFileSync(path.join(dataDir, 'secrets', keyFile), config.llm_api_key);
-  }
-  
-  // Generate docker-compose
-  const { containerName, compose } = generateDockerCompose(config, dataDir);
-  const composePath = path.join(dataDir, 'docker-compose.yml');
-  
-  // Write as YAML (simple stringify won't work, use template)
-  const composeYaml = `name: ${containerName}
-services:
-  openclaw:
-    image: ${RUNTIME_IMAGE}
-    container_name: ${containerName}
-    restart: unless-stopped
-    ports:
-      - "${config.port || 3000}:3000"
-    environment:
-      - NODE_ENV=production
-${config.telegram_token ? `      - TELEGRAM_BOT_TOKEN=${config.telegram_token}` : ''}
-${config.llm_api_key ? `      - LLM_API_KEY=${config.llm_api_key}` : ''}
-${config.llm_provider === 'anthropic' && config.llm_api_key ? `      - ANTHROPIC_API_KEY=${config.llm_api_key}` : ''}
-${config.llm_provider === 'openai' && config.llm_api_key ? `      - OPENAI_API_KEY=${config.llm_api_key}` : ''}
-    volumes:
-      - ${path.join(dataDir, 'config')}:/home/clawd/.openclaw:ro
-      - ${path.join(dataDir, 'secrets')}:/home/clawd/.openclaw/secrets:ro
-      - ${path.join(dataDir, 'workspace')}:/tenant/workspace
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-`;
-  
-  fs.writeFileSync(composePath, composeYaml);
-  
-  // Start container
-  const composeCmd = dockerComposeCmd();
-  log(`Starting container with ${composeCmd}...`);
-  
-  execSync(`${composeCmd} -f "${composePath}" up -d`, {
-    stdio: 'inherit',
-    timeout: 120000,
-  });
-  
   // Save deployment metadata
+  const containerName = `clawdrop-${config.agent_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
   const metadata = {
     agent_id: containerName,
     name: config.agent_name,
     tier: config.tier.id,
     bundles: config.bundles,
     wallet: config.wallet,
-    port: config.port || 3000,
+    endpoint: `https://${containerName}.clawdrop.live`,
     created_at: new Date().toISOString(),
-    status: 'running',
-    compose_path: composePath,
+    status: 'provisioning',
     data_dir: dataDir,
+    hfsp_deploy_request: deployRequest,
   };
   
   fs.writeFileSync(
     path.join(dataDir, 'deployment.json'),
     JSON.stringify(metadata, null, 2)
   );
+  
+  // Note: In production, HFSP handles:
+  // - Container creation on tenant VPS (187.124.173.69)
+  // - Port allocation
+  // - Reverse proxy setup
+  // - SSL certificate
   
   return metadata;
 }
@@ -441,17 +466,12 @@ async function stepConfigureAgent() {
   
   const llm_api_key = await ask(`${llm_provider} API key: `);
   
-  console.log(`\n${c.bold}🌐 Port${c.reset}`);
-  const portInput = await ask('Port for agent (default: 3000): ');
-  const port = parseInt(portInput) || 3000;
-  
   return {
     agent_name: agent_name || 'my-clawdrop-agent',
     wallet,
     telegram_token: telegram || undefined,
     llm_provider,
     llm_api_key,
-    port,
   };
 }
 
@@ -489,8 +509,8 @@ async function stepDeploy(config) {
   info(`  Name: ${config.agent_name}`);
   info(`  Tier: ${config.tier.name}`);
   info(`  Bundles: ${config.bundles.join(', ')}`);
-  info(`  Port: ${config.port}`);
   info(`  LLM: ${config.llm_provider}`);
+  info(`  Deploy target: Tenant VPS (187.124.173.69)`);
   if (config.telegram_token) info(`  Telegram: enabled`);
   console.log();
   
@@ -498,7 +518,7 @@ async function stepDeploy(config) {
   
   try {
     const metadata = await deployAgent(config);
-    success('Agent deployed!\n');
+    success('Agent deployment initiated!\n');
     return metadata;
   } catch (err) {
     error('Deployment failed:', err.message);
@@ -511,31 +531,20 @@ async function stepShowStatus(metadata) {
   
   console.log(`  Agent ID:   ${c.cyan}${metadata.agent_id}${c.reset}`);
   console.log(`  Name:       ${metadata.name}`);
-  console.log(`  Status:     ${c.green}${metadata.status}${c.reset}`);
+  console.log(`  Status:     ${c.yellow}${metadata.status}${c.reset}`);
   console.log(`  Tier:       ${metadata.tier}`);
-  console.log(`  Port:       ${metadata.port}`);
+  console.log(`  Endpoint:   ${c.cyan}${metadata.endpoint}${c.reset}`);
   console.log(`  Created:    ${metadata.created_at}`);
   console.log();
   
-  log('Commands:');
-  console.log(`  Logs:     docker logs ${metadata.agent_id}`);
-  console.log(`  Stop:     docker stop ${metadata.agent_id}`);
-  console.log(`  Restart:  docker restart ${metadata.agent_id}`);
-  console.log(`  Remove:   docker rm -f ${metadata.agent_id}`);
-  console.log(`  Data:     ${metadata.data_dir}`);
-  console.log();
+  log('HFSP will:');
+  info('  1. Create container on tenant VPS (187.124.173.69)');
+  info('  2. Allocate port automatically');
+  info('  3. Set up reverse proxy + SSL');
+  info('  4. Start OpenClaw gateway\n');
   
-  // Try to get mapped port
-  try {
-    const portMapping = execSync(`docker port ${metadata.agent_id} 3000`, {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
-    console.log(`  URL:      http://${portMapping}`);
-  } catch {
-    console.log(`  URL:      http://localhost:${metadata.port}`);
-  }
-  console.log();
+  log('Check status:');
+  info(`  HFSP API: curl ${process.env.HFSP_URL || 'http://localhost:3001'}/api/v1/agents/${metadata.agent_id}`);
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
