@@ -35,19 +35,28 @@ function sanitize(obj: unknown, seen = new WeakSet()): unknown {
 }
 
 const isMCPMode = process.env.CLAWDROP_MODE === 'mcp';
+const isProduction = process.env.NODE_ENV === 'production';
 
-// MCP mode: logs go to stderr so stdout stays clean for MCP JSON protocol
-const transport = pino.transport({
-  target: 'pino-pretty',
-  options: {
-    colorize: true,
-    translateTime: 'SYS:standard',
-    ignore: 'pid,hostname',
-    ...(isMCPMode ? { destination: 2 } : {}),
-  },
+// Use sync destination to prevent process exit in systemd
+const destination = pino.destination({
+  sync: true,
+  minLength: 0,
 });
 
-const baseLogger = pino({ level: logLevel }, transport);
+const baseLogger = pino(
+  {
+    level: logLevel,
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: !isProduction,
+        translateTime: 'SYS:standard',
+        ignore: 'pid,hostname',
+      },
+    },
+  },
+  destination
+);
 
 // Proxy that sanitizes the first argument before passing to pino
 type LogFn = (obj: unknown, msg?: string, ...args: unknown[]) => void;

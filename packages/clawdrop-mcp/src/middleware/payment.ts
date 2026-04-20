@@ -34,7 +34,6 @@ import {
 import { MemPalaceClient } from '../integrations/mempalace';
 import { sendDevnetPayment, getBalance } from '../integrations/solana-payment';
 import { logger } from '../utils/logger';
-import '../types/request'; // Import unified request types
 
 // Use FeeType from fee-collector
 export { FeeType };
