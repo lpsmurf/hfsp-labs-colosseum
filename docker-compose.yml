@@ -1,25 +1,24 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # Clawdrop MCP Server
-  clawdrop-mcp:
+  clawdrop-sse:
     build:
       context: ./packages/clawdrop-mcp
       dockerfile: Dockerfile
-    container_name: hfsp-clawdrop-mcp
+    container_name: clawdrop-mcp
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     env_file:
-      - ./packages/clawdrop-mcp/.env.local
+      - ./packages/clawdrop-mcp/.env
     environment:
-      - NODE_ENV=production
       - PORT=3000
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
     volumes:
-      - ./data/clawdrop-mcp:/app/data
-      - ./logs:/app/logs
+      - clawdrop-data:/app/data
     networks:
-      - hfsp-network
+      - clawdrop-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -27,84 +26,9 @@ services:
       retries: 3
       start_period: 10s
 
-  # Storefront Bot (Agent Provisioning)
-  storefront-bot:
-    build:
-      context: ./packages/agent-provisioning
-      dockerfile: Dockerfile
-    container_name: hfsp-storefront-bot
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3001:3001"
-    env_file:
-      - ./packages/agent-provisioning/.env.local
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - HFSP_URL=http://clawdrop-mcp:3000
-    volumes:
-      - ./data/storefront-bot:/app/data
-      - ./logs:/app/logs
-      - /home/clawd/.ssh:/home/app/.ssh:ro
-    networks:
-      - hfsp-network
-    depends_on:
-      - clawdrop-mcp
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  # Clawdrop Wizard
-  clawdrop-wizard:
-    build:
-      context: ./packages/agent-provisioning
-      dockerfile: Dockerfile.wizard
-    container_name: hfsp-clawdrop-wizard
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3003:3003"
-    env_file:
-      - ./packages/agent-provisioning/.env.local
-    environment:
-      - NODE_ENV=production
-      - PORT=3003
-      - HFSP_URL=http://clawdrop-mcp:3000
-    volumes:
-      - ./data/wizard:/app/data
-      - ./logs:/app/logs
-    networks:
-      - hfsp-network
-    depends_on:
-      - clawdrop-mcp
-
-  # Optional: Nginx reverse proxy
-  nginx:
-    image: nginx:alpine
-    container_name: hfsp-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    networks:
-      - hfsp-network
-    depends_on:
-      - clawdrop-mcp
-      - storefront-bot
-    profiles:
-      - with-nginx
+volumes:
+  clawdrop-data:
 
 networks:
-  hfsp-network:
+  clawdrop-net:
     driver: bridge
-
-volumes:
-  data:
-    driver: local
-  logs:
-    driver: local
