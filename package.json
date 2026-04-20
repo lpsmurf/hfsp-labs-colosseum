@@ -4,11 +4,13 @@
   "description": "HFSP Labs unified monorepo for Clawdrop MCP and Agent Provisioning",
   "private": true,
   "bin": {
+    "clawdrop": "./packages/clawdrop-mcp/cli.cjs",
     "clawdrop-mcp": "./packages/clawdrop-mcp/bin/clawdrop-mcp.sh"
   },
   "scripts": {
     "postinstall": "cd packages/clawdrop-mcp && npm install && npm run build",
-    "start": "cd packages/clawdrop-mcp && npm start"
+    "start": "cd packages/clawdrop-mcp && npm run start:api",
+    "cli": "node packages/clawdrop-mcp/cli.cjs"
   },
   "workspaces": [
     "packages/*"
