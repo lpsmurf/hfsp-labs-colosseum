@@ -27,19 +27,21 @@ const SKIP_INSTALL = process.env.CLAWDROP_SKIP_INSTALL === '1';
 function findRepoRoot() {
   let dir = __dirname;
   while (dir !== '/') {
-    if (fs.existsSync(path.join(dir, 'package.json'))) {
-      const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json')));
-      if (pkg.name === '@hfsp-labs/clawdrop' || pkg.name === 'clawdrop-mcp') {
+    const pkgPath = path.join(dir, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      if (pkg.name === '@hfsp-labs/clawdrop') {
         return dir;
       }
     }
     dir = path.dirname(dir);
   }
-  return __dirname;
+  // Fallback: assume we're in packages/clawdrop-mcp/
+  return path.resolve(__dirname, '..', '..');
 }
 
-const REPO_ROOT = findRepoRoot();
-const MCP_DIR = path.join(REPO_ROOT, 'packages', 'clawdrop-mcp');
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const MCP_DIR = path.resolve(REPO_ROOT, 'packages', 'clawdrop-mcp');
 const API_ENTRY = path.join(MCP_DIR, 'dist', 'api-server.js');
 const MCP_PACKAGE_JSON = path.join(MCP_DIR, 'package.json');
 const NODE_MODULES = path.join(MCP_DIR, 'node_modules');
@@ -195,31 +197,38 @@ async function demoMode() {
   console.log('═══════════════════════════════════════════════\n');
 
   const selectedTier = 'tier_a';
+  const llmProvider = 'anthropic';
   const selectedToken = 'SOL';
   const tierName = 'Starter';
   const walletAddress = 'HFSPdemo' + Date.now();
 
-  console.log('📦 [Step 1/5] Which tier do you want?');
+  console.log('📦 [Step 1/6] Which tier do you want?');
   console.log('   1) Hobbyist  2) Production ⭐  3) Enterprise');
   await sleep(800);
   console.log('   → Selecting: 2 (Production)\n');
   await sleep(500);
 
-  console.log('💰 [Step 2/5] Which payment token?');
+  console.log('🤖 [Step 2/6] Which AI model provider?');
+  console.log('   1) Anthropic (Claude)  2) OpenAI (GPT)  3) OpenRouter');
+  await sleep(800);
+  console.log('   → Selecting: 1 (Anthropic)\n');
+  await sleep(500);
+
+  console.log('💰 [Step 3/6] Which payment token?');
   console.log('   1) SOL  2) USDC  3) HERD  4) EURC');
   await sleep(800);
   console.log('   → Selecting: 1 (SOL)\n');
   await sleep(500);
 
   const step2 = await makeRequest('/api/tools/start_deployment_walkthrough', {
-    step: 2, selected_tier: selectedTier, selected_token: selectedToken
+    step: 2, selected_tier: selectedTier, llm_provider: llmProvider, selected_token: selectedToken
   });
 
   const amount = step2.data?.amount || '0.02';
   const paymentWallet = step2.data?.payment_address || '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
 
-  printBox('💵 [Step 3/5] Price Quote',
-    `Tier: ${tierName}\nPayment: ${amount} ${selectedToken}\nNetwork: Solana Testnet (devnet)\n\nSend payment to:\n${paymentWallet}\n\nAmount: ${amount} ${selectedToken}`
+  printBox('💵 [Step 4/6] Price Quote',
+    `Tier: ${tierName}\nLLM: ${llmProvider}\nPayment: ${amount} ${selectedToken}\nNetwork: Solana Testnet (devnet)\n\nSend payment to:\n${paymentWallet}\n\nAmount: ${amount} ${selectedToken}`
   );
 
   console.log('📡 Watching blockchain for payment...');
@@ -228,7 +237,7 @@ async function demoMode() {
   await sleep(1000);
   
   const step3 = await makeRequest('/api/tools/start_deployment_walkthrough', {
-    step: 3, selected_tier: selectedTier, selected_token: selectedToken,
+    step: 3, selected_tier: selectedTier, llm_provider: llmProvider, selected_token: selectedToken,
     owner_wallet: walletAddress
   });
 
@@ -237,12 +246,12 @@ async function demoMode() {
     console.log(`✓ Payment detected! TX: ${detectedTx.slice(0, 20)}...\n`);
   }
 
-  console.log('🤖 [Step 4/5] Telegram Integration (Optional)');
+  console.log('🤖 [Step 5/6] Telegram Integration (Optional)');
   await sleep(800);
   console.log('   → Skipping (press Enter to skip)\n');
   await sleep(500);
 
-  console.log('🚀 [Step 5/5] Deploying your agent...');
+  console.log('🚀 [Step 6/6] Deploying your agent...');
   await sleep(500);
   console.log('   ⏳ Verifying payment...'); await sleep(800);
   console.log('   ✓ Payment verified'); await sleep(400);
@@ -251,7 +260,7 @@ async function demoMode() {
   console.log('   ⏳ Provisioning agent...'); await sleep(1200);
 
   const step4 = await makeRequest('/api/tools/start_deployment_walkthrough', {
-    step: 4, selected_tier: selectedTier, selected_token: selectedToken,
+    step: 4, selected_tier: selectedTier, llm_provider: llmProvider, selected_token: selectedToken,
     owner_wallet: walletAddress, agent_name: 'DemoAgent', detected_tx: detectedTx
   });
 
@@ -263,7 +272,7 @@ async function demoMode() {
   console.log('   ✓ Agent deployed!'); await sleep(300);
 
   printBox('✅ SUCCESS - Your Agent Is Live!',
-    `Agent ID: ${step4.data?.agent_id}\nTier: ${tierName}\nStatus: ${step4.data?.status} ✓\n\nWhat's next:\n1. Open Claude Code\n2. get_deployment_status ${step4.data?.agent_id}\n3. send_agent_message ${step4.data?.agent_id}\n\n🎉 Your agent is ready on devnet!`
+    `Agent ID: ${step4.data?.agent_id}\nTier: ${tierName}\nLLM: ${llmProvider}\nStatus: ${step4.data?.status} ✓\n\nWhat's next:\n1. Open Claude Code\n2. get_deployment_status ${step4.data?.agent_id}\n3. send_agent_message ${step4.data?.agent_id}\n\n🎉 Your agent is ready on devnet!`
   );
 }
 
