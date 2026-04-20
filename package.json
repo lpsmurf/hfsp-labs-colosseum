@@ -11,7 +11,8 @@
     "dev": "npm run dev --workspaces --parallel",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "prepare": "cd packages/clawdrop-mcp && npm install --legacy-peer-deps && npm run build"
   },
   "keywords": [
     "payment-protocol",
@@ -30,5 +31,10 @@
   "bugs": {
     "url": "https://github.com/lpsmurf/hfsp-labs-colosseum/issues"
   },
-  "homepage": "https://hfsp.labs"
+  "homepage": "https://hfsp.labs",
+  "bin": {
+    "clawdrop": "./mcp-server.js"
+  },
+  "main": "./mcp-server.js",
+  "type": "module"
 }
