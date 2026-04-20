@@ -19,6 +19,83 @@ Both interfaces share the **same backend** (HFSP API) and produce **identical re
 
 ---
 
+## 1.1. MCP SERVER SYSTEM CONTEXT
+
+### How It Works
+
+The MCP server embeds a **system prompt** directly into the Server initialization using the standard MCP `instructions` field:
+
+```typescript
+// packages/clawdrop-mcp/src/server/mcp.ts
+const server = new Server(
+  { name: 'clawdrop-mcp', version: '0.2.0' },
+  {
+    capabilities: { tools: {} },
+    instructions: CLAWDROP_SYSTEM_PROMPT,  // ← Sent during SSE handshake
+  }
+);
+```
+
+### What Claude Code Receives
+
+When Claude Code connects to `https://claude.clawdrop.live/sse`, it automatically receives:
+
+1. **Tool Manifest** — List of all 16+ available tools
+2. **System Prompt** — Complete deployment guide, tier info, tool patterns, error handling
+3. **Dynamic Pricing Info** — Current SOL price and tier calculations
+
+### Why This Matters
+
+| Without System Context | With System Context |
+|------------------------|---------------------|
+| Claude doesn't know deployment flow | Claude knows exact step-by-step sequence |
+| Claude guesses tier prices | Claude uses live SOL price data |
+| Claude invents error messages | Claude follows documented error patterns |
+| Inconsistent tool usage | Standardized deployment workflow |
+
+### System Prompt Contents
+
+The prompt includes:
+- **Role definition** — What Clawdrop is and how to help users
+- **Deployment flow** — 7-step sequence from discovery to pairing
+- **Tier details** — USD prices with dynamic SOL conversion
+- **Tool patterns** — When to call each tool with examples
+- **Error handling** — How to handle payment fails, container errors, etc.
+- **Quick commands** — SSH commands for direct container management
+- **Important notes** — Devnet prefixes, pairing code rotation, etc.
+
+### Architecture Diagram
+
+```
+┌─────────────────────┐
+│   MCP Server        │
+│   (Port 3000)       │
+│                     │
+│ ┌─────────────────┐ │
+│ │ System Prompt   │ │ ← Sent during init
+│ │ (instructions)  │ │   Claude Code stores
+│ └─────────────────┘ │   in context
+│                     │
+│ ┌─────────────────┐ │
+│ │ Tools (16+)     │ │ ← Queried via
+│ │ list_tools      │ │   JSON-RPC
+│ └─────────────────┘ │
+└──────────┬──────────┘
+           │ SSE
+           ▼
+┌─────────────────────┐
+│   Claude Code       │
+│   (Client)          │
+│                     │
+│ ┌─────────────────┐ │
+│ │ System Context  │ │ ← Guides all tool
+│ │ (from server)   │ │   calls and responses
+│ └─────────────────┘ │
+└─────────────────────┘
+```
+
+---
+
 ## 2. MCP SERVER FLOW (For Claude Code / AI Clients)
 
 ### Phase 1: Discovery
