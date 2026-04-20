@@ -102,7 +102,7 @@ export function createClawdropProtocolServer(): Server {
       capabilities: {
         tools: {},
       },
-      instructions: CLAWDROP_SYSTEM_PROMPT,
+      instructions: CLAWDROP_SYSTEM_PROMPT,  // ← Sent to Claude Code during SSE handshake
     }
   );
 
