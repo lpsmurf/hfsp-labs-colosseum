@@ -173,8 +173,9 @@ export const RenewSubscriptionOutputSchema = z.object({
 // ─── start_deployment_walkthrough ────────────────────────────────────────────
 
 export const StartDeploymentWalkthroughInputSchema = z.object({
-  step: z.number().min(0).max(4).default(0),
+  step: z.number().min(0).max(5).default(0),
   selected_tier: z.string().optional(),
+  llm_provider: z.string().optional(),
   selected_token: z.string().optional(),
   owner_wallet: z.string().optional(),
   agent_name: z.string().optional(),
