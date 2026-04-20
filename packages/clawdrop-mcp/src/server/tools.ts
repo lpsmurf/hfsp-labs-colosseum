@@ -271,6 +271,54 @@ function getRiskEmoji(tier: RiskTier): string {
   }
 }
 
+// ─── Agent Polling & Pairing ─────────────────────────────────────────────────
+
+async function waitForAgentReady(agentId: string, maxWaitMs = 120000, intervalMs = 3000): Promise<{ ready: boolean; status: string; error?: string }> {
+  const startTime = Date.now();
+  logger.info({ agent_id: agentId }, 'Polling for container readiness...');
+
+  while (Date.now() - startTime < maxWaitMs) {
+    try {
+      const hfspStatus = await getHFSPStatus(agentId);
+      if (!hfspStatus.error && hfspStatus.status) {
+        if (hfspStatus.status === 'running') {
+          logger.info({ agent_id: agentId, status: hfspStatus.status }, 'Container is running');
+          return { ready: true, status: hfspStatus.status };
+        }
+        if (hfspStatus.status === 'error' || hfspStatus.status === 'stopped') {
+          return { ready: false, status: hfspStatus.status, error: 'Container failed to start' };
+        }
+      }
+    } catch (err: any) {
+      logger.warn({ err: err.message }, 'Polling error, retrying...');
+    }
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+
+  return { ready: false, status: 'timeout', error: 'Container did not become ready within 2 minutes' };
+}
+
+async function pairAgentViaHFSP(agentId: string, pairingCode: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const HFSP_API_URL = process.env.HFSP_API_URL || 'http://localhost:3001/api/v1';
+    const HFSP_API_KEY = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+
+    const response = await axios.post(
+      `${HFSP_API_URL}/agents/${agentId}/pair`,
+      { pairingCode },
+      { headers: { Authorization: `Bearer ${HFSP_API_KEY}` }, timeout: 10000 }
+    );
+
+    if (response.data?.success) {
+      return { success: true, message: response.data.message };
+    }
+    return { success: false, error: response.data?.message || 'Pairing failed' };
+  } catch (err: any) {
+    logger.error({ err: err.message, agentId }, 'Pairing request failed');
+    return { success: false, error: err.message };
+  }
+}
+
 // ─── Tool definitions (JSON Schema for MCP protocol) ─────────────────────────
 
 export const tools: Tool[] = [
@@ -309,6 +357,29 @@ export const tools: Tool[] = [
       required: ['tier_id'],
     },
   },
+    {
+      name: 'pair_agent',
+      description:
+        'Complete Telegram pairing for a deployed agent. Submit the pairing code shown in your Telegram bot.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          agent_id: {
+            type: 'string',
+            description: 'The agent ID returned from deploy_agent',
+          },
+          owner_wallet: {
+            type: 'string',
+            description: 'Your Solana wallet public key (proves ownership)',
+          },
+          pairing_code: {
+            type: 'string',
+            description: 'The pairing code shown when you message your Telegram bot (e.g., 4P48NNYE)',
+          },
+        },
+        required: ['agent_id', 'owner_wallet', 'pairing_code'],
+      },
+    },
   {
     name: 'deploy_agent',
     description:
@@ -585,20 +656,19 @@ export async function handleToolCall(toolName: string, toolInput: unknown): Prom
       case 'list_tiers':          return await handleListTiers(toolInput);
       case 'quote_tier':          return await handleQuoteTier(toolInput);
       case 'deploy_agent':        return await handleDeployAgent(toolInput);
+      case 'pair_agent':          return await handlePairAgent(toolInput);
       case 'get_deployment_status': return await handleGetDeploymentStatus(toolInput);
       case 'cancel_subscription': return await handleCancelSubscription(toolInput);
-      case 'renew_subscription': return await handleRenewSubscription(toolInput);
-            case 'list_agents':        return await handleListAgents(toolInput);
-      case 'make_agent_public':  return await handleMakeAgentPublic(toolInput);
-      case 'browse_registry':    return await handleBrowseRegistry(toolInput);
-      case 'get_credits':       return await handleGetCredits(toolInput);
-      case 'top_up_credits':    return await handleTopUpCredits(toolInput);
-      // Birdeye tools
+      case 'renew_subscription':  return await handleRenewSubscription(toolInput);
+      case 'list_agents':         return await handleListAgents(toolInput);
+      case 'make_agent_public':   return await handleMakeAgentPublic(toolInput);
+      case 'browse_registry':     return await handleBrowseRegistry(toolInput);
+      case 'get_credits':         return await handleGetCredits(toolInput);
+      case 'top_up_credits':      return await handleTopUpCredits(toolInput);
       case 'get_token_analytics': return await handleGetTokenAnalytics(toolInput);
       case 'get_market_overview': return await handleGetMarketOverview(toolInput);
       case 'get_wallet_analytics': return await handleGetWalletAnalytics(toolInput);
-      // Risk Policy tool
-      case 'check_token_risk': return await handleCheckTokenRisk(toolInput);
+      case 'check_token_risk':    return await handleCheckTokenRisk(toolInput);
       case 'start_deployment_walkthrough': return await handleDeploymentWalkthrough(toolInput);
       default: throw new Error(`Unknown tool: ${toolName}`);
     }
@@ -775,22 +845,99 @@ async function handleDeployAgent(input: unknown): Promise<string> {
     'Agent deployed'
   );
 
+  // 5. Poll until container is running
+  logger.info({ agent_id: agent.agent_id }, 'Polling for container readiness...');
+  const readyResult = await waitForAgentReady(agent.agent_id, 120000, 3000);
+
+  if (!readyResult.ready) {
+    updateAgentStatus(agent.agent_id, 'failed');
+    const failResponse = DeployAgentOutputSchema.parse({
+      agent_id: agent.agent_id,
+      agent_name: parsed.agent_name,
+      tier_id: parsed.tier_id,
+      status: 'failed',
+      bundles: parsed.bundles,
+      deployed_at: now.toISOString(),
+      next_payment_due: nextPayment.toISOString(),
+      console_url: hfspResp.endpoint,
+      message:
+        `Agent "${parsed.agent_name}" deployment failed: ${readyResult.error}. ` +
+        `Check get_deployment_status for details.`,
+    });
+    return JSON.stringify(failResponse, null, 2);
+  }
+
+  updateAgentStatus(agent.agent_id, 'running');
+
+  let pairingInstructions = '';
+  if ((parsed as any).telegram_token) {
+    pairingInstructions =
+      `\n\n📱 **Telegram Pairing Required**\n` +
+      `1. Message your Telegram bot\n` +
+      `2. You'll see a pairing code (e.g., 4P48NNYE)\n` +
+      `3. Call pair_agent with:\n` +
+      `   agent_id: "${agent.agent_id}"\n` +
+      `   owner_wallet: "${parsed.owner_wallet}"\n` +
+      `   pairing_code: "YOUR_CODE"`;
+  }
+
   const response = DeployAgentOutputSchema.parse({
     agent_id: agent.agent_id,
     agent_name: parsed.agent_name,
     tier_id: parsed.tier_id,
-    status: 'provisioning',
+    status: 'running',
     bundles: parsed.bundles,
     deployed_at: now.toISOString(),
     next_payment_due: nextPayment.toISOString(),
     console_url: hfspResp.endpoint,
     message:
-      `Agent "${parsed.agent_name}" is being provisioned on ${tier.name}. ` +
-      `SSH access at ${hfspResp.endpoint ?? 'your VPS IP'} once running. ` +
-      `Next payment due: ${nextPayment.toLocaleDateString()}.`,
+      `Agent "${parsed.agent_name}" is running on ${tier.name}. ` +
+      `SSH access at ${hfspResp.endpoint ?? 'your VPS IP'}. ` +
+      `Next payment due: ${nextPayment.toLocaleDateString()}.` +
+      pairingInstructions,
   });
 
   return JSON.stringify(response, null, 2);
+}
+
+async function handlePairAgent(input: unknown): Promise<string> {
+  const parsed = (input as any);
+  const { agent_id, owner_wallet, pairing_code } = parsed;
+
+  // Validate inputs
+  if (!agent_id || !owner_wallet || !pairing_code) {
+    throw new Error('agent_id, owner_wallet, and pairing_code are required');
+  }
+
+  // Verify agent exists and belongs to wallet
+  const agent = getAgent(agent_id);
+  if (!agent) throw new Error(`Agent not found: ${agent_id}`);
+  if (agent.owner_wallet !== owner_wallet) {
+    throw new Error('Unauthorized: wallet does not match agent owner');
+  }
+
+  // Call HFSP API to pair
+  const result = await pairAgentViaHFSP(agent_id, pairing_code);
+
+  if (!result.success) {
+    throw new Error('Pairing failed: ' + result.error);
+  }
+
+  // Update agent status
+  updateAgentStatus(agent_id, 'running');
+  agent.logs.push({
+    timestamp: new Date(),
+    level: 'info',
+    message: `Telegram paired successfully with code: ${pairing_code}`,
+  });
+  saveAgent(agent);
+
+  return JSON.stringify({
+    success: true,
+    agent_id,
+    message: result.message || 'Agent paired and active on Telegram',
+    next_step: 'Message your Telegram bot to test the connection',
+  }, null, 2);
 }
 
 async function handleGetDeploymentStatus(input: unknown): Promise<string> {
