@@ -10,7 +10,6 @@ import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 import { classifyTransaction } from '../services/transaction-classifier';
 import { calculateSwapFee, calculateTransferFee, calculateFlightFee, FEE_RATES } from '../services/fee-collector';
-import '../types/request'; // Import unified request types
 
 export interface X402Options {
   solPrice?: number;
