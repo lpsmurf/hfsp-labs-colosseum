@@ -2831,8 +2831,26 @@ app.get('/api/v1/agents/:id', (req, res) => {
 
 // POST /api/v1/agents/:id/pair - Approve pairing code for an agent
 app.post('/api/v1/agents/:id/pair', async (req, res) => {
-  const payload = requireAuth(req, res);
-  if (!payload) return;
+  // Allow both JWT auth (webapp) and API key auth (wizard CLI)
+  const auth = req.headers.authorization ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  
+  let payload: Record<string, unknown> | null = null;
+  
+  // Try JWT first
+  if (token) {
+    payload = verifyToken(token);
+  }
+  
+  // Fall back to API key for wizard CLI
+  if (!payload && token === HFSP_API_KEY) {
+    payload = { sub: 'wizard', role: 'admin' };
+  }
+  
+  if (!payload) {
+    res.status(401).json({ error: 'Invalid or missing token' });
+    return;
+  }
 
   const userId = payload.sub as string;
   const agentId = req.params.id;
@@ -2848,8 +2866,20 @@ app.post('/api/v1/agents/:id/pair', async (req, res) => {
 
   const agent = db.prepare(`
     SELECT tenant_id, status FROM tenants
-    WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL
-  `).get(agentId, resolvedTgId) as any;
+    WHERE tenant_id = ? AND deleted_at IS NULL
+  `).get(agentId) as any;
+  
+  // For JWT users, verify ownership
+  if (payload.role !== 'admin') {
+    const ownedAgent = db.prepare(`
+      SELECT tenant_id FROM tenants
+      WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL
+    `).get(agentId, resolvedTgId) as any;
+    if (!ownedAgent) {
+      res.status(403).json({ error: 'Agent not found or not owned by you' });
+      return;
+    }
+  }
 
   if (!agent) {
     res.status(404).json({ error: 'Agent not found' });
