@@ -41,27 +41,6 @@
       "err_file": "./logs/storefront-bot-err.log",
       "merge_logs": true,
       "time": true
-    },
-    {
-      "name": "clawdrop-wizard",
-      "script": "packages/agent-provisioning/dist/services/clawdrop-wizard/src/index.js",
-      "cwd": ".",
-      "env": {
-        "NODE_ENV": "production",
-        "PORT": "3003"
-      },
-      "instances": 1,
-      "exec_mode": "fork",
-      "watch": false,
-      "max_memory_restart": "256M",
-      "restart_delay": 3000,
-      "max_restarts": 5,
-      "min_uptime": "10s",
-      "log_file": "./logs/clawdrop-wizard.log",
-      "out_file": "./logs/clawdrop-wizard-out.log",
-      "err_file": "./logs/clawdrop-wizard-err.log",
-      "merge_logs": true,
-      "time": true
     }
   ]
 }
