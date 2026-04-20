@@ -16,7 +16,8 @@
   "bin": {
     "clawdrop-mcp": "bin/clawdrop-mcp.sh",
     "clawdrop-server": "bin/clawdrop-mcp.sh",
-    "clawdrop-wizard": "wizard-docker.cjs"
+    "clawdrop-wizard": "wizard-docker.cjs",
+    "clawdrop-mcp-install": "install-clawdrop-mcp.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
