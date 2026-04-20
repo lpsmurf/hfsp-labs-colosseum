@@ -612,9 +612,9 @@ async function stepPairAgent(metadata, config) {
   
   if (!pairingCode) {
     warn('Pairing skipped. You can pair later using:');
-    info(`  curl -H "Authorization: Bearer ${process.env.HFSP_API_KEY || 'test-dev-key-12345'}" \\\`);
-    info(`    -X POST http://localhost:3001/api/v1/agents/${metadata.agent_id}/pair \\\`);
-    info(`    -d '{"pairingCode":"YOUR_CODE"}'`);
+    info('  curl -H "Authorization: Bearer ' + (process.env.HFSP_API_KEY || 'test-dev-key-12345') + '"');
+    info('    -X POST http://localhost:3001/api/v1/agents/' + metadata.agent_id + '/pair');
+    info('    -d \'{"pairingCode":"YOUR_CODE"}\'');
     return;
   }
   
