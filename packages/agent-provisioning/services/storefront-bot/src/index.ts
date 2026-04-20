@@ -2983,7 +2983,11 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       return res.status(500).json({ error: 'Failed to provision tenant directories' });
     }
 
-    // Create OpenClaw config
+    // Write Telegram token to secrets file (OpenClaw expects it here)
+    if (telegram_token) {
+      const telegramTokenB64 = Buffer.from(telegram_token.trim() + '\n').toString('base64');
+      sshTenant(`bash -lc 'echo ${telegramTokenB64} | base64 -d > ${secretsDir}/telegram.token'`);
+    }
     const openclawConfig = {
       gateway: {
         bind: 'lan',
@@ -3052,10 +3056,11 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
     sshTenant(`docker exec -u root ${containerName} bash -lc 'chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'`);
 
     // Save tenant record
+    const status = telegram_token ? 'awaiting_pairing' : 'active';
     db.prepare(`
       INSERT INTO tenants (tenant_id, telegram_user_id, agent_name, bot_username, template_id, provider, model_preset, dashboard_port, gateway_token, status)
-      VALUES (?, 0, ?, ?, 'blank', ?, 'smart', ?, ?, 'active')
-    `).run(tenantId, config?.agent_name || tier_id, tierIdToBotUsername(tier_id), provider, dashboardPort, gatewayToken);
+      VALUES (?, 0, ?, ?, 'blank', ?, 'smart', ?, ?, ?)
+    `).run(tenantId, config?.agent_name || tier_id, tierIdToBotUsername(tier_id), provider, dashboardPort, gatewayToken, status);
 
     const endpoint = `http://127.0.0.1:${dashboardPort}`;
 
