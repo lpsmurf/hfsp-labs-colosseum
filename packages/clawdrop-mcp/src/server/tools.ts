@@ -10,7 +10,7 @@ import {
   RenewSubscriptionInputSchema,
   RenewSubscriptionOutputSchema,
 } from './schemas';
-import { listTiers, getTier, quoteTier } from '../services/tier';
+import { listTiers, getTier, quoteTier, getTierPrice, getSolPrice, calculateSolAmount } from '../services/tier';
 import { verifyPayment } from '../services/payment';
 import { verifyPaymentTransaction } from '../integrations/helius';
 import { CLAWDROP_CONFIG } from '../config/tokens';
@@ -683,6 +683,7 @@ export async function handleToolCall(toolName: string, toolInput: unknown): Prom
 async function handleListTiers(input: unknown): Promise<string> {
   ToolInputSchemas.list_tiers.parse(input);
 
+  const solPrice = await (await import('../services/tier.js')).getSolPrice();
   const tiers = listTiers();
   const response = ListTiersOutputSchema.parse({
     tiers: tiers.map(t => ({
@@ -690,6 +691,7 @@ async function handleListTiers(input: unknown): Promise<string> {
       name: t.name,
       description: t.description,
       price_usd: t.price_usd,
+      price_sol: calculateSolAmount(t.price_usd, solPrice),
       vps_type: t.vps_type,
       vps_capacity: t.vps_capacity,
       available_bundles: ['solana', 'research', 'treasury'],
@@ -744,10 +746,11 @@ async function handleDeployAgent(input: unknown): Promise<string> {
     // Production: full on-chain verification via Helius
     const tier = getTier(parsed.tier_id);
     if (!tier) throw new Error(`Tier not found: ${parsed.tier_id}`);
+    const tierPriceSol = await getTierPrice(parsed.tier_id);
     const verification = await verifyPaymentTransaction({
       tx_hash: parsed.payment_tx_hash,
       expected_recipient: CLAWDROP_CONFIG.WALLET_ADDRESS,
-      min_amount_sol: tier.price_sol,
+      min_amount_sol: tierPriceSol,
       network: 'mainnet',
     });
     if (!verification.verified) {
@@ -798,6 +801,9 @@ async function handleDeployAgent(input: unknown): Promise<string> {
   const nextPayment = new Date(now);
   nextPayment.setDate(nextPayment.getDate() + 30);
 
+  // Get dynamic SOL price for payment history
+  const tierPriceSol = await getTierPrice(parsed.tier_id);
+
   const agent: DeployedAgent = {
     agent_id: hfspResp.agent_id,
     tier_id: parsed.tier_id,
@@ -818,7 +824,7 @@ async function handleDeployAgent(input: unknown): Promise<string> {
       payment_history: [
         {
           payment_id,
-          amount: tier.price_sol,
+          amount: tierPriceSol,
           token: parsed.payment_token,
           tx_hash: parsed.payment_tx_hash,
           timestamp: now,
@@ -1047,6 +1053,7 @@ async function handleRenewSubscription(input: unknown): Promise<string> {
   // Payment verification (same pattern as deploy_agent)
   const agentTier = getTier(agent.tier_id);
   if (!agentTier) throw new Error(`Tier not found: ${agent.tier_id}`);
+  const agentTierPriceSol = await getTierPrice(agent.tier_id);
 
   if (parsed.payment_tx_hash.startsWith('devnet_') || parsed.payment_tx_hash.startsWith('test_')) {
     logger.info('[DEV] Skipping on-chain verification for renewal: ' + parsed.payment_tx_hash);
@@ -1054,7 +1061,7 @@ async function handleRenewSubscription(input: unknown): Promise<string> {
     const verification = await verifyPaymentTransaction({
       tx_hash: parsed.payment_tx_hash,
       expected_recipient: CLAWDROP_CONFIG.WALLET_ADDRESS,
-      min_amount_sol: agentTier.price_sol,
+      min_amount_sol: agentTierPriceSol,
       network: 'mainnet',
     });
     if (!verification.verified) {
@@ -1075,7 +1082,7 @@ async function handleRenewSubscription(input: unknown): Promise<string> {
   agent.subscription.grace_period_end = null;
   agent.subscription.payment_history.push({
     payment_id: `pay_renewal_${Date.now()}`,
-    amount: agentTier.price_sol,
+    amount: agentTierPriceSol,
     token: parsed.payment_token,
     tx_hash: parsed.payment_tx_hash,
     timestamp: new Date(),

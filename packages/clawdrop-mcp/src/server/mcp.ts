@@ -35,10 +35,12 @@ When a user wants to deploy an agent, follow this sequence:
 6. **Wait**: The server will poll until the container is running (up to 2 minutes)
 7. **Pair** (if Telegram): Guide user to message their bot, then call pair_agent with the pairing code
 
-## Available Tiers
-- tier_explorer: 🌱 Explorer — $29/mo (0.12 SOL) — Shared, 1.5GB RAM
-- tier_a: 🚀 Production — $99/mo (0.4 SOL) — Dedicated, 4GB RAM
-- tier_b: 🏢 Enterprise — $499/mo (2.0 SOL) — Dedicated, 16GB RAM
+## Available Tiers (USD-based, SOL price fetched live)
+- tier_explorer: 🌱 Explorer — $9/mo — Shared, 1.5GB RAM
+- tier_a: 🚀 Production — $29/mo — Dedicated, 4GB RAM
+- tier_b: 🏢 Enterprise — $99/mo — Dedicated, 16GB RAM
+
+SOL amounts are calculated dynamically based on current market price (fetched from Jupiter/Birdeye/CoinGecko with 5% buffer).
 
 ## Tool Usage Patterns
 
