@@ -170,6 +170,18 @@ export const RenewSubscriptionOutputSchema = z.object({
   restarted: z.boolean(),
 });
 
+// ─── start_deployment_walkthrough ────────────────────────────────────────────
+
+export const StartDeploymentWalkthroughInputSchema = z.object({
+  step: z.number().min(0).max(4).default(0),
+  selected_tier: z.string().optional(),
+  selected_token: z.string().optional(),
+  owner_wallet: z.string().optional(),
+  agent_name: z.string().optional(),
+  telegram_token: z.string().optional(),
+  detected_tx: z.string().optional(),
+});
+
 // ─── Tool input/output maps ───────────────────────────────────────────────────
 
 export const ToolInputSchemas = {
@@ -179,4 +191,5 @@ export const ToolInputSchemas = {
   get_deployment_status: GetDeploymentStatusInputSchema,
   cancel_subscription: CancelSubscriptionInputSchema,
   renew_subscription: RenewSubscriptionInputSchema,
+  start_deployment_walkthrough: StartDeploymentWalkthroughInputSchema,
 } as const;
