@@ -305,7 +305,7 @@ async function deployAgent(config) {
   const deployPayload = {
     deployment_id: `clawdrop-${config.agent_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
     tier_id: config.tier.id,
-    payment_verified: config.payment.method !== 'demo',
+    payment_verified: config.payment.verified === true,
     wallet_address: config.wallet,
     telegram_token: config.telegram_token,
     llm_provider: config.llm_provider,
@@ -355,7 +355,74 @@ async function deployAgent(config) {
   return metadata;
 }
 
-// ─── Wizard Steps ───────────────────────────────────────────────────────────
+// ─── Payment Verification ─────────────────────────────────────────────────
+
+async function verifyPayment(txHash, tier, wallet) {
+  const heliusApiKey = process.env.HELIUS_API_KEY || '7297b07c-c4d0-46f4-b8f7-242c25005e9c';
+  const recipientWallet = '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
+  const expectedAmount = tier.price_sol;
+  
+  try {
+    log('Verifying payment on-chain...');
+    info(`  Tx: ${txHash}`);
+    info(`  Expected: ${expectedAmount} SOL`);
+    
+    // Call Helius API to get transaction
+    const response = await fetch(
+      `https://api.helius.xyz/v0/transactions/?api-key=${heliusApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: [txHash] }),
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Helius API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data || data.length === 0) {
+      throw new Error('Transaction not found on-chain');
+    }
+    
+    const tx = data[0];
+    
+    // Check transaction succeeded
+    if (tx.meta && tx.meta.err) {
+      throw new Error('Transaction failed on-chain');
+    }
+    
+    // Find the SOL transfer to our wallet
+    let receivedAmount = 0;
+    
+    if (tx.nativeTransfers) {
+      for (const transfer of tx.nativeTransfers) {
+        if (transfer.toUserAccount === recipientWallet) {
+          receivedAmount += transfer.amount / 1_000_000_000; // Convert lamports to SOL
+        }
+      }
+    }
+    
+    if (receivedAmount === 0) {
+      throw new Error('No SOL transfer found to our wallet');
+    }
+    
+    // Verify amount (allow 10% tolerance for fees/fluctuation)
+    const minAmount = expectedAmount * 0.9;
+    if (receivedAmount < minAmount) {
+      throw new Error(`Insufficient payment. Expected: ${expectedAmount} SOL, Received: ${receivedAmount.toFixed(4)} SOL`);
+    }
+    
+    success(`Payment verified! ✅ ${receivedAmount.toFixed(4)} SOL received`);
+    return { verified: true, amount: receivedAmount, tx: txHash };
+    
+  } catch (err) {
+    error('Payment verification failed:', err.message);
+    return { verified: false, error: err.message };
+  }
+}
 
 async function stepWelcome() {
   console.log(`
@@ -503,7 +570,24 @@ async function stepPayment(tier) {
   
   const tx_hash = await ask('Transaction signature: ');
   
-  return { method: token, tx_hash };
+  if (!tx_hash || tx_hash.length < 20) {
+    error('Invalid transaction signature');
+    return stepPayment(tier);
+  }
+  
+  // Verify payment on-chain
+  const verification = await verifyPayment(tx_hash, tier);
+  
+  if (!verification.verified) {
+    error('Payment verification failed:', verification.error);
+    const retry = await ask('Try again? (y/n): ');
+    if (retry.toLowerCase() === 'y') {
+      return stepPayment(tier);
+    }
+    throw new Error('Payment verification failed');
+  }
+  
+  return { method: token, tx_hash, verified: true, amount: verification.amount };
 }
 
 async function stepDeploy(config) {
