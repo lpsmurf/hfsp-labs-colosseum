@@ -1,13 +1,11 @@
 import 'dotenv/config';
+import express from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { createClawdropProtocolServer } from './server/mcp.js';
 import { logger } from './utils/logger.js';
 
-const app = createMcpExpressApp({
-  host: '0.0.0.0',
-  allowedHosts: ['claude.clawdrop.live', 'localhost', '127.0.0.1'],
-});
+// Use plain Express — createMcpExpressApp has timeouts that kill SSE
+const app = express();
 
 const transports: Record<string, SSEServerTransport> = {};
 
@@ -15,7 +13,7 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'healthy', transport: 'sse', timestamp: new Date().toISOString() });
 });
 
-// Claude should connect here
+// Claude connects here — keep connection open indefinitely
 app.get('/sse', async (_req, res) => {
   try {
     const transport = new SSEServerTransport('/messages', res);
@@ -30,6 +28,7 @@ app.get('/sse', async (_req, res) => {
     const server = createClawdropProtocolServer();
     await server.connect(transport);
     logger.info({ sessionId }, 'Established SSE MCP session');
+    // Connection stays open via SSEServerTransport
   } catch (error) {
     logger.error(error, 'Failed to establish SSE stream');
     if (!res.headersSent) {
@@ -38,7 +37,7 @@ app.get('/sse', async (_req, res) => {
   }
 });
 
-// Claude posts JSON-RPC messages here after opening /sse
+// Claude posts JSON-RPC messages here
 app.post('/messages', async (req, res) => {
   const sessionId = req.query.sessionId as string | undefined;
   if (!sessionId) {
