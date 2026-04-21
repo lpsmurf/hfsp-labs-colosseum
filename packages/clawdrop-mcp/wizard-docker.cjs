@@ -16,6 +16,7 @@ const { spawn, execSync } = require('child_process');
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
+const { Connection, LAMPORTS_PER_SOL } = require('@solana/web3.js');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -56,16 +57,16 @@ const PAYMENT_WALLET = process.env.PAYMENT_WALLET || '3TyBTeqqN5NpMicX6JXAVAHqUy
 
 const WIZARD_VERSION = '1.0.0';
 
+const DEVNET_RPC = 'https://api.devnet.solana.com';
+
 function checkEnv() {
   const missing = [];
   if (!HFSP_API_KEY) missing.push('HFSP_API_KEY');
-  if (!HELIUS_API_KEY) missing.push('HELIUS_API_KEY');
   if (missing.length > 0) {
     error('Missing required environment variables:');
     missing.forEach(v => error(`  - ${v}`));
     info('Create a .env file or export them:');
     info('  export HFSP_API_KEY=your_key');
-    info('  export HELIUS_API_KEY=your_key');
     process.exit(1);
   }
 }
@@ -407,64 +408,95 @@ async function deployAgent(config) {
 // ─── Payment Verification ─────────────────────────────────────────────────
 
 async function verifyPayment(txHash, tier, wallet) {
-  const heliusApiKey = HELIUS_API_KEY;
   const recipientWallet = PAYMENT_WALLET;
+  const connection = new Connection(DEVNET_RPC, 'confirmed');
   
   // Calculate expected SOL amount dynamically
   const solPrice = await getSolPrice();
   const expectedAmount = calculateSolAmount(tier.price_usd, solPrice);
   
   try {
-    log('Verifying payment on-chain...');
+    log('Verifying payment on-chain via Solana RPC...');
     info(`  Tx: ${txHash}`);
     info(`  Expected: ${expectedAmount} SOL (based on live price $${solPrice})`);
 
-    // Call Helius API to get transaction
-    const response = await fetch(
-      `https://api-devnet.helius.xyz/v0/transactions/?api-key=${heliusApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions: [txHash] }),
-      }
-    );
+    // Get transaction directly from Solana RPC
+    const tx = await connection.getTransaction(txHash, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0
+    });
 
-    if (!response.ok) {
-      throw new Error(`Helius API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data || data.length === 0) {
+    if (!tx) {
       throw new Error('Transaction not found on-chain');
     }
 
-    const tx = data[0];
-
-    // Check transaction succeeded
-    if (tx.meta && tx.meta.err) {
+    if (tx.meta.err) {
       throw new Error('Transaction failed on-chain');
     }
 
-    // Find the SOL transfer to our wallet
+    // Parse instructions to find SOL transfer to payment wallet
+    const message = tx.transaction.message;
+    const accountKeys = message.getAccountKeys();
+    
     let receivedAmount = 0;
-
-    if (tx.nativeTransfers) {
-      for (const transfer of tx.nativeTransfers) {
-        if (transfer.toUserAccount === recipientWallet) {
-          receivedAmount += transfer.amount / 1_000_000_000; // Convert lamports to SOL
+    
+    // Look through all instructions for System Program transfers
+    for (const ix of message.compiledInstructions) {
+      const programId = accountKeys.get(ix.programIdIndex).toString();
+      
+      // System Program = 11111111111111111111111111111111
+      if (programId === '11111111111111111111111111111111') {
+        const data = Buffer.from(ix.data);
+        
+        if (data.length >= 12 && data[0] === 2) {
+          // Parse lamports from instruction data (little-endian u64 at offset 4)
+          const lamports = data.readBigUInt64LE(4);
+          const amount = Number(lamports) / LAMPORTS_PER_SOL;
+          
+          // Check if recipient is payment wallet
+          const recipientIndex = ix.accountKeyIndexes[1];
+          const recipient = accountKeys.get(recipientIndex).toString();
+          
+          if (recipient === recipientWallet) {
+            receivedAmount += amount;
+          }
+        }
+      }
+    }
+    
+    // Also check inner instructions (CPI calls)
+    if (tx.meta.innerInstructions) {
+      for (const inner of tx.meta.innerInstructions) {
+        for (const ix of inner.instructions) {
+          const programId = accountKeys.get(ix.programIdIndex).toString();
+          
+          if (programId === '11111111111111111111111111111111') {
+            const data = Buffer.from(ix.data, 'base64');
+            
+            if (data.length >= 12 && data[0] === 2) {
+              const lamports = data.readBigUInt64LE(4);
+              const amount = Number(lamports) / LAMPORTS_PER_SOL;
+              
+              const recipientIndex = ix.accountKeyIndexes[1];
+              const recipient = accountKeys.get(recipientIndex).toString();
+              
+              if (recipient === recipientWallet) {
+                receivedAmount += amount;
+              }
+            }
+          }
         }
       }
     }
 
     if (receivedAmount === 0) {
-      throw new Error('No SOL transfer found to our wallet');
+      throw new Error('No SOL transfer found to payment wallet');
     }
 
-    // Verify amount (allow 10% tolerance for fees/fluctuation)
+    // Verify amount (allow 10% tolerance)
     const minAmount = expectedAmount * 0.9;
     if (receivedAmount < minAmount) {
-      throw new Error(`Insufficient payment. Expected: ${expectedAmount} SOL, Received: ${receivedAmount.toFixed(4)} SOL`);
+      throw new Error(`Insufficient payment. Expected: ${expectedAmount} SOL, Found: ${receivedAmount.toFixed(4)} SOL`);
     }
 
     success(`Payment verified! ✅ ${receivedAmount.toFixed(4)} SOL received`);
