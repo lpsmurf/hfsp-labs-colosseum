@@ -794,6 +794,7 @@ async function stepPairAgent(metadata, config) {
 
 async function main() {
   try {
+    checkEnv();
     await stepWelcome();
     await stepCheckPrerequisites();
 
