@@ -48,11 +48,27 @@ function error(...args) { console.log(c.red + '❌' + c.reset, ...args); }
 function warn(...args) { console.log(c.yellow + '⚠️' + c.reset, ...args); }
 function info(...args) { console.log(c.blue + 'i️' + c.reset, ...args); }
 
-// ─── Configuration ──────────────────────────────────────────────────────────
+// Load from env or fail
+const HFSP_URL = process.env.HFSP_URL || 'http://localhost:3001';
+const HFSP_API_KEY = process.env.HFSP_API_KEY;
+const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
+const PAYMENT_WALLET = process.env.PAYMENT_WALLET || '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
 
-const WIZARD_VERSION = '1.0.0';
+function checkEnv() {
+  const missing = [];
+  if (!HFSP_API_KEY) missing.push('HFSP_API_KEY');
+  if (!HELIUS_API_KEY) missing.push('HELIUS_API_KEY');
+  if (missing.length > 0) {
+    error('Missing required environment variables:');
+    missing.forEach(v => error(`  - ${v}`));
+    info('Create a .env file or export them:');
+    info('  export HFSP_API_KEY=your_key');
+    info('  export HELIUS_API_KEY=your_key');
+    process.exit(1);
+  }
+}
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const RUNTIME_IMAGE = 'hfsp-tenant-runtime';
+const RUNTIME_IMAGE = 'hfsp/openclaw-runtime:stable';
 const RUNTIME_DOCKERFILE = path.join(REPO_ROOT, 'packages', 'agent-provisioning', 'tenant-runtime-image');
 
 const TIERS = [
@@ -283,7 +299,7 @@ function generateDockerCompose(config, dataDir) {
     name: containerName,
     services: {
       openclaw: {
-        image: RUNTIME_IMAGE,
+      image: 'hfsp/openclaw-runtime:stable',
         container_name: containerName,
         restart: 'unless-stopped',
         ports: [
@@ -327,7 +343,7 @@ async function deployAgent(config) {
 
   // Call HFSP API to deploy on tenant VPS
   const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
-  const hfspKey = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+  const hfspKey = HFSP_API_KEY;
 
   log('Calling HFSP provisioning API...');
   info(`  API: ${hfspUrl}`);
@@ -389,8 +405,8 @@ async function deployAgent(config) {
 // ─── Payment Verification ─────────────────────────────────────────────────
 
 async function verifyPayment(txHash, tier, wallet) {
-  const heliusApiKey = process.env.HELIUS_API_KEY || '7297b07c-c4d0-46f4-b8f7-242c25005e9c';
-  const recipientWallet = '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
+  const heliusApiKey = HELIUS_API_KEY;
+  const recipientWallet = PAYMENT_WALLET;
   
   // Calculate expected SOL amount dynamically
   const solPrice = await getSolPrice();
@@ -607,8 +623,8 @@ async function stepPayment(tier) {
 
   const token = choice === '2' ? 'USDC' : choice === '3' ? 'HERD' : 'SOL';
 
-  console.log(`\n📝 Send ${tier.price_sol} ${token} to:`);
-  console.log(`   ${c.cyan}3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw${c.reset}`);
+  console.log(`\n📝 Send ${solAmount} ${token} to:`);
+  console.log(`   ${c.cyan}${PAYMENT_WALLET}${c.reset}`);
   console.log(`   (Devnet for testing)\n`);
 
   const tx_hash = await ask('Transaction signature: ');
@@ -659,7 +675,7 @@ async function stepDeploy(config) {
 
 async function waitForAgentReady(metadata, maxAttempts = 30) {
   const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
-  const hfspKey = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+  const hfspKey = HFSP_API_KEY;
 
   log(`Waiting for agent container to start...`);
   info(`  Agent ID: ${metadata.agent_id}`);
@@ -739,7 +755,7 @@ async function stepPairAgent(metadata, config) {
 
   if (!pairingCode) {
     warn('Pairing skipped. You can pair later using:');
-    info('  curl -H "Authorization: Bearer ' + (process.env.HFSP_API_KEY || 'test-dev-key-12345') + '"');
+    info('  curl -H "Authorization: Bearer ' + HFSP_API_KEY + '"');
     info('    -X POST http://localhost:3001/api/v1/agents/' + metadata.agent_id + '/pair');
     info('    -d \'{"pairingCode":"YOUR_CODE"}\'');
     return;
@@ -749,7 +765,7 @@ async function stepPairAgent(metadata, config) {
 
   try {
     const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
-    const hfspKey = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+    const hfspKey = HFSP_API_KEY;
 
     const response = await fetch(`${hfspUrl}/api/v1/agents/${metadata.agent_id}/pair`, {
       method: 'POST',
