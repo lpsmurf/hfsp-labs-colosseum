@@ -773,21 +773,52 @@ async function stepShowStatus(metadata) {
 
 async function stepPairAgent(metadata, config) {
   if (!config.telegram_token) {
-    info('No Telegram token provided - skipping.');
+    info('No Telegram token provided - skipping pairing.');
     return;
   }
 
-  console.log(`\n${c.bold}📱 Telegram Bot Ready${c.reset}\n`);
-  
-  log('Your agent is configured with Telegram.');
-  info('1. Find your bot on Telegram (use the bot token you provided)');
+  console.log(`\n${c.bold}📱 Telegram Pairing:${c.reset}\n`);
+
+  log('Your agent needs to be paired with Telegram.');
+  info('1. Find your bot on Telegram (search for the bot username)');
   info('2. Send /start to the bot');
-  info('3. The bot will respond and you can start chatting');
-  console.log();
-  
-  success('Telegram integration active ✅');
-  info('Bot token was saved to the container and OpenClaw gateway is running.');
-  console.log();
+  info('3. The bot will reply with an 8-character pairing code');
+  info('4. Enter the pairing code below\n');
+
+  const pairingCode = await ask('Pairing code (or press Enter to skip): ');
+
+  if (!pairingCode) {
+    warn('Pairing skipped. You can pair later by sending /start to your bot.');
+    return;
+  }
+
+  log('Submitting pairing code to agent...');
+
+  try {
+    const hfspUrl = process.env.HFSP_URL || 'http://localhost:3001';
+    const hfspKey = HFSP_API_KEY;
+
+    const response = await fetch(`${hfspUrl}/api/v1/agents/${metadata.agent_id}/pair`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${hfspKey}`,
+      },
+      body: JSON.stringify({ pairingCode: pairingCode.trim() }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Pairing failed');
+    }
+
+    success('Agent paired successfully! 🎉');
+    info('Your bot is now active and responding to messages.');
+
+  } catch (err) {
+    error('Pairing failed:', err.message);
+    warn('Make sure you sent /start to your bot and copied the exact pairing code.');
+  }
 }
 
 async function main() {
