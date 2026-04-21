@@ -301,7 +301,8 @@ async function waitForAgentReady(agentId: string, maxWaitMs = 120000, intervalMs
 async function pairAgentViaHFSP(agentId: string, pairingCode: string): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const HFSP_API_URL = process.env.HFSP_API_URL || 'http://localhost:3001/api/v1';
-    const HFSP_API_KEY = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+    const HFSP_API_KEY = process.env.HFSP_API_KEY;
+  if (!HFSP_API_KEY) throw new Error('HFSP_API_KEY env var required');
 
     const response = await axios.post(
       `${HFSP_API_URL}/agents/${agentId}/pair`,
