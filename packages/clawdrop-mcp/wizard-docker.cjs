@@ -54,6 +54,8 @@ const HFSP_API_KEY = process.env.HFSP_API_KEY;
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
 const PAYMENT_WALLET = process.env.PAYMENT_WALLET || '3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw';
 
+const WIZARD_VERSION = '1.0.0';
+
 function checkEnv() {
   const missing = [];
   if (!HFSP_API_KEY) missing.push('HFSP_API_KEY');
