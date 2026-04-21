@@ -1,0 +1,20 @@
+{
+  "agent_id": "clawdrop-mvp-colesseum",
+  "name": "MVP Colesseum",
+  "tier": "tier_explorer",
+  "bundles": [
+    "solana",
+    "research",
+    "treasury"
+  ],
+  "wallet": "3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw",
+  "endpoint": "http://127.0.0.1:33984",
+  "status": "provisioning",
+  "created_at": "2026-04-21T17:59:03.274Z",
+  "data_dir": "/home/clawd/.openclaw/workspace/hfsp-labs-colosseum/packages/clawdrop-mcp/.clawdrop/agents/MVP Colesseum",
+  "hfsp_response": {
+    "agent_id": "clawdrop-mvp-colesseum",
+    "endpoint": "http://127.0.0.1:33984",
+    "status": "provisioning"
+  }
+}
