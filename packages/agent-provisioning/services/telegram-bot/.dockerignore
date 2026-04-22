@@ -1,0 +1,14 @@
+.git
+.gitignore
+node_modules
+npm-debug.log
+dist
+.env
+.env.local
+README.md
+.vscode
+.idea
+DEPLOYMENT.md
+NEXT_STEPS.md
+CHANGES_SUMMARY.md
+WEBHOOK_SETUP.sh
