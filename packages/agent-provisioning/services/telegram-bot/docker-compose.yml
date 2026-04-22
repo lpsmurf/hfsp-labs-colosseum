@@ -1,0 +1,42 @@
+# [KIMI] Docker Compose configuration - placeholder
+version: '3.8'
+
+services:
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hfsp-telegram-bot
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3335:3335"
+    environment:
+      PORT: 3335
+      NODE_ENV: ${NODE_ENV:-development}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_ID: ${TELEGRAM_BOT_ID}
+      TELEGRAM_SECRET_TOKEN: ${TELEGRAM_SECRET_TOKEN}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
+      AGENT_BRAIN_URL: ${AGENT_BRAIN_URL:-http://localhost:3334}
+    networks:
+      - hfsp-network
+    depends_on:
+      - agent-brain
+
+  agent-brain:
+    build:
+      context: ../agent-brain
+      dockerfile: Dockerfile
+    container_name: hfsp-agent-brain
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3334:3334"
+    environment:
+      PORT: 3334
+      NODE_ENV: ${NODE_ENV:-development}
+    networks:
+      - hfsp-network
+
+networks:
+  hfsp-network:
+    driver: bridge
