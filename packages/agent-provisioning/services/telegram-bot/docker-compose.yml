@@ -1,4 +1,4 @@
-# [KIMI] Docker Compose configuration - placeholder
+# [KIMI] Docker Compose configuration for telegram-bot service
 version: '3.8'
 
 services:
@@ -17,11 +17,21 @@ services:
       TELEGRAM_BOT_ID: ${TELEGRAM_BOT_ID}
       TELEGRAM_SECRET_TOKEN: ${TELEGRAM_SECRET_TOKEN}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
-      AGENT_BRAIN_URL: ${AGENT_BRAIN_URL:-http://localhost:3334}
+      # Use service name for inter-container communication on the docker network
+      AGENT_BRAIN_URL: ${AGENT_BRAIN_URL:-http://agent-brain:3334}
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     networks:
       - hfsp-network
     depends_on:
-      - agent-brain
+      agent-brain:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3335/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   agent-brain:
     build:
@@ -36,6 +46,12 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
     networks:
       - hfsp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3334/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
 networks:
   hfsp-network:
