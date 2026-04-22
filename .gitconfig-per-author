@@ -1,0 +1,16 @@
+# Add this to each LLM's shell profile for proper git attribution
+# For Claude:
+git config user.name "Claude"
+git config user.email "claude@hfsp-labs.dev"
+
+# For Gemini:
+git config user.name "Gemini"
+git config user.email "gemini@hfsp-labs.dev"
+
+# For Codex:
+git config user.name "Codex"
+git config user.email "codex@hfsp-labs.dev"
+
+# For Kimi:
+git config user.name "Kimi"
+git config user.email "kimi@hfsp-labs.dev"

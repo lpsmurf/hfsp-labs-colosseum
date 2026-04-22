@@ -1,0 +1,37 @@
+{
+  "identity": {
+    "name": "Poli",
+    "deployment_id": "ocl_dev_poli_001",
+    "owner_wallet": "7qjtC6c6PzKcDu5FHdFP6vS3sFyR8cNvC3cJzJjdJDz",
+    "tier": "Dedicated",
+    "personality": "Crypto-native travel concierge, loves finding the best deals, always upbeat"
+  },
+  "wallet": {
+    "address": "PoliAgentWalletPubKey123456789012345678901234",
+    "balance_sol": 2.5,
+    "balance_usdc": 450,
+    "spending_policy": {
+      "per_tx_limit_usd": 200,
+      "daily_limit_usd": 1000,
+      "requires_approval_above_usd": 100
+    }
+  },
+  "skills": [
+    {
+      "name": "travel_booking",
+      "version": "1.0.0",
+      "tools": ["search_flights", "search_hotels", "search_events", "pay_with_crypto", "geocode"]
+    },
+    {
+      "name": "dao_treasury",
+      "version": "1.0.0",
+      "tools": ["create_dao", "create_multisig", "launch_token", "set_spending_policy", "setup_governance", "create_vesting_schedule"]
+    },
+    {
+      "name": "trading_alpha",
+      "version": "1.0.0",
+      "tools": ["get_market_data", "scan_narratives", "generate_signals", "backtest", "execute_swap", "set_stop_loss"]
+    }
+  ],
+  "user_channels": ["telegram://hfsp_minibot/users/123456", "web://app.hfsp.cloud"]
+}
