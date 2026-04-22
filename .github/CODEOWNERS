@@ -1,0 +1,36 @@
+# File Ownership & Code Review Requirements
+
+# Agent Brain - Claude team
+packages/agent-provisioning/services/agent-brain/                 @claude-ai
+
+# Telegram Bot - Codex team
+packages/agent-provisioning/services/telegram-bot/                @codex-ai
+
+# Web UI - Codex team
+packages/agent-provisioning/services/clawdrop-wizard/             @codex-ai
+packages/agent-provisioning/services/storefront-bot/              @codex-ai
+
+# Infrastructure - Kimi team
+config/docker/                                                     @kimi-ai
+scripts/deployment/                                                @kimi-ai
+packages/agent-provisioning/Dockerfile*                            @kimi-ai
+
+# Tests - Codex team
+**/*.test.ts                                                        @codex-ai
+**/*.spec.ts                                                        @codex-ai
+packages/agent-provisioning/tests/                                 @codex-ai
+
+# Session Closer - Claude team
+scripts/session-closer/                                            @claude-ai
+.claude/                                                           @claude-ai
+
+# Documentation - Everyone
+docs/                                                              @claude-ai @codex-ai @gemini-ai @kimi-ai
+CONTRIBUTING.md                                                     @claude-ai
+CODE_OF_CONDUCT.md                                                  @claude-ai
+README.md                                                           @claude-ai
+
+# Root config - All teams
+package.json                                                        @claude-ai
+tsconfig.json                                                       @codex-ai
+.gitignore                                                          @claude-ai

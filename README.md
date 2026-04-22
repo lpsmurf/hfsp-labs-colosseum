@@ -1,133 +1,195 @@
-# Clawdrop - Quick Start Guide
+# Clawdrop — AI Agent Provisioning on Solana
 
-Deploy AI agents on Solana in 60 seconds.
+Deploy Mastra-powered AI agents on Solana with one command.
+
+**[For product info, see below](#-product-quick-start). [For developers, start here](#-developer-quick-start).**
 
 ---
 
-## 🚀 Option 1: CLI (Fastest / Best for Demo)
+## 🚀 Developer Quick Start (5 minutes)
+
+### Prerequisites
+- Node.js 18+
+- Docker & Docker Compose (or local npm setup)
+- Git
+
+### Option 1: Docker (Recommended)
+```bash
+git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
+cd hfsp-labs-colosseum
+docker-compose -f config/docker/docker-compose.yml up
+```
+
+### Option 2: Local Development
+```bash
+git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
+cd hfsp-labs-colosseum
+npm install
+npm run dev
+```
+
+Services start on:
+- Agent Brain: http://localhost:3334
+- Telegram Bot: http://localhost:3335
+- Wizard UI: http://localhost:5173
+- API: http://localhost:3001
+
+---
+
+## 📚 Developer Documentation
+
+**New to the project?**
+- [Getting Started Guide](docs/getting-started/development-setup.md) — Setup, running locally, deployment
+- [Architecture Overview](docs/ARCHITECTURE.md) — System design & components
+- [API Reference](docs/API.md) — All endpoints & MCP tools
+
+**Contributing?**
+- [Contributing Guidelines](CONTRIBUTING.md) — How to submit PRs
+- [Code of Conduct](CODE_OF_CONDUCT.md) — Community standards
+- [File Ownership Matrix](docs/design-decisions/file-ownership-matrix.md) — Who owns what
+
+**Learning?**
+- [Design Decisions](docs/design-decisions/) — Why we built it this way
+- [Technical Innovations](docs/design-decisions/technical-innovations.md) — Key technical choices
+- [Guides & Tutorials](docs/guides/) — How-tos and examples
+
+**Project Status?**
+- [Milestones](docs/milestones/) — Implementation phases
+- [Build Status](docs/milestones/current-status.md) — What's done, what's next
+
+---
+
+## 🏗️ Project Structure
+
+```
+packages/
+├── agent-provisioning/     Agent deployment & provisioning
+│   ├── services/
+│   │   ├── agent-brain/    Mastra AI runtime
+│   │   ├── telegram-bot/   Telegram integration
+│   │   ├── clawdrop-wizard/ React UI
+│   │   └── storefront-bot/ Backend API
+│   └── ...
+└── clawdrop-mcp/          MCP protocol server
+
+config/
+├── docker/                Docker configs
+├── nginx/                 Web server
+├── pm2/                   Process manager
+└── system/               System configs
+
+docs/
+├── getting-started/       Setup & deployment guides
+├── architecture/         System design
+├── guides/              Tutorials & how-tos
+├── design-decisions/    Technical decisions
+├── milestones/         Project phases
+└── session-reports/    Work summaries
+
+scripts/
+├── setup/              Installation
+├── deployment/        Production deployment
+├── testing/          Test automation
+└── monitoring/       Health checks
+```
+
+See [docs](docs/) for complete documentation.
+
+---
+
+## 🤖 Multi-Agent Development
+
+This project uses a 4-agent parallel development system:
+
+| Agent | Role | Prefix |
+|-------|------|--------|
+| **Claude** | Orchestration, architecture, integration | `[CLAUDE]` |
+| **Codex** | Code quality, audits, testing | `[CODEX]` |
+| **Gemini** | Backend APIs, data services | `[GEMINI]` |
+| **Kimi** | DevOps, infrastructure, Docker | `[KIMI]` |
+
+Learn more: [Multi-Agent Orchestration](docs/design-decisions/parallel-orchestration.md)
+
+---
+
+## 📦 Key Technologies
+
+- **AI**: Mastra (agent orchestration), Claude API
+- **Blockchain**: Solana, Web3.js
+- **Backend**: Node.js, Express, TypeScript, SQLite
+- **Frontend**: React, Vite
+- **Messaging**: Telegram API
+- **Deployment**: Docker, PM2, Nginx
+
+---
+
+## 🐛 Issues & Support
+
+- **Found a bug?** → [Create an Issue](https://github.com/lpsmurf/hfsp-labs-colosseum/issues)
+- **Need help?** → [Check Troubleshooting](docs/getting-started/troubleshooting.md)
+- **Have a question?** → [Start a Discussion](https://github.com/lpsmurf/hfsp-labs-colosseum/discussions)
+
+---
+
+---
+
+# 🚀 Product Quick Start
+
+Deploy AI agents on Solana in 60 seconds.
+
+## Option 1: CLI (Fastest)
 
 ### One-line install
 ```bash
 npx github:lpsmurf/hfsp-labs-colosseum
 ```
 
-### Demo mode (no typing - perfect for video)
+### Demo mode (auto-answers all prompts)
 ```bash
 CLAWDROP_DEMO=1 npx github:lpsmurf/hfsp-labs-colosseum
 ```
 
-### What it does
-1. Downloads the repo (~2MB)
-2. Installs dependencies on first run (~30s)
-3. Starts the API server automatically
-4. Runs interactive 6-step deployment:
-   - **Step 1**: Select tier (Hobbyist / Production / Enterprise)
-   - **Step 2**: Select LLM provider (Anthropic / OpenAI / OpenRouter)
-   - **Step 3**: Select payment token (SOL / USDC / HERD / EURC)
-   - **Step 4**: Show payment wallet + amount
-   - **Step 5**: Auto-detect payment on devnet
-   - **Step 6**: Deploy agent + show agent ID
+What happens:
+1. Downloads repo (~2MB)
+2. Installs dependencies (~30s)
+3. Starts API server automatically
+4. 6-step interactive deployment:
+   - Tier selection (Hobbyist / Production / Enterprise)
+   - LLM provider (Anthropic / OpenAI / OpenRouter)
+   - Payment token (SOL / USDC / HERD / EURC)
+   - Shows payment wallet & amount
+   - Auto-detects payment on devnet
+   - Deploys agent + shows agent ID
 
----
+## Option 2: Web Wizard
 
-## 🌐 Option 2: Web Wizard (Product Feel)
-
-### Run locally
 ```bash
 git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
 cd hfsp-labs-colosseum/packages/agent-provisioning/services/clawdrop-wizard
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-### Or use the deployed version
-The wizard is served as part of the Agent Provisioning stack:
-- Backend: `storefront-bot` (port 3001)
-- Frontend: `clawdrop-wizard` (port 3003)
-
-### What it does
-- Full React UI for agent provisioning
-- Connect wallet via Phantom
-- Select tier, model, and bundles
-- Pay with any Solana token
-- Deploy and manage agents visually
-
----
-
-## 🏗️ Architecture
-
-```
-User
-├── CLI (npx) ────────→ MCP API (port 3000) ───→ HFSP Provisioning (port 3001)
-└── Web Browser ─────→ Wizard UI (port 3003) ───→ HFSP Provisioning (port 3001)
-```
-
-### Services
-| Service | Port | Role |
-|---------|------|------|
-| `clawdrop-mcp` | 3000 | MCP server / API / orchestration |
-| `storefront-bot` | 3001 | Agent provisioning backend |
-| `clawdrop-wizard` | 3003 | React frontend for provisioning |
-
----
+Open http://localhost:5173 in your browser.
 
 ## 💰 Payment Flow (Devnet)
 
-1. User selects **Production** tier + **SOL**
-2. CLI shows:
-   - Amount: `0.05 SOL`
-   - Wallet: `3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw`
-3. User sends payment via Phantom
-4. CLI auto-detects on-chain via **Helius RPC**
+1. Select **Production** tier + **SOL**
+2. CLI shows wallet address & amount (e.g., 0.05 SOL)
+3. Send payment via Phantom wallet
+4. CLI auto-detects on Helius RPC
 5. Agent deploys immediately
 
 ---
 
-## 📹 For Video Recording
+## 📄 License
 
-### Terminal commands
-```bash
-# Start all services
-npm run start
-
-# Run demo (auto-answers)
-CLAWDROP_DEMO=1 npx github:lpsmurf/hfsp-labs-colosseum
-
-# Or interactive
-npx github:lpsmurf/hfsp-labs-colosseum
-```
-
-### Expected output
-```
-🐾 Clawdrop - Deploy OpenClaw Agent
-═══════════════════════════════════════
-📦 [Step 1/6] Which tier?
-→ Selecting: 2 (Production)
-🤖 [Step 2/6] Which AI model provider?
-→ Selecting: 1 (Anthropic)
-💰 [Step 3/6] Which payment token?
-→ Selecting: 1 (SOL)
-📡 [Step 5/6] Watching blockchain...
-✓ Payment detected!
-🚀 [Step 6/6] Deploying...
-✅ Agent Deployed! ID: agent_xxx
-```
+MIT — See [LICENSE](LICENSE)
 
 ---
 
-## 🔧 Tech Stack
+## 🙏 Credits
 
-- **Solana**: Web3.js + Helius RPC (devnet)
-- **AI**: Anthropic Claude / OpenAI GPT / OpenRouter
-- **Backend**: Express + TypeScript + SQLite
-- **Frontend**: React + Vite
-- **CLI**: Node.js + HTTP API
-- **Deployment**: Docker containers on VPS
+Built for **Colosseum Hackathon 2026** by HFSP Labs
 
----
+Made with ❤️ using Mastra + Solana
 
-## 📝 GitHub
-
-[github.com/lpsmurf/hfsp-labs-colosseum](https://github.com/lpsmurf/hfsp-labs-colosseum)
-
-Built for **Colosseum Hackathon 2026** — HFSP Labs
