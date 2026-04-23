@@ -8,7 +8,7 @@
 
 import { Router } from 'express';
 import crypto from 'crypto';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import * as phase4Store from '../db/phase4-store';
 import { provisionAfterPayment } from './openrouter';
 

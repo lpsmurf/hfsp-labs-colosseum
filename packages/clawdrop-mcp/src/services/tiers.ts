@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Tier, TierSchema } from '../models/tier';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 /**
  * Load tier catalog from tiers.json

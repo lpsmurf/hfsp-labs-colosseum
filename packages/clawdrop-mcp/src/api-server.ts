@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { ClawdropAPIServer } from './server/api';
-import { logger } from './utils/logger';
+import logger from './utils/logger';
 
 async function main() {
   try {

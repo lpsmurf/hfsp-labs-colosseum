@@ -8,7 +8,7 @@
 
 import { listAgents, updateAgentStatus, getAgent } from '../db/memory';
 import { stopViaHFSP } from '../integrations/hfsp';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 export interface EnforcementResult {
   checked: number;

@@ -1,7 +1,7 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { handleToolCall } from '../server/tools';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 /**
  * Clawdrop CLI - Command-line interface for Clawdrop tools

@@ -3,5 +3,10 @@
         {
             "path": "."
         }
-    ]
+    ],
+    "extensions": {
+        "recommendations": [
+            "moonshot-ai.kimi-code"
+        ]
+    }
 }

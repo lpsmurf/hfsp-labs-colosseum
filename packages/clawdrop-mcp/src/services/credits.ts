@@ -9,7 +9,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 // Cost per tool call in USD (most tools are free)
 export const TOOL_COSTS_USD: Record<string, number> = {
