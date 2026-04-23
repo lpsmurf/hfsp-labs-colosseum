@@ -6,7 +6,7 @@ The Colosseum project includes 4 specialized skills designed to reduce token con
 
 ### Available Skills
 
-All skills are located in `.claude/skills/` directory:
+All skills are located in `.internal/.claude/skills/` directory:
 
 #### 1. **colosseum-sdk** — Service Patterns & API Contracts
 SDK patterns, client libraries, type definitions, payment protocol, MemPalace integration
@@ -20,7 +20,7 @@ Error codes, failure patterns, troubleshooting procedures, log interpretation
 #### 4. **colosseum-agents** — Multi-Agent Coordination
 File ownership matrix, task specificity, dependency graphs, conflict resolution
 
-See `.claude/skills/manifest.json` for complete details.
+See `.internal/.internal/.claude/skills/manifest.json` for complete details.
 
 
 
