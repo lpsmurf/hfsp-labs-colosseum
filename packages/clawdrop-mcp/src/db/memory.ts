@@ -48,6 +48,7 @@ export interface DeployedAgent {
   is_public?: boolean;
   public_description?: string;
   tags?: string[];
+  idempotency_key?: string;
 }
 
 // ─── In-memory store ──────────────────────────────────────────────────────────
@@ -237,4 +238,9 @@ export function getStats() {
       a => a.subscription.grace_period_end !== null && a.status !== 'stopped'
     ).length,
   };
+}
+
+export function getAgentByIdempotencyKey(key: string): DeployedAgent | undefined {
+  const all = Array.from(agents.values());
+  return all.find(a => (a as any).idempotency_key === key);
 }

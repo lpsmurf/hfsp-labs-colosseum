@@ -131,6 +131,13 @@ export class ClawdropAPIServer {
     logger.info({}, '[API_ROUTES_SETUP] Transaction routes mounted at /api');
 
     // ========================================================================
+    // Agent Deployment API (v1)
+    // ========================================================================
+    this.app.post('/api/v1/deploy_agent', this.handleDeployAgentRequest.bind(this));
+    
+    logger.info({}, '[API_ROUTES_SETUP] Agent deployment endpoint mounted at /api/v1/deploy_agent');
+
+    // ========================================================================
     // Legacy MCP Tool Endpoints (without x402, for compatibility)
     // ========================================================================
     this.app.post('/api/tools/list_tiers', this.handleToolRequest.bind(this, 'list_tiers'));
@@ -209,6 +216,80 @@ export class ClawdropAPIServer {
         hint: 'See /api/docs for available endpoints',
       });
     });
+  }
+
+  private async handleDeployAgentRequest(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const input = req.body || {};
+
+      logger.info({ input }, 'deploy_agent request received');
+
+      // Validate input using schema
+      const validator = ToolInputSchemas.deploy_agent;
+      if (!validator) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid request: schema not found',
+        });
+        return;
+      }
+
+      let validatedInput: any;
+      try {
+        validatedInput = validator.parse(input);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          const firstError = error.errors[0];
+          const fieldName = firstError.path.join('.');
+          
+          // Custom error messages for specific fields
+          if (fieldName === 'telegram_token' && firstError.code === 'invalid_type') {
+            res.status(400).json({
+              success: false,
+              error: 'telegram_token is required',
+            });
+            return;
+          }
+
+          res.status(400).json({
+            success: false,
+            error: firstError.message || 'Validation error',
+            details: error.errors,
+          });
+          return;
+        }
+        throw error;
+      }
+
+      // Additional validation for Telegram token format
+      const telegramToken = (validatedInput as any).telegram_token;
+      if (telegramToken && !telegramToken.match(/^\d+:[\w-]+$/)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid Telegram token format',
+        });
+        return;
+      }
+
+      // Call tool handler
+      const result = await handleToolCall('deploy_agent', validatedInput);
+      const parsedResult = JSON.parse(result);
+
+      logger.info({ success: true }, 'deploy_agent executed successfully');
+
+      // Return the deployment_id in the response
+      res.status(200).json({
+        success: true,
+        deployment_id: parsedResult.agent_id || parsedResult.deployment_id,
+        data: parsedResult,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   private async handleToolRequest(

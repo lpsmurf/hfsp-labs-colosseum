@@ -101,7 +101,7 @@ export async function checkDatabaseHealth(): Promise<boolean> {
     const result = db.prepare('SELECT 1 as health').get();
     db.close();
     
-    const isHealthy: boolean = !!(result && (result as any).health === 1);
+    const isHealthy = result && (result as any).health === 1;
     log.info(
       {
         service: 'Database',

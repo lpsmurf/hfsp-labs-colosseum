@@ -17,6 +17,7 @@ import { CLAWDROP_CONFIG } from '../config/tokens';
 import {
   saveAgent,
   getAgent,
+  getAgentByIdempotencyKey,
   listAgents,
   listPublicAgents,
   updateAgentStatus,
@@ -792,6 +793,26 @@ async function handleDeployAgent(input: unknown): Promise<string> {
     throw new Error(`Cannot deploy: ${tokenValidation.error}. Fix your Telegram token and try again.`);
   }
 
+  // 0.5 Check idempotency - if same key, return existing deployment
+  const idempotency_key = (parsed as any).idempotency_key || crypto.randomUUID();
+  if (idempotency_key) {
+    try {
+      const existing = getAgentByIdempotencyKey(idempotency_key);
+      if (existing) {
+        logger.info({ idempotency_key, existing_id: existing.agent_id }, 'Idempotent retry detected');
+        return JSON.stringify({
+          success: true,
+          message: 'Deployment already in progress',
+          deployment_id: existing.agent_id,
+          status: existing.status,
+        });
+      }
+    } catch (e: unknown) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      logger.warn({ error: errorMsg }, 'Could not check idempotency key');
+    }
+  }
+
   // 1. Verify payment on-chain
   if (parsed.payment_tx_hash.startsWith('devnet_') || parsed.payment_tx_hash.startsWith('test_')) {
     // Dev mode: skip verification for test hashes
@@ -896,6 +917,7 @@ async function handleDeployAgent(input: unknown): Promise<string> {
         }`,
       },
     ],
+    idempotency_key,
   };
 
   saveAgent(agent);
