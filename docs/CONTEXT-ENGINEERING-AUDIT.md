@@ -440,3 +440,4 @@ Extend `scripts/session-closer.ts` to expose agent work as queryable context:
 9. Measure token savings
 
 Phase 3 test: Claude agent metrics
+Phase 3 test: Codex agent metrics
