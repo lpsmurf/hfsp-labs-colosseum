@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
-    "cli": "node packages/clawdrop-mcp/cli.cjs"
+    "cli": "node packages/clawdrop-mcp/cli.cjs",
+    "metadata-service": "tsx scripts/session-closer/metadata-service.ts"
   },
   "keywords": [
     "solana",
