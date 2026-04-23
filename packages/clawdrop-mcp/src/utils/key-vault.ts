@@ -12,7 +12,7 @@
  *   - In production: env var must be present or process exits
  */
 
-import { logger } from './logger';
+import logger from './logger';
 
 type SecretName = 'CLAWDROP_WALLET_PRIVATE_KEY' | 'HFSP_API_KEY' | 'HELIUS_API_KEY';
 

@@ -333,19 +333,19 @@ describe('[CODEX-STREAM1] Telegram Token Validation', () => {
         owner_wallet: '11111111111111111111111111111111',
         payment_token: 'SOL',
         payment_tx_hash: 'test_12345',
-        telegram_token: 'badtoken',
+        telegram_token: 'thisisabadtoken',
         bundles: [],
         llm_provider: 'anthropic',
       };
 
       try {
         DeployAgentInputSchema.parse(input);
-        fail('Should have thrown');
+        throw new Error('Should have thrown');
       } catch (e) {
         if (e instanceof z.ZodError) {
           expect(e.errors[0].message).toContain('Invalid Telegram token format');
         } else {
-          fail('Should be ZodError');
+          throw new Error('Should be ZodError');
         }
       }
     });
@@ -364,13 +364,13 @@ describe('[CODEX-STREAM1] Telegram Token Validation', () => {
 
       try {
         DeployAgentInputSchema.parse(input);
-        fail('Should have thrown');
+        throw new Error('Should have thrown');
       } catch (e) {
         if (e instanceof z.ZodError) {
           // Should fail either on length or format
           expect(e.errors.length).toBeGreaterThan(0);
         } else {
-          fail('Should be ZodError');
+          throw new Error('Should be ZodError');
         }
       }
     });

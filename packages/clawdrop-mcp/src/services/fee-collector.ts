@@ -11,7 +11,7 @@
  */
 
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair } from '@solana/web3.js';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 // Fee rates
 export const FEE_RATES = {

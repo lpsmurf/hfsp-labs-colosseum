@@ -10,14 +10,14 @@
     ],
     "status": "provisioning",
     "console_url": "https://test.example.com",
-    "deployed_at": "2026-04-19T21:54:10.797Z",
-    "last_activity": "2026-04-19T21:54:10.797Z",
+    "deployed_at": "2026-04-23T16:04:04.188Z",
+    "last_activity": "2026-04-23T16:04:04.188Z",
     "subscription": {
       "tier_id": "tier_a",
       "amount_usd": 29,
       "payment_token": "SOL",
-      "started_at": "2026-04-19T21:54:10.797Z",
-      "next_payment_due": "2026-05-19T21:54:10.797Z",
+      "started_at": "2026-04-23T16:04:04.188Z",
+      "next_payment_due": "2026-05-23T16:04:04.188Z",
       "grace_period_end": null,
       "payment_history": [
         {
@@ -25,7 +25,7 @@
           "amount": 0.2,
           "token": "SOL",
           "tx_hash": "test_hash_123",
-          "timestamp": "2026-04-19T21:54:10.797Z",
+          "timestamp": "2026-04-23T16:04:04.188Z",
           "fee_charged_usd": 1,
           "jupiter_swap": false
         }
@@ -33,7 +33,7 @@
     },
     "logs": [
       {
-        "timestamp": "2026-04-19T21:54:10.797Z",
+        "timestamp": "2026-04-23T16:04:04.188Z",
         "level": "info",
         "message": "Test deployment"
       }
@@ -49,14 +49,14 @@
     ],
     "status": "running",
     "console_url": "https://test2.example.com",
-    "deployed_at": "2026-04-19T21:54:10.800Z",
-    "last_activity": "2026-04-19T21:54:10.800Z",
+    "deployed_at": "2026-04-23T16:04:04.190Z",
+    "last_activity": "2026-04-23T16:04:04.191Z",
     "subscription": {
       "tier_id": "tier_b",
       "amount_usd": 99,
       "payment_token": "SOL",
-      "started_at": "2026-04-19T21:54:10.800Z",
-      "next_payment_due": "2026-05-19T21:54:10.800Z",
+      "started_at": "2026-04-23T16:04:04.190Z",
+      "next_payment_due": "2026-05-23T16:04:04.190Z",
       "grace_period_end": null,
       "payment_history": []
     },
@@ -72,14 +72,14 @@
     ],
     "status": "running",
     "console_url": "https://test3.example.com",
-    "deployed_at": "2026-04-19T21:54:10.801Z",
-    "last_activity": "2026-04-19T21:54:10.801Z",
+    "deployed_at": "2026-04-23T16:04:04.192Z",
+    "last_activity": "2026-04-23T16:04:04.192Z",
     "subscription": {
       "tier_id": "tier_c",
       "amount_usd": 299,
       "payment_token": "SOL",
-      "started_at": "2026-04-19T21:54:10.801Z",
-      "next_payment_due": "2026-05-19T21:54:10.801Z",
+      "started_at": "2026-04-23T16:04:04.192Z",
+      "next_payment_due": "2026-05-23T16:04:04.192Z",
       "grace_period_end": null,
       "payment_history": []
     },

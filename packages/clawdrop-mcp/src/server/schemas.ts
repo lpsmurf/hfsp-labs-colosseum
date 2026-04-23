@@ -76,8 +76,8 @@ export const DeployAgentInputSchema = z.object({
     .describe('Capability bundles to install (solana, research, treasury, travel-crypto-pro)'),
   telegram_token: z
     .string()
-    .min(10)
-    .regex(/^\d+:[\w-]+$/, 'Invalid Telegram token format (should be numeric:alphanumeric)')
+    .min(10, 'Telegram token must be at least 10 characters')
+    .regex(/^[\s]*\d+:[a-zA-Z0-9_-]+[\s]*$/, 'Invalid Telegram token format (should be numeric:alphanumeric)')
     .describe('Telegram bot token (from @BotFather) — REQUIRED for agent communication'),
   llm_provider: z
     .enum(['anthropic', 'openai', 'openrouter'])

@@ -10,7 +10,7 @@
 
 import { Request, Response } from 'express';
 import { getMemPalaceClient } from '../integrations/mempalace';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 export interface TransactionContext {
   transaction_id: string;

@@ -25,7 +25,7 @@ import {
 } from '../db/memory';
 import { getCredits, topUpCredits, TOOL_COSTS_USD } from '../services/credits';
 import { deployViaHFSP, getHFSPStatus, stopViaHFSP, restartViaHFSP } from '../integrations/hfsp';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 // Load persisted state on startup
 loadFromDisk();
@@ -740,13 +740,22 @@ async function handleQuoteTier(input: unknown): Promise<string> {
 // Validate Telegram token by calling Telegram API
 async function validateTelegramToken(token: string): Promise<{valid: boolean; error?: string}> {
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
-      timeout: 5000
-    });
-    if (!response.ok) {
-      return {valid: false, error: 'Invalid or revoked Telegram token'};
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        return {valid: false, error: 'Invalid or revoked Telegram token'};
+      }
+      return {valid: true};
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return {valid: true};
   } catch (e) {
     return {valid: false, error: 'Telegram API unreachable'};
   }

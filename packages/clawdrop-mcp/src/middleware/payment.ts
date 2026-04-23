@@ -33,7 +33,7 @@ import {
 } from '../services/transaction-hooks';
 import { MemPalaceClient } from '../integrations/mempalace';
 import { sendDevnetPayment, getBalance } from '../integrations/solana-payment';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 // Use FeeType from fee-collector
 export { FeeType };

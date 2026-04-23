@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createClawdropProtocolServer } from './server/mcp.js';
-import { logger } from './utils/logger.js';
+import logger from './utils/logger.js';
 
 // Use plain Express — createMcpExpressApp has timeouts that kill SSE
 const app = express();

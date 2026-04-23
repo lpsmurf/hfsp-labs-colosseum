@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { ClawdropMCPServer } from './server/mcp';
-import { logger } from './utils/logger';
+import logger from './utils/logger';
 import { startSubscriptionEnforcer } from './services/subscription-enforcer';
 
 async function main() {

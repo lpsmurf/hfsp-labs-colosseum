@@ -9,7 +9,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { PublicKey } from '@solana/web3.js';
 import * as nacl from 'tweetnacl';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import * as phase4Store from '../db/phase4-store';
 
 const router = Router();

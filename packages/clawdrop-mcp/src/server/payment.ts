@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import * as phase4Store from '../db/phase4-store';
 
 const router = Router();

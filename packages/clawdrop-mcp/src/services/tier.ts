@@ -5,7 +5,7 @@
 
 import axios from "axios";
 import { getPaymentQuote } from "./payment";
-import { logger } from "../utils/logger";
+import logger from "../utils/logger";
 
 export interface Tier {
   id: string;

@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { handleToolCall } from './tools';
 import { ToolInputSchemas } from './schemas';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { ZodError } from 'zod';
 import { x402Middleware } from '../middleware/x402';
 import paymentMiddleware from '../middleware/payment';

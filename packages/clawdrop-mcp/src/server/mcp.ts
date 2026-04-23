@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { tools, handleToolCall } from './tools.js';
-import { logger } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 
 // ─── System Prompt for Claude Code ──────────────────────────────────────────
 

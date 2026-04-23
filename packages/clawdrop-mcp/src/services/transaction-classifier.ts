@@ -8,7 +8,7 @@
  */
 
 import { Request } from 'express';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 export interface TransactionClassification {
   type: 'swap' | 'flight' | 'transfer';

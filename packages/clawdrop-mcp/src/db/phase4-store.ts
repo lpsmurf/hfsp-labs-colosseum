@@ -5,7 +5,7 @@
  * In production, replace with PostgreSQL or similar
  */
 
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 // Types
 export interface User {
