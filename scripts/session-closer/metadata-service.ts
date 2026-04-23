@@ -362,7 +362,7 @@ function extractAgentsFromGit(hoursBack: number): AgentData[] {
             { encoding: "utf-8" }
           ).trim();
           const [hash, message, timestamp] = lastCommitDetails.split("|");
-          lastCommit = { hash, message, timestamp };
+          const ts = timestamp?.trim(); lastCommit = { hash: hash?.trim(), message: message?.trim(), timestamp: ts ? new Date(ts).toISOString() : "" };
         } catch (e) {
           logger.debug(`Could not get last commit for ${name}`);
         }
