@@ -1,0 +1,48 @@
+
+services:
+  hfsp-provisioning-engine:
+    image: hfsp-provisioning-engine:latest
+    container_name: hfsp-provisioning-engine
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: info
+      DATA_DIR: /app/data
+      CLAWDROP_SERVER: api
+    env_file:
+      - .env.production
+    volumes:
+      - hfsp-data:/app/data
+    networks:
+      - hfsp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=hfsp-provisioning-engine"
+
+volumes:
+  hfsp-data:
+    driver: local
+
+networks:
+  hfsp-network:
+    driver: bridge
