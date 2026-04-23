@@ -441,3 +441,4 @@ Extend `scripts/session-closer.ts` to expose agent work as queryable context:
 
 Phase 3 test: Claude agent metrics
 Phase 3 test: Codex agent metrics
+Phase 3 test: Gemini agent metrics
