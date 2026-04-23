@@ -1,76 +1,30 @@
+// STREAM 4: Structured Logging + Correlation IDs (Kimi - Task 4.1)
+// Status: STUB - Ready for implementation
+
 import pino from 'pino';
+import { v4 as uuidv4 } from 'uuid';
 
-const logLevel = process.env.LOG_LEVEL || 'info';
-
-// Fields that should NEVER appear in logs — values are redacted automatically
-const SENSITIVE_FIELDS = new Set([
-  'private_key', 'privatekey', 'secret_key', 'secretkey',
-  'wallet_private_key', 'api_key', 'apikey',
-  'password', 'seed', 'mnemonic', 'authorization',
-]);
-
-function redactValue(val: string): string {
-  if (val.length < 12) return '***';
-  return `${val.slice(0, 4)}...${val.slice(-4)}`;
-}
-
-function sanitize(obj: unknown, seen = new WeakSet()): unknown {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-  
-  // Check for circular references
-  if (seen.has(obj)) {
-    return '[Circular]';
-  }
-  seen.add(obj);
-  
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-    if (SENSITIVE_FIELDS.has(key.toLowerCase())) {
-      result[key] = typeof value === 'string' ? redactValue(value) : '***';
-    } else {
-      result[key] = sanitize(value, seen);
-    }
-  }
-  return result;
-}
-
-const isMCPMode = process.env.CLAWDROP_MODE === 'mcp';
-const isProduction = process.env.NODE_ENV === 'production';
-
-// Use sync destination to prevent process exit in systemd
-const destination = pino.destination({
-  sync: true,
-  minLength: 0,
-});
-
-const baseLogger = pino(
-  {
-    level: logLevel,
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: !isProduction,
-        translateTime: 'SYS:standard',
-        ignore: 'pid,hostname',
-      },
+// TODO: Task 4.1 - Implement structured logging with correlation IDs
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname',
     },
   },
-  destination
-);
+});
 
-// Proxy that sanitizes the first argument before passing to pino
-type LogFn = (obj: unknown, msg?: string, ...args: unknown[]) => void;
-function wrapMethod(fn: LogFn): LogFn {
-  return (obj: unknown, msg?: string, ...args: unknown[]) => {
-    fn(sanitize(obj), msg, ...args);
-  };
+const context = new Map<string, string>();
+
+export function setCorrelationId(correlation_id: string) {
+  context.set('correlation_id', correlation_id);
 }
 
-export const logger = {
-  trace: wrapMethod(baseLogger.trace.bind(baseLogger)),
-  debug: wrapMethod(baseLogger.debug.bind(baseLogger)),
-  info:  wrapMethod(baseLogger.info.bind(baseLogger)),
-  warn:  wrapMethod(baseLogger.warn.bind(baseLogger)),
-  error: wrapMethod(baseLogger.error.bind(baseLogger)),
-  fatal: wrapMethod(baseLogger.fatal.bind(baseLogger)),
-};
+export function getCorrelationId(): string {
+  return context.get('correlation_id') || uuidv4();
+}
+
+export default logger;
