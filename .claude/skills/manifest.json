@@ -1,0 +1,152 @@
+{
+  "name": "colosseum",
+  "version": "1.0.0",
+  "description": "Colosseum multi-agent AI orchestration platform - SDK, CLI, debugging, and coordination skills for internal team use (Claude, Codex, Gemini, Kimi)",
+  "author": "HFSP Labs Team",
+  "license": "Apache-2.0",
+  "skills": [
+    {
+      "id": "colosseum-sdk",
+      "name": "Colosseum SDK Patterns",
+      "description": "Service patterns, API contracts, client libraries, type definitions, payment protocol, MemPalace integration",
+      "file": "colosseum-sdk.md",
+      "triggers": [
+        "message handling",
+        "API integration",
+        "request/response",
+        "client library",
+        "imports",
+        "types",
+        "Express server",
+        "HTTP endpoint",
+        "Telegram types",
+        "webhook",
+        "payment protocol",
+        "x402",
+        "MemPalace",
+        "wings model"
+      ],
+      "tokens": {
+        "metadata": 70,
+        "full": 250
+      },
+      "activation_rule": "any_trigger_match"
+    },
+    {
+      "id": "colosseum-cli",
+      "name": "Colosseum CLI Reference",
+      "description": "CLI commands, service management, Docker operations, deployment procedures, npm scripts",
+      "file": "colosseum-cli.md",
+      "triggers": [
+        "CLI",
+        "command",
+        "script",
+        "deployment",
+        "docker",
+        "docker-compose",
+        "run locally",
+        "setup",
+        "start services",
+        "session-closer",
+        "summary",
+        "health check",
+        "status"
+      ],
+      "tokens": {
+        "metadata": 80,
+        "full": 300
+      },
+      "activation_rule": "any_trigger_match"
+    },
+    {
+      "id": "colosseum-debug",
+      "name": "Colosseum Debugging & Diagnostics",
+      "description": "Error codes, failure patterns, troubleshooting procedures, log interpretation, testing procedures",
+      "file": "colosseum-debug.md",
+      "triggers": [
+        "error",
+        "failed",
+        "debugging",
+        "not working",
+        "Docker",
+        "build",
+        "container",
+        "timeout",
+        "connection",
+        "network",
+        "signature",
+        "authentication",
+        "401",
+        "slow",
+        "performance",
+        "memory",
+        "logs",
+        "logging",
+        "trace"
+      ],
+      "tokens": {
+        "metadata": 90,
+        "full": 350
+      },
+      "activation_rule": "any_trigger_match"
+    },
+    {
+      "id": "colosseum-agents",
+      "name": "Colosseum Multi-Agent Coordination",
+      "description": "File ownership matrix, task specificity, dependency graphs, integration contracts, session management, conflict resolution",
+      "file": "colosseum-agents.md",
+      "triggers": [
+        "coordination",
+        "dependencies",
+        "blocking",
+        "waiting for",
+        "session",
+        "summary",
+        "handoff",
+        "next steps",
+        "file ownership",
+        "conflict",
+        "who's working",
+        "branch",
+        "merge",
+        "integration",
+        "phase",
+        "milestone",
+        "progress"
+      ],
+      "tokens": {
+        "metadata": 85,
+        "full": 250
+      },
+      "activation_rule": "any_trigger_match"
+    }
+  ],
+  "progressive_disclosure": {
+    "enabled": true,
+    "metadata_only_on_load": true,
+    "full_content_on_trigger": true,
+    "expected_token_savings": "35-50% reduction in context consumption across 4-agent sessions"
+  },
+  "team": {
+    "agents": [
+      "Claude",
+      "Codex (OpenAI)",
+      "Gemini (Google)",
+      "Kimi (Moonshot)"
+    ],
+    "purpose": "Reduce token costs and improve coordination when multiple LLM agents work on Colosseum project",
+    "baseline_cost_per_session": "12-16M tokens",
+    "expected_cost_after_phase2": "8-10M tokens",
+    "cost_reduction_target": "35-50%"
+  },
+  "installation": {
+    "method": "manual",
+    "instructions": "Copy .claude/skills/ directory to your Claude Code workspace. Skills load automatically on next session."
+  },
+  "metadata": {
+    "created": "2026-04-23",
+    "last_updated": "2026-04-23",
+    "phase": "Phase 2: Skills Architecture",
+    "part_of_plan": "Context Engineering Optimization (Phase 1, 2, 3)"
+  }
+}
