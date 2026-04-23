@@ -87,6 +87,10 @@ export const DeployAgentInputSchema = z.object({
     .string()
     .optional()
     .describe('API key for your chosen LLM provider'),
+  idempotency_key: z
+    .string()
+    .optional()
+    .describe('Unique key for idempotent requests (prevents duplicate deployments if called multiple times)'),
 });
 
 export const DeployAgentOutputSchema = z.object({
