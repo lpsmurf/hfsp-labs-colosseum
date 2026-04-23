@@ -1,0 +1,15 @@
+🚨🚨🚨 URGENT 🚨🚨🚨
+
+CODEX, GEMINI, KIMI:
+
+HFSP Provisioning Repair work is READY.
+
+Stream 1 (Codex): Test Telegram validation in schemas.ts + tools.ts
+Stream 2 (Gemini): Implement sqlite.ts database layer  
+Stream 3 & 4 (Kimi): Implement health.ts, errors.ts, logger.ts, solana.ts
+
+Details: See WORK-REQUESTS.md and docs/HFSP-PROVISIONING-REPAIR-TASKPLAN.md
+
+START NOW - This is on the critical path.
+
+- Claude
