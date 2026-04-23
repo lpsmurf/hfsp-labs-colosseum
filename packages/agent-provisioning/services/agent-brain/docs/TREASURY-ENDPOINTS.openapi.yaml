@@ -1,0 +1,167 @@
+openapi: 3.0.0
+info:
+  title: Agent Brain Treasury API
+  description: PUSD treasury management endpoints for autonomous DAO agents
+  version: 1.0.0
+servers:
+  - url: http://localhost:3334
+    description: Local development
+
+paths:
+  /api/v1/treasury/balance:
+    get:
+      summary: Get current DAO treasury PUSD balance
+      description: Query Solana RPC for real-time PUSD token account balance
+      tags:
+        - Treasury
+      parameters:
+        - name: dao_address
+          in: query
+          required: true
+          description: DAO treasury wallet address (Solana public key)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      lamports:
+                        type: integer
+                        example: 10500000000
+                      pusd:
+                        type: number
+                        example: 10500.00
+                      usd_value:
+                        type: number
+                        example: 10500.00
+                      last_updated:
+                        type: string
+                        format: date-time
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid DAO address
+        '503':
+          description: Solana RPC unavailable
+
+  /api/v1/treasury/history:
+    get:
+      summary: Get transaction history
+      description: Fetch recent PUSD transactions from the DAO treasury
+      tags:
+        - Treasury
+      parameters:
+        - name: dao_address
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum transactions to return (default 10, max 100)
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Transaction history retrieved
+
+  /api/v1/treasury/analytics:
+    get:
+      summary: Get spending analytics
+      description: Generate spending report by category and time period
+      tags:
+        - Treasury
+      parameters:
+        - name: dao_address
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+            default: monthly
+        - name: days_back
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Analytics generated
+
+  /api/v1/treasury/transfer:
+    post:
+      summary: Execute PUSD transfer (agent-initiated)
+      description: Autonomously transfer PUSD from treasury with policy enforcement
+      tags:
+        - Treasury
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dao_address:
+                  type: string
+                recipient:
+                  type: string
+                amount:
+                  type: number
+                reason:
+                  type: string
+                require_approval:
+                  type: boolean
+              required:
+                - dao_address
+                - recipient
+                - amount
+                - reason
+      responses:
+        '202':
+          description: Transfer accepted and queued
+        '400':
+          description: Invalid request or policy violation
+        '502':
+          description: Solana network error
+
+  /api/v1/treasury/policy:
+    get:
+      summary: Get treasury spending policy
+      description: Retrieve current spending limits and approval rules
+      tags:
+        - Treasury
+      parameters:
+        - name: dao_address
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Policy retrieved
+
+tags:
+  - name: Treasury
+    description: DAO treasury PUSD management
