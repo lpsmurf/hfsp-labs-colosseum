@@ -439,3 +439,4 @@ Extend `scripts/session-closer.ts` to expose agent work as queryable context:
 8. Run cost comparison test with real multi-agent session
 9. Measure token savings
 
+Phase 3 test: Claude agent metrics
