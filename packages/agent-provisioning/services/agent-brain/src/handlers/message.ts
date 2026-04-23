@@ -1,45 +1,45 @@
-import type { PoliAgent } from "../services/mastra-agent.js";
-
 /**
- * MessageHandler: Routes user messages through agent with spending limits
+ * Message Handler - Placeholder for Phase 1 Testing
+ * Real Mastra integration will be added in Phase 2
  */
-export class MessageHandler {
-  constructor(private agent: PoliAgent) {}
 
-  /**
-   * Handle incoming user message, return agent response
-   */
-  async handleMessage(userMessage: string): Promise<{
-    response: string;
-    requiresApproval?: boolean;
-    approvalAmount?: number;
-  }> {
-    const manifest = this.agent.getIdentity();
-    const policy = this.agent.getSkills(); // For context
-    
-    // TODO: Wire Claude LLM here
-    // For now, return placeholder that demonstrates understanding
+export interface MessageRequest {
+  user_id: string;
+  chat_id: string;
+  text: string;
+  message_id: number;
+}
 
-    return {
-      response: `Hello! I'm ${manifest.name}. You said: "${userMessage}". I'm ready to help with travel booking, DAO setup, or trading signals. What would you like to do?`,
-      requiresApproval: false,
-    };
-  }
+export interface MessageResponse {
+  status: string;
+  response: string;
+  user_id: string;
+}
 
-  /**
-   * Handle approval from user (Telegram button click)
-   */
-  async handleApproval(
-    requestId: string,
-    approved: boolean
-  ): Promise<{
-    status: string;
-    result?: unknown;
-  }> {
-    if (approved) {
-      return { status: "approved", result: "Proceeding with request..." };
-    } else {
-      return { status: "rejected" };
-    }
-  }
+export async function handleMessage(
+  request: MessageRequest
+): Promise<MessageResponse> {
+  const { user_id, chat_id, text, message_id } = request;
+
+  // Placeholder response logic
+  const response = generateResponse(text);
+
+  return {
+    status: "ok",
+    response,
+    user_id,
+  };
+}
+
+function generateResponse(text: string): string {
+  const lowerText = text.toLowerCase().trim();
+
+  const responses: { [key: string]: string } = {
+    hello: "Hello! I'm ready to help.",
+    help: "I can process messages and provide responses.",
+    status: "I'm operational and working correctly.",
+    default: `I received: "${text}". I'm a Phase 1 test agent.`,
+  };
+
+  return responses[lowerText] || responses["default"];
 }

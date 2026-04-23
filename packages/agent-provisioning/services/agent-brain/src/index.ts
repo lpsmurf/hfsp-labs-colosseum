@@ -1,151 +1,81 @@
-import express, { Request, Response } from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import { createLogger } from "pino";
-import { SelfManifestSchema } from "./types/manifest.js";
-import { PoliAgent } from "./services/mastra-agent.js";
-import { MessageHandler } from "./handlers/message.js";
+import pino from "pino";
+import express from "express";
 
-dotenv.config();
+const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+});
 
-const logger = createLogger();
 const app = express();
 const PORT = process.env.PORT || 3334;
 
-// Middleware
-app.use(cors());
 app.use(express.json());
 
-// Global agent instance
-let agent: PoliAgent | null = null;
-let messageHandler: MessageHandler | null = null;
+// Health endpoint
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "agent-brain",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
 
-/**
- * POST /initialize
- * Initialize agent with self-manifest
- *
- * Body:
- * {
- *   "identity": { "name": "Poli", ... },
- *   "wallet": { ... },
- *   "skills": [ ... ],
- *   "user_channels": [ ... ]
- * }
- */
-app.post("/initialize", async (req: Request, res: Response) => {
+// Message endpoint - receives messages from telegram-bot
+app.post("/message", async (req, res) => {
   try {
-    // Validate manifest against schema
-    const manifest = SelfManifestSchema.parse(req.body);
-
-    // Create agent
-    agent = new PoliAgent(manifest);
-    messageHandler = new MessageHandler(agent);
+    const { user_id, chat_id, text, message_id } = req.body;
 
     logger.info(
-      { agent: manifest.identity.name },
-      "Agent initialized successfully"
+      { user_id, chat_id, message_id, text },
+      "Received message from telegram-bot"
     );
+
+    // Simulate agent response (replace with real Mastra integration later)
+    const response = await handleMessage(text, user_id);
+
+    logger.info({ user_id, response }, "Sending response to telegram-bot");
 
     res.json({
-      status: "initialized",
-      agent_name: manifest.identity.name,
-      deployment_id: manifest.identity.deployment_id,
-      system_prompt: agent.getSystemPrompt().substring(0, 100) + "...",
+      status: "ok",
+      user_id,
+      chat_id,
+      message_id,
+      response,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error({ error }, "Failed to initialize agent");
-    res.status(400).json({ error: String(error) });
+    logger.error({ error }, "Error processing message");
+    res.status(500).json({
+      status: "error",
+      message: "Failed to process message",
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 
-/**
- * POST /message
- * Send user message, get agent response
- *
- * Body:
- * {
- *   "user_id": "telegram:123456",
- *   "message": "Book me a flight to Miami"
- * }
- */
-app.post("/message", async (req: Request, res: Response) => {
-  if (!agent || !messageHandler) {
-    return res.status(400).json({ error: "Agent not initialized" });
-  }
+// Simple message handler (placeholder for Mastra agent)
+async function handleMessage(text: string, userId: string): Promise<string> {
+  // This is a placeholder - replace with real Mastra agent logic
+  const responses: { [key: string]: string } = {
+    hello: "Hello! I'm an AI agent. How can I help you?",
+    help: "I can process messages and provide responses. Try asking me something!",
+    status: "I'm operational and ready to process messages.",
+    default: `I received your message: "${text}". I'm currently a placeholder agent. Real Mastra integration coming soon!`,
+  };
 
-  try {
-    const { user_id, message } = req.body;
+  const lowerText = text.toLowerCase().trim();
+  return (
+    responses[lowerText] ||
+    responses["default"]
+  );
+}
 
-    if (!message) {
-      return res.status(400).json({ error: "Message required" });
-    }
-
-    const response = await messageHandler.handleMessage(message);
-
-    logger.info(
-      { user_id, message: message.substring(0, 50) },
-      "Message processed"
-    );
-
-    res.json(response);
-  } catch (error) {
-    logger.error({ error }, "Failed to process message");
-    res.status(500).json({ error: String(error) });
-  }
-});
-
-/**
- * GET /status
- * Check agent status and manifest
- */
-app.get("/status", (req: Request, res: Response) => {
-  if (!agent) {
-    return res.status(200).json({ status: "uninitialized" });
-  }
-
-  const identity = agent.getIdentity();
-  const skills = agent.getSkills();
-
-  res.json({
-    status: "ready",
-    agent: {
-      name: identity.name,
-      deployment_id: identity.deployment_id,
-      tier: identity.tier,
-    },
-    skills: skills.map((s) => ({ name: s.name, tools: s.tools })),
-  });
-});
-
-/**
- * GET /manifest
- * Return current agent manifest (system prompt)
- */
-app.get("/manifest", (req: Request, res: Response) => {
-  if (!agent) {
-    return res.status(400).json({ error: "Agent not initialized" });
-  }
-
-  res.json({
-    identity: agent.getIdentity(),
-    skills: agent.getSkills(),
-    system_prompt: agent.getSystemPrompt(),
-  });
-});
-
-/**
- * Health check
- */
-app.get("/health", (req: Request, res: Response) => {
-  res.json({ status: "ok" });
-});
-
-// Start server
 app.listen(PORT, () => {
-  logger.info({ port: PORT }, "Agent brain started");
-  console.log(`🧠 Clawdrop Agent Brain running on port ${PORT}`);
-  console.log(`   POST /initialize — boot agent with manifest`);
-  console.log(`   POST /message — send user message`);
-  console.log(`   GET /status — check agent status`);
-  console.log(`   GET /manifest — view system prompt`);
+  logger.info({ port: PORT }, "✅ Agent Brain listening");
+});
+
+// Handle graceful shutdown
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received, shutting down gracefully");
+  process.exit(0);
 });
