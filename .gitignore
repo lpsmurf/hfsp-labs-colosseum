@@ -54,3 +54,8 @@ venv/
 
 # MemPalace data (user-specific)
 ~/.hfsp/mempalace/data/
+
+# Internal documentation (team only, not public)
+.internal/sessions/*.log
+.internal/sessions/*.tmp
+.internal/**/*.tmp
