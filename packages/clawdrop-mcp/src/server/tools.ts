@@ -736,8 +736,52 @@ async function handleQuoteTier(input: unknown): Promise<string> {
   return JSON.stringify(response, null, 2);
 }
 
+
+// Validate Telegram token by calling Telegram API
+async function validateTelegramToken(token: string): Promise<{valid: boolean; error?: string}> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+      timeout: 5000
+    });
+    if (!response.ok) {
+      return {valid: false, error: 'Invalid or revoked Telegram token'};
+    }
+    return {valid: true};
+  } catch (e) {
+    return {valid: false, error: 'Telegram API unreachable'};
+  }
+}
+
 async function handleDeployAgent(input: unknown): Promise<string> {
   const parsed = ToolInputSchemas.deploy_agent.parse(input);
+
+  // 0. Sanitize all inputs
+  const sanitized = {
+    tier_id: parsed.tier_id.trim(),
+    agent_name: parsed.agent_name.trim(),
+    owner_wallet: parsed.owner_wallet.trim(),
+    payment_token: parsed.payment_token.trim(),
+    payment_tx_hash: parsed.payment_tx_hash.trim(),
+    telegram_token: (parsed as any).telegram_token?.trim(),
+    llm_provider: (parsed as any).llm_provider?.trim() || 'anthropic',
+    llm_api_key: (parsed as any).llm_api_key?.trim(),
+    bundles: parsed.bundles,
+  };
+
+  // Validate required fields are non-empty after trim
+  if (!sanitized.tier_id || !sanitized.agent_name || !sanitized.owner_wallet || !sanitized.telegram_token) {
+    throw new Error('Invalid input: all required fields must be non-empty');
+  }
+
+  // Validate Telegram token early (before payment)
+  if (!sanitized.telegram_token.match(/^\d+:[\w-]+$/)) {
+    throw new Error('Invalid Telegram token format. Expected format: numeric:alphanumeric (e.g., 123456789:ABCdefGHIjklmnoPQRstuvWXYZ)');
+  }
+
+  const tokenValidation = await validateTelegramToken(sanitized.telegram_token);
+  if (!tokenValidation.valid) {
+    throw new Error(`Cannot deploy: ${tokenValidation.error}. Fix your Telegram token and try again.`);
+  }
 
   // 1. Verify payment on-chain
   if (parsed.payment_tx_hash.startsWith('devnet_') || parsed.payment_tx_hash.startsWith('test_')) {
