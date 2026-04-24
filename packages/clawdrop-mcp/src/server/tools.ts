@@ -1,3 +1,4 @@
+import { chainTools, handleChainTool } from './chain-tools.js';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import axios from 'axios';
 import {
@@ -324,6 +325,7 @@ async function pairAgentViaHFSP(agentId: string, pairingCode: string): Promise<{
 // ─── Tool definitions (JSON Schema for MCP protocol) ─────────────────────────
 
 export const tools: Tool[] = [
+  ...chainTools,
   {
     name: 'list_tiers',
     description:
@@ -654,6 +656,10 @@ export const tools: Tool[] = [
 export async function handleToolCall(toolName: string, toolInput: unknown): Promise<string> {
   logger.info({ tool: toolName }, 'Tool call received');
   try {
+    // C2/H3/H4: Route to chain tools first (on-chain actions)
+    const chainResult = await handleChainTool(toolName, toolInput);
+    if (chainResult !== null) return chainResult;
+
     switch (toolName) {
       case 'list_tiers':          return await handleListTiers(toolInput);
       case 'quote_tier':          return await handleQuoteTier(toolInput);
