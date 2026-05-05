@@ -71,3 +71,4 @@ venv/
 .internal/sessions/*.tmp
 .internal/**/*.tmp
 .env.production
+*.sqlite
