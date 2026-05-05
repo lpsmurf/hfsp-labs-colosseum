@@ -23,13 +23,13 @@ export function useProvisioning({ wsUrl, token }: Options) {
       if (!event?.agent_id) return;
 
       // Patch single-agent cache
-      queryClient.setQueryData<Agent>(['agent', event.agent_id], (old) => {
+      queryClient.setQueryData<Agent | undefined>(['agent', event.agent_id], (old) => {
         if (!old) return old;
         return { ...old, provisioning_status: event.status };
       });
 
       // Patch agent in list cache
-      queryClient.setQueriesData<{ agents: Agent[]; total: number }>('agents', (old) => {
+      queryClient.setQueriesData<{ agents: Agent[]; total?: number } | undefined>('agents', (old) => {
         if (!old) return old;
         return {
           ...old,

@@ -1,8 +1,8 @@
 # 🚀 FINAL STATUS — Ready for Launch
 
 **Date**: 2026-05-05 16:30 UTC
-**Status**: Waiting on final 2 items from team
-**Expected Launch**: +35 minutes
+**Status**: All deployment blockers resolved. Waiting on Claude for E2E.
+**Expected Launch**: +10 minutes
 
 ---
 
@@ -20,26 +20,14 @@
 
 | Task | Owner | Time | Status |
 |------|-------|------|--------|
-| PR #5 Decision | Kimi | 5 min | ⏳ Waiting |
-| Nginx Deploy | Gemini | 15 min | ⏳ Waiting |
-| E2E Test | Claude | 10 min | 🟡 Ready |
+| PR #5 Decision | Kimi | - | ✅ Done |
+| Nginx Deploy | Gemini | - | ✅ Done |
+| E2E Test | Claude | 10 min | 🔥 ATTACK NOW |
 
 ## Exact Instructions Sent
 
-**Kimi** (5 min):
-- Go to PR #5: https://github.com/lpsmurf/hfsp-labs-colosseum/pull/5
-- Click APPROVE (or COMMENT if feedback)
-- Done.
-
-**Gemini** (15 min):
-- SSH to VPS
-- Copy trial.conf to /etc/nginx/conf.d/
-- Run: nginx -s reload
-- Test: curl https://clawdrop.live/api/health
-- Done.
-
 **Claude** (waiting):
-- Once both done: bash scripts/test-trial-e2e.sh https://clawdrop.live
+- bash scripts/test-trial-e2e.sh https://clawdrop.live
 - If all ✅: LAUNCH READY
 
 ## Timeline

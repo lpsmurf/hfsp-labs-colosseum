@@ -131,6 +131,11 @@ router.get('/quote', async (_req, res) => {
     return res.status(400).json({ error: 'Unknown tier' });
   }
 
+  const recipient = process.env.PLATFORM_WALLET_ADDRESS;
+  if (!recipient) {
+    return res.status(500).json({ error: 'PLATFORM_WALLET_ADDRESS not configured' });
+  }
+
   try {
     // Get SOL price for conversion
     const solRes = await fetch(
@@ -145,6 +150,7 @@ router.get('/quote', async (_req, res) => {
     res.json({
       tier: parse.data.tier,
       usd: tierPriceUsd,
+      recipient,
       tokens: {
         SOL: { amount: solAmount.toFixed(4), price_usd: solPrice },
         USDC: { amount: tierPriceUsd.toFixed(2) },

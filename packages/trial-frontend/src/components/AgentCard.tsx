@@ -33,7 +33,10 @@ function timeAgo(iso?: string): string {
 const AgentCard: React.FC<Props> = ({ agent, onDelete }) => {
   const navigate = useNavigate();
   const dot = statusDot[agent.status] ?? 'bg-gray-400';
-  const isProvisioning = agent.provisioning_status !== 'active' && agent.provisioning_status !== 'failed';
+  const provisioningStatus =
+    agent.provisioning_status ?? (agent.status === 'active' || agent.status === 'failed' ? agent.status : 'pending');
+  const isProvisioning = provisioningStatus !== 'active' && provisioningStatus !== 'failed';
+  const apiKey = agent.api_key ?? '';
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-shadow">
@@ -55,12 +58,12 @@ const AgentCard: React.FC<Props> = ({ agent, onDelete }) => {
 
       {/* Model + temperature chips */}
       <div className="flex flex-wrap gap-2 mb-3">
-        {agent.config.model && (
+        {agent.config?.model && (
           <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-300 font-mono">
             {agent.config.model}
           </span>
         )}
-        {agent.config.temperature !== undefined && (
+        {agent.config?.temperature !== undefined && (
           <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-300">
             temp {agent.config.temperature.toFixed(1)}
           </span>
@@ -70,14 +73,14 @@ const AgentCard: React.FC<Props> = ({ agent, onDelete }) => {
       {/* Provisioning progress or live badge */}
       <div className="mb-4">
         {isProvisioning
-          ? <ProvisioningBadge status={agent.provisioning_status} />
-          : <ProvisioningBadge status={agent.provisioning_status} compact />
+          ? <ProvisioningBadge status={provisioningStatus} />
+          : <ProvisioningBadge status={provisioningStatus} compact />
         }
       </div>
 
       {/* API key preview */}
       <div className="mb-4 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 font-mono text-xs text-gray-500 dark:text-gray-400 truncate">
-        {agent.api_key.slice(0, 10)}••••••••{agent.api_key.slice(-6)}
+        {apiKey ? `${apiKey.slice(0, 10)}••••••••${apiKey.slice(-6)}` : 'No API key on file'}
       </div>
 
       {/* Actions */}
