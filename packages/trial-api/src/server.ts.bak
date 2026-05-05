@@ -69,56 +69,54 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  res.write(': connected\n\n');
+  res.write(': keep-alive\n\n');
 
   const send = (event: string, data: unknown) => {
-    try {
-      if (!res.writableEnded) {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      }
-    } catch (e) {
-      console.log('[send-err]', e instanceof Error ? e.message : e);
+    if (!res.writableEnded) {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     }
   };
 
   let closed = false;
-  req.on('close', () => { closed = true; console.log('[req] closed'); });
-
-  const keepalive = setInterval(() => {
-    try {
-      if (!closed && !res.writableEnded) res.write(': keep-alive\n\n');
-    } catch (e) { /* ignore */ }
-  }, 1000);
+  req.on('close', () => { closed = true; });
 
   try {
     console.log('[chat] calling poly.stream');
     const stream = await poly.stream(parse.data.message);
-    console.log('[chat] got stream');
+    console.log('[chat] got stream, starting iteration');
 
     let text = '';
     let count = 0;
     const iterator = stream.textStream[Symbol.asyncIterator]();
-    let result = await iterator.next();
+    console.log('[iter] got iterator');
     
-    // Continue streaming even if socket closed (try to reconnect)
+    let result = await iterator.next();
+    console.log(`[iter] first result: done=${result.done}, value=${JSON.stringify(result.value?.slice(0, 20))}`);
+    
     while (!result.done) {
       const chunk = result.value;
       count++;
+      console.log(`[iter] #${count}: typeof=${typeof chunk}, chunk="${chunk}", closed=${closed}`);
       if (count === 1 || count % 10 === 0) console.log(`[chunk] #${count}`);
+      if (closed) {
+        console.log('[iter] breaking - connection closed');
+        break;
+      }
       text += chunk;
       send('delta', { text: chunk });
+      
+      console.log(`[iter] awaiting next...`);
       result = await iterator.next();
+      console.log(`[iter] got result: done=${result.done}`);
     }
 
-    console.log('[chat] done, chunks:', count);
-    clearInterval(keepalive);
+    console.log('[chat] done,chunks:', count, 'text.length:', text.length);
 
     if (!text) {
       send('error', { message: 'No response' });
-      if (!res.writableEnded) res.end();
+      res.end();
       return;
     }
 
@@ -126,15 +124,14 @@ app.post('/api/chat', async (req, res) => {
     if (usage) recordSpend(estimateCost(usage.promptTokens ?? 0, usage.completionTokens ?? 0));
 
     send('done', { remaining: quota.remaining });
-    if (!res.writableEnded) res.end();
+    res.end();
   } catch (err) {
     console.error('[err]', err instanceof Error ? err.message : err);
-    clearInterval(keepalive);
-    send('error', { message: 'Agent error' });
-    if (!res.writableEnded) res.end();
+    if (!res.writableEnded) {
+      send('error', { message: 'Agent error' });
+      res.end();
+    }
   }
 });
 
-const server = app.listen(PORT, () => console.log(`listening on :${PORT}`));
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+app.listen(PORT, () => console.log(`listening on :${PORT}`));
