@@ -17,75 +17,44 @@
 
 ---
 
-## KIMI — Status: 🔥 HEAVY LIFTING (START NOW)
+## KIMI — Status: ✅ DAY 1 COMPLETE
 
 **Deadline**: Friday May 8 EOD
 **Owns**: All backend infrastructure for `packages/openclaw-platform`
 
-### Task 1 — `packages/openclaw-platform` (port 8788)
+### Task 1 — `packages/openclaw-platform` (port 8788) — IN PROGRESS
 
-Express + TypeScript + SQLite WAL (same pattern as trial-api).
+**Completed Day 1 (May 6)**:
+- ✅ `payment-verifier.ts` — Helius tx verification for SOL/USDC/USDT/HERD
+  - Fetches tx from Helius API, parses native + SPL transfers
+  - Checks recipient = PLATFORM_WALLET_ADDRESS
+  - Checks amount >= tier price (with SOL→USD conversion via CoinGecko)
+  - Double-spend protection via DB UNIQUE on tx_signature
+- ✅ `routes/payments.ts` — POST /api/payments/verify + GET /api/payments/quote
+- ✅ `routes/auth.ts` — POST /api/auth/login + GET /api/auth/me (JWT)
+- ✅ `routes/subscriptions.ts` — GET /api/subscriptions
+- ✅ `routes/agents.ts` — GET /api/agents, POST /api/agents/deploy, DELETE /api/agents/:id
+- ✅ `routes/usage.ts` — GET /api/usage/tokens
+- ✅ `server.ts` — All routes wired, CORS, health check
+- ✅ `.env.example` — Documented all required env vars
+- ✅ TypeScript compiles cleanly, server starts on :8788
 
-**Schema** (`data/openclaw.sqlite` — WAL mode):
-```sql
-CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, telegram_id TEXT UNIQUE, wallet_address TEXT, tier TEXT DEFAULT 'free', created_at TEXT DEFAULT (datetime('now')));
-CREATE TABLE subscriptions (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), tier TEXT NOT NULL, payment_token TEXT NOT NULL, amount_per_month TEXT NOT NULL, status TEXT DEFAULT 'active', current_period_start TEXT, current_period_end TEXT, created_at TEXT DEFAULT (datetime('now')));
-CREATE TABLE payments (id TEXT PRIMARY KEY, subscription_id TEXT REFERENCES subscriptions(id), tx_signature TEXT UNIQUE, token TEXT NOT NULL, amount TEXT NOT NULL, verified_at TEXT, created_at TEXT DEFAULT (datetime('now')));
-CREATE TABLE agents (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), name TEXT NOT NULL, status TEXT DEFAULT 'deploying', deploy_type TEXT NOT NULL, container_id TEXT, mcp_port INTEGER, agent_port INTEGER, llm_provider TEXT NOT NULL, llm_model TEXT, custom_endpoint TEXT, created_at TEXT DEFAULT (datetime('now')));
-CREATE TABLE api_keys (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), provider TEXT NOT NULL, encrypted_key TEXT NOT NULL, iv TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')));
-CREATE TABLE token_usage (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), agent_id TEXT REFERENCES agents(id), month TEXT NOT NULL, input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, model TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')), UNIQUE(user_id, month));
-```
+**Branch**: `kimi/openclaw-platform-routes`
 
-**Routes**:
-- `POST /api/auth/login` — JWT auth (wallet address + signature)
-- `GET  /api/subscriptions` — Get user's active subscription
-- `POST /api/payments/verify` — Verify Solana tx, create subscription
-- `POST /api/agents/deploy` — Deploy user's Docker containers
-- `GET  /api/agents` — List user's agents + live status
-- `DELETE /api/agents/:id` — Stop + remove agent containers
-- `GET  /api/health` — Health check
-- `GET  /api/usage/tokens` — Token usage this month
-
-**Services to build**:
-
-`payment-verifier.ts` — Verify Solana tx via Helius:
-- Check recipient = PLATFORM_WALLET_ADDRESS
-- Check token = SOL/USDC/USDT/HERD with correct mint
-- Check amount >= tier price
-- tx_signature UNIQUE prevents double-spend
-- Reuse pattern from `packages/clawdrop-mcp/src/services/fee-collector.ts`
-
-`key-vault.ts` — AES-256-GCM encrypt/decrypt user API keys
-
-`llm-router.ts`:
-- `poly`: use POLY_OPENROUTER_KEY env, track tokens
-- `byok`: decrypt user's key, route to their provider
-- `custom`: route to user's custom_endpoint
-
-`docker-deployer.ts`:
-```bash
-docker network create user-${userId}
-docker run -d --name mcp-${userId} --network user-${userId} -p ${mcpPort}:3002 -e USER_ID -e HELIUS_API_KEY openclaw/mcp-server:latest
-docker run -d --name agent-${userId} --network user-${userId} -p ${agentPort}:3999 -e MCP_URL=http://mcp-${userId}:3002 -e LLM_PROVIDER openclaw/agent-runtime:latest
-```
+**Remaining (Day 2-3)**:
+- `services/docker-deployer.ts` — Docker Compose per-user deployment
+- `services/llm-router.ts` — Poly/BYOK/custom endpoint routing
+- `services/token-tracker.ts` — Token counting + budget alerts
+- Wire docker-deployer into agents/deploy route
+- Add subscription check to deploy endpoint
 
 ### Task 2 — `packages/openclaw-mcp-server`
 
-Dockerfile + Node.js server that:
-1. Inits SolanaAgentKit with env-injected keys (HELIUS_API_KEY, user's LLM key)
-2. Starts MCP server using `@solana-agent-kit/adapter-mcp` on port 3002
-3. Health endpoint on port 3003
+**Status**: Not started (Day 2)
 
 ### Task 3 — `packages/openclaw-agent-runtime`
 
-Dockerfile + autonomous loop:
-1. Connects to MCP server at `MCP_URL` env var
-2. Loop: analyze conditions → call tools → execute if needed → sleep 60s
-3. Health endpoint on port 3999
-4. All actions logged to stdout
-
-**Completed**:
-- (nothing yet — START NOW)
+**Status**: Not started (Day 2)
 
 ---
 
