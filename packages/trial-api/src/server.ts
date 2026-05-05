@@ -71,6 +71,8 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
+  res.write(': waiting for response\n\n');
+
   const send = (event: string, data: unknown) => {
     if (!res.writableEnded) {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);

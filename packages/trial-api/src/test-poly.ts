@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { poly } from './poly-agent.js';
 
 console.log('[test] starting poly agent test');
