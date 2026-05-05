@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  # Trial API Backend (Solana agent + tools)
+  trial-api:
+    build:
+      context: packages/trial-api
+      dockerfile: Dockerfile
+    container_name: clawdrop-trial-api
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./packages/trial-api/data:/app/data
+    env_file:
+      - .env.trial
+    environment:
+      PORT: "8787"
+      NODE_ENV: production
+      TRUST_PROXY: "1"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Trial Frontend (Chatbox UI)
+  trial-frontend:
+    build:
+      context: packages/trial-frontend
+      dockerfile: Dockerfile
+    container_name: clawdrop-trial-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      trial-api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  trial-data:
+    driver: local
