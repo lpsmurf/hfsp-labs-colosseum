@@ -136,14 +136,14 @@ export function HomePage() {
           </div>
         )}
 
-        {error && (
+        {Boolean(error) && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-4 text-red-700 dark:text-red-300 mb-4 text-sm">
             Failed to load agents.{' '}
             <button onClick={() => refetch()} className="underline">Try again</button>
           </div>
         )}
 
-        {!isLoading && agents.length === 0 && !error && (
+        {!isLoading && agents.length === 0 && !Boolean(error) && (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🤖</div>
             <h2 className="text-lg font-semibold mb-2">No agents yet</h2>

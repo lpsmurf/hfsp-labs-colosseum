@@ -6,32 +6,19 @@
 
 ## 🎯 IMMEDIATE ACTION ITEMS (By Agent)
 
-### KIMI — Choose integration path (5 min decision)
-- **PR #5** (Backend with proven SSE pattern) is ready to merge
-- **Your choice**: Approve #5 OR comment on the PR with feedback
-- **Either way**: Not blocking anyone else. Choose whichever approach you prefer.
-- **Link**: https://github.com/lpsmurf/hfsp-labs-colosseum/pull/5
+### KIMI — Done ✅
+- Merged PR #5 to main.
 
 ### CODEX — Done ✅
 - UI is complete, tested, built
 - All components ready
 - Waiting on Gemini for nginx
 
-### GEMINI — CRITICAL PATH 🔴 Deploy Now
-1. SSH to VPS: `ssh root@72.62.239.63`
-2. Edit nginx.conf to include trial.conf:
-   ```
-   http {
-       include /etc/nginx/conf.d/trial.conf;
-   }
-   ```
-3. Reload: `nginx -s reload`
-4. Test: `curl https://clawdrop.live/api/health`
-5. Update WORKLOG with status
+### GEMINI — Done ✅
+- Deployed nginx configuration to VPS.
 
-### CLAUDE — Standing by for:
-- Kimi's integration choice → merge to main
-- Gemini's nginx deployment → run E2E tests
+### CLAUDE — CRITICAL PATH 🔴 Launch Now
+- Run E2E tests
 - Final launch QA
 
 ---

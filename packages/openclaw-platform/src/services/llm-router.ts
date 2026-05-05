@@ -1,261 +1,141 @@
-/**
- * LLM Router — Route LLM calls for user agents
- *
- * Providers:
- * - poly:   Use Openclaw's OpenRouter key, track tokens
- * - byok:   Decrypt user's API key, route to their chosen provider
- * - custom: Route to user's self-hosted endpoint
- */
-
+import axios from 'axios';
 import { db } from '../db/index.js';
 import { decrypt } from './key-vault.js';
+import { v4 as uuidv4 } from 'uuid';
 
-export type LLMProvider = 'poly' | 'byok' | 'custom';
-
-interface Message {
+export interface Message {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-interface LLMResponse {
-  text: string;
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
+export interface LLMResponse {
+  content: string;
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
   };
+  model: string;
 }
 
 interface UserLLMConfig {
-  provider: LLMProvider;
-  model?: string;
-  providerName?: string;       // for byok: anthropic, openai, google, openrouter
-  encryptedKey?: string;
+  provider: 'poly' | 'byok' | 'custom';
+  model: string | null;
+  custom_endpoint: string | null;
+  encrypted_key?: string;
   iv?: string;
-  customEndpoint?: string;
+  provider_name?: string;
 }
 
-const POLY_OPENROUTER_KEY = process.env.POLY_OPENROUTER_KEY ?? '';
-const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-
-function getUserLLMConfig(userId: string): UserLLMConfig {
-  const row = db()
-    .prepare('SELECT provider, encrypted_key, iv, custom_endpoint FROM api_keys WHERE user_id = ? LIMIT 1')
-    .get(userId) as { provider?: string; encrypted_key?: string; iv?: string; custom_endpoint?: string } | undefined;
-
-  if (!row) {
-    return { provider: 'poly' };
-  }
-
-  return {
-    provider: (row.provider as LLMProvider) ?? 'poly',
-    encryptedKey: row.encrypted_key,
-    iv: row.iv,
-    customEndpoint: row.custom_endpoint,
-  };
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7); // YYYY-MM
 }
 
-async function callOpenRouter(messages: Message[], model: string, apiKey: string): Promise<LLMResponse> {
-  const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': 'https://clawdrop.live',
-      'X-Title': 'Openclaw',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenRouter error ${res.status}: ${text}`);
-  }
-
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-
-  return {
-    text: data.choices?.[0]?.message?.content ?? '',
-    usage: {
-      inputTokens: data.usage?.prompt_tokens ?? 0,
-      outputTokens: data.usage?.completion_tokens ?? 0,
-    },
-  };
-}
-
-async function callAnthropic(messages: Message[], model: string, apiKey: string): Promise<LLMResponse> {
-  const systemMsg = messages.find((m) => m.role === 'system');
-  const chatMessages = messages.filter((m) => m.role !== 'system');
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      system: systemMsg?.content,
-      messages: chatMessages,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Anthropic error ${res.status}: ${text}`);
-  }
-
-  const data = (await res.json()) as {
-    content?: Array<{ text?: string }>;
-    usage?: { input_tokens?: number; output_tokens?: number };
-  };
-
-  return {
-    text: data.content?.[0]?.text ?? '',
-    usage: {
-      inputTokens: data.usage?.input_tokens ?? 0,
-      outputTokens: data.usage?.output_tokens ?? 0,
-    },
-  };
-}
-
-async function callOpenAI(messages: Message[], model: string, apiKey: string): Promise<LLMResponse> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, messages }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${text}`);
-  }
-
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-
-  return {
-    text: data.choices?.[0]?.message?.content ?? '',
-    usage: {
-      inputTokens: data.usage?.prompt_tokens ?? 0,
-      outputTokens: data.usage?.completion_tokens ?? 0,
-    },
-  };
-}
-
-async function callCustomEndpoint(endpoint: string, messages: Message[], apiKey?: string): Promise<LLMResponse> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ messages }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Custom endpoint error ${res.status}: ${text}`);
-  }
-
-  // Try common response formats
-  const data = (await res.json()) as Record<string, unknown>;
-
-  let text = '';
-  if (typeof data.text === 'string') text = data.text;
-  else if (typeof data.response === 'string') text = data.response;
-  else if (Array.isArray(data.choices) && typeof data.choices[0]?.message?.content === 'string') {
-    text = data.choices[0].message.content;
-  } else if (Array.isArray(data.content) && typeof data.content[0]?.text === 'string') {
-    text = data.content[0].text;
-  }
-
-  return { text };
-}
-
-/**
- * Route an LLM call based on user configuration
- */
-export async function routeLLMCall(
-  userId: string,
-  agentId: string,
-  messages: Message[],
-): Promise<LLMResponse> {
-  const config = getUserLLMConfig(userId);
-  const model = config.model ?? 'anthropic/claude-haiku-4-5';
-
-  if (config.provider === 'poly') {
-    if (!POLY_OPENROUTER_KEY) {
-      throw new Error('POLY_OPENROUTER_KEY not configured');
-    }
-    const response = await callOpenRouter(messages, model, POLY_OPENROUTER_KEY);
-    await trackTokens(userId, agentId, model, response.usage);
-    return response;
-  }
-
-  if (config.provider === 'byok') {
-    if (!config.encryptedKey || !config.iv) {
-      throw new Error('BYOK configured but no API key stored');
-    }
-    const apiKey = decrypt(config.encryptedKey, config.iv);
-
-    switch (config.providerName) {
-      case 'anthropic':
-        return callAnthropic(messages, model, apiKey);
-      case 'openai':
-        return callOpenAI(messages, model, apiKey);
-      case 'openrouter':
-        return callOpenRouter(messages, model, apiKey);
-      default:
-        throw new Error(`Unknown BYOK provider: ${config.providerName}`);
-    }
-  }
-
-  if (config.provider === 'custom') {
-    if (!config.customEndpoint) {
-      throw new Error('Custom endpoint not configured');
-    }
-    let apiKey: string | undefined;
-    if (config.encryptedKey && config.iv) {
-      apiKey = decrypt(config.encryptedKey, config.iv);
-    }
-    return callCustomEndpoint(config.customEndpoint, messages, apiKey);
-  }
-
-  throw new Error(`Unknown provider: ${config.provider}`);
-}
-
-/**
- * Track token usage in DB (only for poly — BYOK/custom is untracked)
- */
-async function trackTokens(
+async function trackUsage(
   userId: string,
   agentId: string,
   model: string,
-  usage?: { inputTokens: number; outputTokens: number },
+  inputTokens: number,
+  outputTokens: number
 ): Promise<void> {
-  if (!usage) return;
-
-  const month = new Date().toISOString().slice(0, 7); // YYYY-MM
-
+  const month = currentMonth();
   db().prepare(`
     INSERT INTO token_usage (id, user_id, agent_id, month, input_tokens, output_tokens, model)
-    VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id, month) DO UPDATE SET
       input_tokens = input_tokens + excluded.input_tokens,
       output_tokens = output_tokens + excluded.output_tokens,
       updated_at = datetime('now')
-  `).run(userId, agentId, month, usage.inputTokens, usage.outputTokens, model);
+  `).run(uuidv4(), userId, agentId, month, inputTokens, outputTokens, model);
+}
+
+async function callOpenAICompat(
+  messages: Message[],
+  model: string,
+  apiKey: string,
+  baseUrl: string
+): Promise<LLMResponse> {
+  const res = await axios.post(
+    `${baseUrl}/chat/completions`,
+    { model, messages },
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 60000,
+    }
+  );
+  const choice = res.data.choices?.[0];
+  return {
+    content: choice?.message?.content ?? '',
+    usage: {
+      input_tokens: res.data.usage?.prompt_tokens ?? 0,
+      output_tokens: res.data.usage?.completion_tokens ?? 0,
+    },
+    model: res.data.model ?? model,
+  };
+}
+
+export async function routeLLM(
+  userId: string,
+  agentId: string,
+  messages: Message[]
+): Promise<LLMResponse> {
+  const agent = db()
+    .prepare('SELECT llm_provider, llm_model, custom_endpoint FROM agents WHERE id = ? AND user_id = ?')
+    .get(agentId, userId) as UserLLMConfig | undefined;
+
+  if (!agent) throw new Error(`Agent ${agentId} not found for user ${userId}`);
+
+  const config = agent;
+
+  // ── Poly: use Openclaw's OpenRouter key ──────────────────────────────────
+  if (config.provider === 'poly') {
+    const polyKey = process.env.POLY_OPENROUTER_KEY;
+    if (!polyKey) throw new Error('POLY_OPENROUTER_KEY not configured');
+    const model = config.model ?? 'anthropic/claude-haiku-4-5';
+    const response = await callOpenAICompat(messages, model, polyKey, 'https://openrouter.ai/api/v1');
+    await trackUsage(userId, agentId, response.model, response.usage.input_tokens, response.usage.output_tokens);
+    return response;
+  }
+
+  // ── BYOK: decrypt user's key, route to their provider ───────────────────
+  if (config.provider === 'byok') {
+    const keyRecord = db()
+      .prepare('SELECT encrypted_key, iv, provider FROM api_keys WHERE user_id = ? ORDER BY created_at DESC LIMIT 1')
+      .get(userId) as { encrypted_key: string; iv: string; provider: string } | undefined;
+
+    if (!keyRecord) throw new Error('No API key found for BYOK');
+    const apiKey = decrypt(keyRecord.encrypted_key, keyRecord.iv);
+    const model = config.model ?? 'gpt-4o';
+
+    const BASE_URLS: Record<string, string> = {
+      anthropic: 'https://api.anthropic.com/v1',
+      openai: 'https://api.openai.com/v1',
+      openrouter: 'https://openrouter.ai/api/v1',
+      google: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    };
+
+    const baseUrl = BASE_URLS[keyRecord.provider] ?? 'https://api.openai.com/v1';
+    const response = await callOpenAICompat(messages, model, apiKey, baseUrl);
+    // BYOK users are not billed for tokens but we still track for their own visibility
+    await trackUsage(userId, agentId, response.model, response.usage.input_tokens, response.usage.output_tokens);
+    return response;
+  }
+
+  // ── Custom endpoint ────────────────────────────────────────────────────────
+  if (config.provider === 'custom') {
+    if (!config.custom_endpoint) throw new Error('No custom endpoint configured');
+
+    const keyRecord = db()
+      .prepare('SELECT encrypted_key, iv FROM api_keys WHERE user_id = ? ORDER BY created_at DESC LIMIT 1')
+      .get(userId) as { encrypted_key: string; iv: string } | undefined;
+
+    const apiKey = keyRecord ? decrypt(keyRecord.encrypted_key, keyRecord.iv) : '';
+    const model = config.model ?? 'default';
+    const response = await callOpenAICompat(messages, model, apiKey, config.custom_endpoint);
+    return response;
+  }
+
+  throw new Error(`Unknown LLM provider: ${config.provider}`);
 }

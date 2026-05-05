@@ -1,184 +1,217 @@
-/**
- * Axios API Client with JWT Authentication
- * Handles token refresh and API calls
- */
 import axios from 'axios';
+
 class ApiClient {
-    constructor(config = {}) {
-        Object.defineProperty(this, "client", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: void 0
-        });
-        Object.defineProperty(this, "refreshTokenPromise", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: null
-        });
-        this.client = axios.create({
-            baseURL: config.baseURL || '/api',
-            timeout: config.timeout || 10000,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        // Add request interceptor for JWT auth
-        this.client.interceptors.request.use((config) => {
-            const token = this.getStoredToken();
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-            return config;
-        }, (error) => Promise.reject(error));
-        // Add response interceptor for token refresh
-        this.client.interceptors.response.use((response) => response, async (error) => {
-            const originalRequest = error.config;
-            // If 401 and not a retry, try to refresh token
-            if (error.response?.status === 401 && !originalRequest._retry) {
-                originalRequest._retry = true;
-                try {
-                    await this.refreshToken();
-                    const token = this.getStoredToken();
-                    if (token) {
-                        originalRequest.headers.Authorization = `Bearer ${token}`;
-                        return this.client(originalRequest);
-                    }
-                }
-                catch (refreshError) {
-                    // Token refresh failed, clear storage and redirect to login
-                    this.clearAuth();
-                    window.location.href = '/';
-                    return Promise.reject(refreshError);
-                }
-            }
-            return Promise.reject(error);
-        });
-    }
-    /**
-     * Authenticate with Telegram Web App initData
-     */
-    async authenticateWithTelegram(initData) {
-        const payload = { initData };
-        const response = await this.client.post('/webapp/auth', payload);
-        if (response.data.token) {
-            this.setStoredToken(response.data.token, response.data.expires_in);
+  constructor() {
+    this.client = axios.create({
+      baseURL: '/api/v1',
+      timeout: 15000,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    this.client.interceptors.request.use(
+      (config) => {
+        const token = this.getStoredToken();
+        if (token) config.headers.Authorization = `Bearer ${token}`;
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const req = error.config;
+        if (error.response?.status === 401 && req && !req._retry) {
+          req._retry = true;
+          this.clearAuth();
+          window.location.href = '/';
         }
-        return response.data;
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  async authenticateWithTelegram(initData) {
+    const response = await axios.post(
+      '/api/webapp/auth',
+      { initData },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    if (response.data.token) {
+      this.setStoredToken(response.data.token, response.data.expires_in);
     }
-    /**
-     * Refresh the JWT token
-     */
-    async refreshToken() {
-        // Prevent multiple simultaneous refresh requests
-        if (this.refreshTokenPromise) {
-            return this.refreshTokenPromise;
-        }
-        this.refreshTokenPromise = (async () => {
-            try {
-                const response = await this.client.post('/auth/refresh');
-                const { token, expires_in } = response.data;
-                this.setStoredToken(token, expires_in);
-                this.refreshTokenPromise = null;
-                return token;
-            }
-            catch (error) {
-                this.refreshTokenPromise = null;
-                throw error;
-            }
-        })();
-        return this.refreshTokenPromise;
-    }
-    /**
-     * Get stored JWT token
-     */
-    getStoredToken() {
-        return localStorage.getItem('authToken');
-    }
-    /**
-     * Set stored JWT token with expiry
-     */
-    setStoredToken(token, expiresIn) {
-        localStorage.setItem('authToken', token);
-        const expiryTime = Date.now() + expiresIn * 1000;
-        localStorage.setItem('authTokenExpiry', expiryTime.toString());
-    }
-    /**
-     * Clear authentication
-     */
-    clearAuth() {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('authTokenExpiry');
-    }
-    /**
-     * Check if token is expired
-     */
-    isTokenExpired() {
-        const expiry = localStorage.getItem('authTokenExpiry');
-        if (!expiry)
-            return true;
-        return Date.now() > parseInt(expiry, 10);
-    }
-    // Agent API Methods
-    /**
-     * Get list of agents
-     */
-    async getAgents(page = 1, pageSize = 20) {
-        const response = await this.client.get('/agents', {
-            params: { page, page_size: pageSize },
-        });
-        return response.data;
-    }
-    /**
-     * Get single agent by ID
-     */
-    async getAgent(id) {
-        const response = await this.client.get(`/agents/${id}`);
-        return response.data;
-    }
-    /**
-     * Create a new agent
-     */
-    async createAgent(payload) {
-        const response = await this.client.post('/agents', payload);
-        return response.data;
-    }
-    /**
-     * Update an agent
-     */
-    async updateAgent(id, payload) {
-        const response = await this.client.patch(`/agents/${id}`, payload);
-        return response.data;
-    }
-    /**
-     * Delete an agent
-     */
-    async deleteAgent(id) {
-        const response = await this.client.delete(`/agents/${id}`);
-        return response.data;
-    }
-    /**
-     * Get tenant info
-     */
-    async getTenantInfo() {
-        const response = await this.client.get('/tenant');
-        return response.data;
-    }
-    /**
-     * Get tenant agents with filters
-     */
-    async searchAgents(filters) {
-        const response = await this.client.get('/agents/search', { params: filters });
-        return response.data;
-    }
-    /**
-     * Get raw axios instance for advanced usage
-     */
-    getClient() {
-        return this.client;
-    }
+    return response.data;
+  }
+
+  getStoredToken() {
+    return localStorage.getItem('authToken');
+  }
+
+  setStoredToken(token, expiresIn) {
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('authTokenExpiry', (Date.now() + expiresIn * 1000).toString());
+  }
+
+  clearAuth() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authTokenExpiry');
+    localStorage.removeItem('authUser');
+  }
+
+  isTokenExpired() {
+    const expiry = localStorage.getItem('authTokenExpiry');
+    if (!expiry) return true;
+    return Date.now() > parseInt(expiry, 10);
+  }
+
+  async getAgents() {
+    const res = await this.client.get('/agents');
+    return res.data;
+  }
+
+  async getAgent(id) {
+    const res = await this.client.get(`/agents/${id}`);
+    return res.data.agent;
+  }
+
+  async createAgent(payload) {
+    const res = await this.client.post('/agents', payload);
+    return res.data.agent;
+  }
+
+  async deleteAgent(id) {
+    const res = await this.client.delete(`/agents/${id}`);
+    return res.data;
+  }
+
+  getAxios() {
+    return this.client;
+  }
 }
-// Export singleton instance
+
+const PLATFORM_TOKEN_KEY = 'platformToken';
+const PLATFORM_TOKEN_EXPIRY_KEY = 'platformTokenExpiry';
+
+class PlatformApiClient {
+  constructor() {
+    this.client = axios.create({
+      baseURL: '/api/platform',
+      timeout: 30000,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    this.client.interceptors.request.use(
+      (config) => {
+        const token = this.getToken();
+        if (token) config.headers.Authorization = `Bearer ${token}`;
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          this.clearToken();
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  getToken() {
+    return localStorage.getItem(PLATFORM_TOKEN_KEY);
+  }
+
+  isAuthenticated() {
+    const token = this.getToken();
+    const expiry = localStorage.getItem(PLATFORM_TOKEN_EXPIRY_KEY);
+    if (!token || !expiry) return false;
+    return Date.now() < parseInt(expiry, 10);
+  }
+
+  setToken(token, expiresIn) {
+    localStorage.setItem(PLATFORM_TOKEN_KEY, token);
+    localStorage.setItem(PLATFORM_TOKEN_EXPIRY_KEY, (Date.now() + expiresIn * 1000).toString());
+  }
+
+  clearToken() {
+    localStorage.removeItem(PLATFORM_TOKEN_KEY);
+    localStorage.removeItem(PLATFORM_TOKEN_EXPIRY_KEY);
+    localStorage.removeItem('platformUser');
+  }
+
+  async loginWithWallet(walletAddress, signature, message) {
+    const res = await axios.post('/api/platform/auth/login', {
+      walletAddress,
+      signature,
+      message,
+    });
+    this.setToken(res.data.token, res.data.expires_in);
+    localStorage.setItem('platformUser', JSON.stringify(res.data.user));
+    return res.data;
+  }
+
+  getStoredUser() {
+    const raw = localStorage.getItem('platformUser');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  async getSubscription() {
+    try {
+      const res = await this.client.get('/subscriptions');
+      return res.data.subscription;
+    } catch (err) {
+      if (err.response?.status === 404) return null;
+      throw err;
+    }
+  }
+
+  async verifyPayment(payload) {
+    const res = await this.client.post('/payments/verify', payload);
+    return res.data;
+  }
+
+  async getPaymentQuote(tier) {
+    const res = await this.client.get(`/payments/quote?tier=${tier}`);
+    return res.data;
+  }
+
+  async deployAgent(payload) {
+    const res = await this.client.post('/agents/deploy', payload);
+    return res.data.agent;
+  }
+
+  async getAgents() {
+    const res = await this.client.get('/agents');
+    return res.data.agents;
+  }
+
+  async getAgent(id) {
+    const res = await this.client.get(`/agents/${id}`);
+    return res.data.agent;
+  }
+
+  async stopAgent(id) {
+    await this.client.delete(`/agents/${id}`);
+  }
+
+  async getTokenUsage() {
+    const res = await this.client.get('/usage/tokens');
+    return res.data.usage;
+  }
+
+  getAxios() {
+    return this.client;
+  }
+}
+
 export const apiClient = new ApiClient();
+export const platformClient = new PlatformApiClient();
 export default ApiClient;

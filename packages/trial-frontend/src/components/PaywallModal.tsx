@@ -11,6 +11,7 @@ interface PaywallModalProps {
 interface PhantomProvider {
   isPhantom?: boolean;
   connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>;
+  signMessage: (message: Uint8Array, encoding: string) => Promise<{ signature: Uint8Array }>;
 }
 
 declare global {
