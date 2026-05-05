@@ -20,9 +20,9 @@ Complete verification before declaring the trial app ready for production.
 ## Phase 2: Deployment Blockers (PENDING)
 
 ### Kimi's PR Integration
-- [ ] PR #5 reviewed by Kimi
-- [ ] Decision made: merge #5 OR adapt PR #4
-- [ ] Backend code merged to main
+- [x] PR #5 reviewed by Kimi
+- [x] Decision made: merge #5 OR adapt PR #4
+- [x] Backend code merged to main
 - [ ] Docker build tested
 
 ### Gemini's Nginx Deployment
