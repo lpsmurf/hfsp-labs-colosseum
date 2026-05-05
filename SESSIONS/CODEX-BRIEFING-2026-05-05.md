@@ -106,13 +106,18 @@ data: {"remaining": 8, "input_tokens": 42, "output_tokens": 156}
 
 ## 🎯 Verification Checklist
 
-Before finishing, verify:
+Before finishing, verify what you CAN without backend:
 - [ ] `npm run dev` — localhost:3000 (or :5173 if Vite)
-- [ ] Visit `/try` route → chatbox loads
-- [ ] Type message → sends to `localhost:8787/api/chat`
+- [ ] Visit `/try` route → chatbox loads, renders properly
+- [ ] UI structure: input field, send button, message list area all present
+- [ ] Desktop styling works (Tailwind, dark mode)
+- [ ] Mobile: Inspect in Chrome DevTools at 375px — layout does not break
+
+Once Kimi's backend is ready (after this PR merges):
+- [ ] Full e2e: Type message → sends to `localhost:8787/api/chat`
 - [ ] Stream visible (tokens arrive one by one)
 - [ ] After 10 messages → paywall modal appears
-- [ ] Mobile: Test on actual iPhone or Chrome DevTools (375px)
+- [ ] Real iPhone test: actual streaming, actual Phantom flow
 - [ ] Lighthouse mobile score > 80
 
 ---
@@ -126,7 +131,7 @@ Before finishing, verify:
    cd /Users/mac/hfsp-labs-colosseum
    ./scripts/session-closer.sh "Codex: Chatbox UI + SSE hooks + paywall modal"
    ```
-4. Leave PR comment: `@claude ready for review — tested on mobile at 375px`
+4. Leave PR comment: `@claude ready for review — route/build verified, awaiting backend for e2e test`
 
 ---
 
