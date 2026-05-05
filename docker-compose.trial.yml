@@ -10,7 +10,7 @@ services:
     ports:
       - "8787:8787"
     volumes:
-      - ./packages/trial-api/data:/app/data
+      - trial-data:/app/data
     env_file:
       - .env.trial
     environment:
@@ -24,7 +24,7 @@ services:
       timeout: 5s
       retries: 3
 
-  # Trial Frontend (Chatbox UI)
+  # Trial Frontend (Chatbox UI + Dashboard)
   trial-frontend:
     build:
       context: packages/trial-frontend
@@ -44,6 +44,32 @@ services:
       timeout: 5s
       retries: 3
 
+  # Openclaw Platform (subscriptions, payments, agent orchestration)
+  openclaw-platform:
+    build:
+      context: packages/openclaw-platform
+      dockerfile: Dockerfile
+    container_name: openclaw-platform
+    ports:
+      - "8788:8788"
+    volumes:
+      - platform-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock  # needed for docker-deployer
+    env_file:
+      - .env.platform
+    environment:
+      PORT: "8788"
+      NODE_ENV: production
+      SQLITE_PATH: /app/data/openclaw.sqlite
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8788/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 volumes:
   trial-data:
+    driver: local
+  platform-data:
     driver: local

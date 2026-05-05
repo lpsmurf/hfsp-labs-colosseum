@@ -187,7 +187,7 @@ export function SetupPage() {
           </div>
 
           {/* Error */}
-          {createAgentMutation.error && (
+          {Boolean(createAgentMutation.error) && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-700 dark:text-red-300 text-sm">
               {(createAgentMutation.error as any)?.response?.data?.error ?? 'Failed to create agent'}
             </div>

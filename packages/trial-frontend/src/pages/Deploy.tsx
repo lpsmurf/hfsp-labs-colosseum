@@ -1,16 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCreateAgent } from '../hooks/useAgents'
-import { apiClient } from '../services/api'
+import { platformClient } from '../services/api'
+import PaymentModal from '../components/PaymentModal'
+import type { LLMProvider, PlatformAgentStatus, SubscriptionTier, PaymentToken } from '../types/api'
 
-type Step = 'intro' | 'setup' | 'subscription' | 'deploying' | 'pairing' | 'success'
-type Provider = 'anthropic' | 'openai' | 'openrouter'
+type Step = 'intro' | 'wallet' | 'payment' | 'llm' | 'config' | 'deploying' | 'success'
 
-const MODELS: Record<Provider, { label: string; value: string }[]> = {
+const STEP_ORDER: Step[] = ['intro', 'wallet', 'payment', 'llm', 'config', 'deploying', 'success']
+
+type ByokProvider = 'anthropic' | 'openai' | 'openrouter' | 'google'
+
+const BYOK_MODELS: Record<ByokProvider, { label: string; value: string }[]> = {
   anthropic: [
     { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20241022' },
-    { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
     { label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307' },
+    { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
   ],
   openai: [
     { label: 'GPT-4o', value: 'gpt-4o' },
@@ -19,207 +23,195 @@ const MODELS: Record<Provider, { label: string; value: string }[]> = {
   ],
   openrouter: [
     { label: 'Auto (best)', value: 'openrouter/auto' },
-    { label: 'GPT-4o (OR)', value: 'openai/gpt-4o' },
-    { label: 'Claude 3.5 Sonnet (OR)', value: 'anthropic/claude-3.5-sonnet' },
-    { label: 'Llama 3.1 405B (OR)', value: 'meta-llama/llama-3.1-405b-instruct' },
+    { label: 'Claude 3.5 Sonnet', value: 'anthropic/claude-3.5-sonnet' },
+    { label: 'GPT-4o', value: 'openai/gpt-4o' },
+    { label: 'Llama 3.1 405B', value: 'meta-llama/llama-3.1-405b-instruct' },
+  ],
+  google: [
+    { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+    { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
   ],
 }
 
-const PLANS = [
-  {
-    id: 'free_trial',
-    name: 'Free Trial',
-    price: 'Free',
-    period: '14 days',
-    features: ['1 agent', 'Public bot', 'Basic support'],
-    color: 'text-green-600 dark:text-green-400',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: '$29',
-    period: '/month',
-    features: ['Unlimited agents', 'Private bot', 'Priority support'],
-    color: 'text-blue-600 dark:text-blue-400',
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    features: ['Unlimited agents', 'SLA', 'Dedicated support'],
-    color: 'text-purple-600 dark:text-purple-400',
-  },
-]
-
-const STEP_ORDER: Step[] = ['intro', 'setup', 'subscription', 'deploying', 'pairing', 'success']
-
-const DEPLOY_PHASES = [
-  { label: 'Creating container', after: 0 },
-  { label: 'Installing Openclaw', after: 30 },
-  { label: 'Configuring agent', after: 60 },
-  { label: 'Starting services', after: 90 },
-  { label: 'Ready for pairing', after: 121 }, // only shown on success
-]
-
-const API_KEY_LABEL: Record<Provider, string> = {
-  anthropic: 'Anthropic API Key',
-  openai: 'OpenAI API Key',
-  openrouter: 'OpenRouter API Key',
-}
-const API_KEY_PLACEHOLDER: Record<Provider, string> = {
+const BYOK_KEY_PLACEHOLDER: Record<ByokProvider, string> = {
   anthropic: 'sk-ant-...',
   openai: 'sk-...',
   openrouter: 'sk-or-...',
+  google: 'AIza...',
+}
+
+const TIERS: { id: SubscriptionTier; name: string; price: string; description: string }[] = [
+  { id: 'starter', name: 'Starter', price: '19 USDC / mo', description: '1 agent · 1M tokens/mo · Shared VPS' },
+  { id: 'pro', name: 'Pro', price: '59 USDC / mo', description: 'Unlimited agents · 5M tokens/mo · Dedicated VPS' },
+]
+
+const PAYMENT_TOKENS: PaymentToken[] = ['USDC', 'USDT', 'SOL']
+
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export function Deploy() {
   const navigate = useNavigate()
-  const createAgent = useCreateAgent()
 
-  const [step, setStep]           = useState<Step>('intro')
+  const [step, setStep] = useState<Step>('intro')
+  const [wallet, setWallet] = useState('')
+
+  // Payment
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('starter')
+  const [paymentToken, setPaymentToken] = useState<PaymentToken>('USDC')
+  const [paymentError, setPaymentError] = useState('')
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+
+  // LLM
+  const [llmProvider, setLlmProvider] = useState<LLMProvider>('poly')
+  const [byokProvider, setByokProvider] = useState<ByokProvider>('anthropic')
+  const [byokModel, setByokModel] = useState(BYOK_MODELS.anthropic[0].value)
+  const [byokKey, setByokKey] = useState('')
+  const [customEndpoint, setCustomEndpoint] = useState('')
+  const [customKey, setCustomKey] = useState('')
+
+  // Agent config
   const [agentName, setAgentName] = useState('')
-  const [provider, setProvider]   = useState<Provider>('anthropic')
-  const [model, setModel]         = useState(MODELS.anthropic[0].value)
-  const [botToken, setBotToken]   = useState('')
-  const [apiKey, setApiKey]       = useState('')
-  const [selectedPlan, setSelectedPlan] = useState('free_trial')
 
-  const [agentId, setAgentId]           = useState('')
-  const [deployError, setDeployError]   = useState('')
-  const [countdown, setCountdown]       = useState(120)
-  const [pairingCode, setPairingCode]   = useState('')
-  const [pairingError, setPairingError] = useState('')
-  const [pairingLoading, setPairingLoading] = useState(false)
+  // Deploy state
+  const [deployedAgentId, setDeployedAgentId] = useState('')
+  const [deployStatus, setDeployStatus] = useState<PlatformAgentStatus | null>(null)
+  const [deployError, setDeployError] = useState('')
 
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const pollingRef   = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Countdown + polling during deploying step
-  useEffect(() => {
-    if (step !== 'deploying') return
+  const progressPct = step === 'success'
+    ? 100
+    : Math.round((STEP_ORDER.indexOf(step) / (STEP_ORDER.length - 2)) * 100)
 
-    setCountdown(120)
-    setDeployError('')
+  // ── Step: wallet ──────────────────────────────────────────────────────────
 
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownRef.current!)
-          setStep('pairing')
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    if (agentId) {
-      pollingRef.current = setInterval(async () => {
-        try {
-          const res = await apiClient.getAxios().get(`/agents/${agentId}`)
-          const agent = res.data?.agent ?? res.data
-          const status = agent?.status
-          if (status === 'awaiting_pairing' || status === 'active') {
-            clearInterval(countdownRef.current!)
-            clearInterval(pollingRef.current!)
-            setStep('pairing')
-          } else if (status === 'failed') {
-            clearInterval(countdownRef.current!)
-            clearInterval(pollingRef.current!)
-            setDeployError('Provisioning failed. Please try again.')
-          }
-        } catch {
-          // ignore transient fetch errors
-        }
-      }, 3000)
+  async function connectAndAuth() {
+    setPaymentError('')
+    const provider = window.solana?.isPhantom ? window.solana : null
+    if (!provider) {
+      window.open('https://phantom.app/download', '_blank')
+      return
     }
+    try {
+      const resp = await provider.connect()
+      const address = resp.publicKey.toBase58()
+      setWallet(address)
 
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current)
-      if (pollingRef.current)   clearInterval(pollingRef.current)
+      // Sign a nonce to prove ownership
+      const nonce = Math.floor(Math.random() * 1e12).toString()
+      const message = `Sign in to Openclaw\nNonce: ${nonce}`
+      const encoded = new TextEncoder().encode(message)
+      const { signature } = await provider.signMessage(encoded, 'utf8')
+      const sigHex = bytesToHex(signature)
+
+      await platformClient.loginWithWallet(address, sigHex, message)
+
+      // Check existing subscription to skip payment if already active
+      const sub = await platformClient.getSubscription()
+      if (sub?.status === 'active') {
+        setStep('llm')
+      } else {
+        setStep('payment')
+      }
+    } catch (err: unknown) {
+      setPaymentError(err instanceof Error ? err.message : 'Wallet connection failed.')
     }
-  }, [step, agentId])
-
-  function changeProvider(p: Provider) {
-    setProvider(p)
-    setModel(MODELS[p][0].value)
-    setApiKey('')
   }
 
-  function validate(): string {
-    if (!agentName.trim())  return 'Agent name is required'
-    if (!botToken.trim())   return 'Bot token is required'
-    if (!apiKey.trim())     return 'API key is required'
+  // ── Step: deploy ──────────────────────────────────────────────────────────
+
+  function changeByokProvider(p: ByokProvider) {
+    setByokProvider(p)
+    setByokModel(BYOK_MODELS[p][0].value)
+    setByokKey('')
+  }
+
+  function validateLlm(): string {
+    if (llmProvider === 'byok' && !byokKey.trim()) return 'API key is required for BYOK'
+    if (llmProvider === 'custom' && !customEndpoint.trim()) return 'Custom endpoint URL is required'
     return ''
   }
 
   async function handleDeploy() {
+    const llmErr = validateLlm()
+    if (llmErr) { setDeployError(llmErr); return }
+    if (!agentName.trim()) { setDeployError('Agent name is required'); return }
+
     setDeployError('')
+    setDeployStatus(null)
+
     try {
-      const result = await createAgent.mutateAsync({
+      const agent = await platformClient.deployAgent({
         name: agentName.trim(),
-        provider,
-        model,
-        botToken: botToken.trim(),
-        ...(provider === 'anthropic' ? { anthropicApiKey: apiKey } : {}),
-        ...(provider === 'openai'    ? { openaiApiKey: apiKey }    : {}),
-        ...(provider === 'openrouter'? { openrouterApiKey: apiKey }: {}),
+        llm_provider: llmProvider,
+        ...(llmProvider === 'byok' ? {
+          llm_model: byokModel,
+          provider_name: byokProvider,
+          api_key: byokKey.trim(),
+        } : {}),
+        ...(llmProvider === 'custom' ? {
+          custom_endpoint: customEndpoint.trim(),
+          ...(customKey.trim() ? { api_key: customKey.trim() } : {}),
+        } : {}),
       })
-      setAgentId((result as { id?: string } & typeof result).id ?? '')
+      setDeployedAgentId(agent.id)
+      setDeployStatus(agent.status)
       setStep('deploying')
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        (err instanceof Error ? err.message : 'Failed to create agent. Try again.')
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? (err instanceof Error ? err.message : 'Deploy failed. Please try again.')
       setDeployError(msg)
     }
   }
 
-  async function handlePair() {
-    if (!pairingCode.trim()) return
-    setPairingLoading(true)
-    setPairingError('')
+  // ── Poll agent status after deploy ────────────────────────────────────────
+
+  const pollStatus = useCallback(async () => {
+    if (!deployedAgentId) return
     try {
-      await apiClient.getAxios().post(`/agents/${agentId}/pair`, {
-        pairingCode: pairingCode.trim().toUpperCase(),
-      })
-      setStep('success')
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Pairing failed. Check your code and try again.'
-      setPairingError(msg)
-    } finally {
-      setPairingLoading(false)
+      const agent = await platformClient.getAgent(deployedAgentId)
+      setDeployStatus(agent.status)
+      if (agent.status === 'active') {
+        if (pollingRef.current) clearInterval(pollingRef.current)
+        setStep('success')
+      } else if (agent.status === 'failed') {
+        if (pollingRef.current) clearInterval(pollingRef.current)
+        setDeployError('Deployment failed. Please try again.')
+      }
+    } catch {
+      // ignore transient errors
     }
-  }
+  }, [deployedAgentId])
+
+  useEffect(() => {
+    if (step !== 'deploying') return
+    pollingRef.current = setInterval(pollStatus, 3000)
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+  }, [step, pollStatus])
 
   function reset() {
     setStep('intro')
+    setWallet('')
+    setSelectedTier('starter')
+    setPaymentToken('USDC')
+    setPaymentError('')
+    setPaymentModalOpen(false)
+    setLlmProvider('poly')
+    setByokProvider('anthropic')
+    setByokModel(BYOK_MODELS.anthropic[0].value)
+    setByokKey('')
+    setCustomEndpoint('')
+    setCustomKey('')
     setAgentName('')
-    setProvider('anthropic')
-    setModel(MODELS.anthropic[0].value)
-    setBotToken('')
-    setApiKey('')
-    setSelectedPlan('free_trial')
-    setAgentId('')
+    setDeployedAgentId('')
+    setDeployStatus(null)
     setDeployError('')
-    setCountdown(120)
-    setPairingCode('')
-    setPairingError('')
-    setPairingLoading(false)
   }
-
-  // Progress bar (0-100%)
-  const pIdx = STEP_ORDER.indexOf(step)
-  const progressPct = step === 'success' ? 100 : Math.round((pIdx / (STEP_ORDER.length - 2)) * 100)
-
-  const elapsed = 120 - countdown
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-
-      {/* Top progress bar */}
       {step !== 'success' && (
         <div className="h-1 bg-gray-200 dark:bg-gray-700 w-full sticky top-0 z-10">
           <div className="h-1 bg-blue-600 transition-all duration-700" style={{ width: `${progressPct}%` }} />
@@ -228,216 +220,301 @@ export function Deploy() {
 
       <div className="max-w-lg mx-auto px-4 py-6">
 
-        {/* ── INTRO ────────────────────────────────────────────────── */}
+        {/* ── INTRO ─────────────────────────────────────────────────── */}
         {step === 'intro' && (
           <div className="space-y-6">
             <div className="text-center pt-4">
               <p className="text-5xl mb-3">🦞</p>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Deploy Openclaw</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">Your AI agent on your own VPS</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Deploy Your Agent</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">24/7 autonomous Solana agent. Yours.</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 space-y-3 border border-gray-100 dark:border-gray-700">
-              {['⏱ Takes ~2 minutes', '🔑 Bring your own LLM key', '🖥 Runs on your VPS', '🔒 Full control'].map((t) => (
+              {[
+                '⏱ Deploys in under 2 minutes',
+                '🔑 Poly keys or bring your own',
+                '🌐 170+ Solana tools via Agent Kit',
+                '🔒 Isolated per-user container',
+              ].map((t) => (
                 <p key={t} className="text-gray-700 dark:text-gray-300 text-sm">{t}</p>
               ))}
             </div>
-            <button onClick={() => setStep('setup')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl">
+            <button
+              onClick={() => setStep('wallet')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl"
+            >
               Get Started →
             </button>
           </div>
         )}
 
-        {/* ── SETUP ────────────────────────────────────────────────── */}
-        {step === 'setup' && (
+        {/* ── WALLET / AUTH ─────────────────────────────────────────── */}
+        {step === 'wallet' && (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Connect Wallet</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Step 1 — Sign in with Phantom</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Connect your Phantom wallet to authenticate and manage your subscription. No funds are transferred at this step.
+              </p>
+              {wallet && (
+                <p className="text-xs font-mono text-green-600 dark:text-green-400">
+                  ✅ Connected: {wallet.slice(0, 6)}…{wallet.slice(-4)}
+                </p>
+              )}
+            </div>
+            {paymentError && <p className="text-red-500 text-sm text-center">{paymentError}</p>}
+            <div className="flex gap-3">
+              <button onClick={() => setStep('intro')}
+                className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">
+                ← Back
+              </button>
+              <button onClick={() => void connectAndAuth()}
+                className="flex-[2] py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold">
+                Connect Phantom →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PAYMENT ───────────────────────────────────────────────── */}
+        {step === 'payment' && (
           <div className="space-y-5">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Setup Your Agent</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Step 1 of 3 — Bot & AI config</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Plan</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Step 2 — Subscribe with Solana</p>
             </div>
 
-            {/* Agent name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agent Name *</label>
-              <input type="text" value={agentName} onChange={(e) => setAgentName(e.target.value)}
-                placeholder="My Assistant"
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="space-y-3">
+              {TIERS.map((tier) => (
+                <button key={tier.id} onClick={() => setSelectedTier(tier.id)}
+                  className={`w-full text-left p-4 rounded-2xl border-2 transition-colors ${
+                    selectedTier === tier.id
+                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">{tier.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tier.description}</p>
+                    </div>
+                    <p className="font-bold text-blue-600 dark:text-blue-400 text-sm ml-3 flex-shrink-0">{tier.price}</p>
+                  </div>
+                </button>
+              ))}
             </div>
 
-            {/* Bot token */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telegram Bot Token *</label>
-              <input type="password" value={botToken} onChange={(e) => setBotToken(e.target.value)}
-                placeholder="Get from @BotFather"
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-
-            {/* Provider */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">LLM Provider</label>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pay with</p>
               <div className="flex gap-2">
-                {(['anthropic', 'openai', 'openrouter'] as Provider[]).map((p) => (
-                  <button key={p} onClick={() => changeProvider(p)}
-                    className={`flex-1 py-2.5 px-2 rounded-xl text-sm font-medium border transition-colors ${
-                      provider === p
+                {PAYMENT_TOKENS.map((tok) => (
+                  <button key={tok} onClick={() => setPaymentToken(tok)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                      paymentToken === tok
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'}`}>
-                    {p === 'anthropic' ? 'Anthropic' : p === 'openai' ? 'OpenAI' : 'OpenRouter'}
+                    {tok}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Model */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
-              <select value={model} onChange={(e) => setModel(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {MODELS[provider].map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
+            {paymentError && <p className="text-red-500 text-sm text-center">{paymentError}</p>}
 
-            {/* API key */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {API_KEY_LABEL[provider]} *
-              </label>
-              <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-                placeholder={API_KEY_PLACEHOLDER[provider]}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-
-            {deployError ? (
-              <p className="text-red-500 text-sm text-center">{deployError}</p>
-            ) : null}
-
-            <div className="flex gap-3 pt-1">
-              <button onClick={() => { setDeployError(''); setStep('intro') }}
+            <div className="flex gap-3">
+              <button onClick={() => setStep('wallet')}
                 className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">
                 ← Back
               </button>
-              <button
-                onClick={() => {
-                  const err = validate()
-                  if (err) { setDeployError(err); return }
-                  setDeployError('')
-                  setStep('subscription')
-                }}
-                className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold">
-                Next →
+              <button onClick={() => { setPaymentError(''); setPaymentModalOpen(true) }}
+                className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold">
+                Review Payment →
               </button>
             </div>
+
+            <PaymentModal
+              open={paymentModalOpen}
+              tier={selectedTier}
+              token={paymentToken}
+              walletAddress={wallet}
+              onClose={() => setPaymentModalOpen(false)}
+              onSuccess={() => {
+                setPaymentModalOpen(false)
+                setPaymentError('')
+                setStep('llm')
+              }}
+            />
           </div>
         )}
 
-        {/* ── SUBSCRIPTION ─────────────────────────────────────────── */}
-        {step === 'subscription' && (
+        {/* ── LLM SETUP ────────────────────────────────────────────── */}
+        {step === 'llm' && (
           <div className="space-y-5">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Choose a Plan</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Step 2 of 3 — Subscription</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Your AI</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Step 3 — How will your agent think?</p>
             </div>
 
-            <div className="space-y-3">
-              {PLANS.map((plan) => (
-                <button key={plan.id} onClick={() => setSelectedPlan(plan.id)}
+            {/* Provider type */}
+            <div className="space-y-2">
+              {(['poly', 'byok', 'custom'] as LLMProvider[]).map((p) => (
+                <button key={p} onClick={() => setLlmProvider(p)}
                   className={`w-full text-left p-4 rounded-2xl border-2 transition-colors ${
-                    selectedPlan === plan.id
+                    llmProvider === p
                       ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{plan.name}</p>
-                      <div className="mt-1.5 space-y-0.5">
-                        {plan.features.map((f) => (
-                          <p key={f} className="text-xs text-gray-500 dark:text-gray-400">✓ {f}</p>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-3">
-                      <p className={`font-bold text-lg ${plan.color}`}>{plan.price}</p>
-                      {plan.period ? <p className="text-xs text-gray-400">{plan.period}</p> : null}
-                    </div>
-                  </div>
-                  {selectedPlan === plan.id && (
-                    <div className="mt-2 flex justify-end">
-                      <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">Selected ✓</span>
-                    </div>
-                  )}
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {p === 'poly' ? '🤖 Poly keys (managed)' : p === 'byok' ? '🔑 Bring your own key' : '🔗 Custom endpoint'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {p === 'poly' ? 'We provide the API — tokens deducted from your plan budget' : p === 'byok' ? 'Your API key, your billing — we just route requests' : 'Self-hosted Llama, Mistral, or any OpenAI-compatible API'}
+                  </p>
                 </button>
               ))}
             </div>
 
-            {deployError ? (
-              <p className="text-red-500 text-sm text-center">{deployError}</p>
-            ) : null}
+            {/* BYOK config */}
+            {llmProvider === 'byok' && (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Provider</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['anthropic', 'openai', 'openrouter', 'google'] as ByokProvider[]).map((p) => (
+                      <button key={p} onClick={() => changeByokProvider(p)}
+                        className={`py-2 px-3 rounded-xl text-sm font-medium border transition-colors ${
+                          byokProvider === p
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'}`}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+                  <select value={byokModel} onChange={(e) => setByokModel(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {BYOK_MODELS[byokProvider].map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key *</label>
+                  <input type="password" value={byokKey} onChange={(e) => setByokKey(e.target.value)}
+                    placeholder={BYOK_KEY_PLACEHOLDER[byokProvider]}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            )}
+
+            {/* Custom endpoint config */}
+            {llmProvider === 'custom' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endpoint URL *</label>
+                  <input type="url" value={customEndpoint} onChange={(e) => setCustomEndpoint(e.target.value)}
+                    placeholder="https://your-server.com/v1"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key (optional)</label>
+                  <input type="password" value={customKey} onChange={(e) => setCustomKey(e.target.value)}
+                    placeholder="Bearer token for your endpoint"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-1">
-              <button onClick={() => { setDeployError(''); setStep('setup') }}
+              <button onClick={() => setStep('payment')}
                 className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">
                 ← Back
               </button>
-              <button onClick={handleDeploy} disabled={createAgent.isLoading}
+              <button onClick={() => {
+                const err = validateLlm()
+                if (err) { setDeployError(err); return }
+                setDeployError('')
+                setStep('config')
+              }}
+                className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                Next →
+              </button>
+            </div>
+            {deployError && <p className="text-red-500 text-sm text-center">{deployError}</p>}
+          </div>
+        )}
+
+        {/* ── AGENT CONFIG ──────────────────────────────────────────── */}
+        {step === 'config' && (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Name Your Agent</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Step 4 — Almost there</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agent Name *</label>
+              <input type="text" value={agentName} onChange={(e) => setAgentName(e.target.value)}
+                placeholder="My Solana Agent"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            {/* Summary */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 space-y-2 text-sm">
+              <p className="font-semibold text-gray-900 dark:text-white">Summary</p>
+              <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                <span>LLM</span>
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {llmProvider === 'poly' ? 'Poly (managed)' : llmProvider === 'byok' ? `${byokProvider} · ${byokModel}` : 'Custom endpoint'}
+                </span>
+              </div>
+              <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                <span>Wallet</span>
+                <span className="text-gray-900 dark:text-white font-mono text-xs">{wallet.slice(0, 6)}…{wallet.slice(-4)}</span>
+              </div>
+            </div>
+
+            {deployError && <p className="text-red-500 text-sm text-center">{deployError}</p>}
+
+            <div className="flex gap-3">
+              <button onClick={() => { setDeployError(''); setStep('llm') }}
+                className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">
+                ← Back
+              </button>
+              <button onClick={() => void handleDeploy()} disabled={!agentName.trim()}
                 className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold">
-                {createAgent.isLoading ? 'Creating...' : '🚀 Deploy Now'}
+                🚀 Deploy Now
               </button>
             </div>
           </div>
         )}
 
-        {/* ── DEPLOYING ────────────────────────────────────────────── */}
+        {/* ── DEPLOYING ─────────────────────────────────────────────── */}
         {step === 'deploying' && (
           <div className="space-y-6">
             <div className="text-center pt-2">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">⚙️ Deploying…</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Setting up your agent on the VPS</p>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Spinning up your isolated container</p>
             </div>
-
-            {/* Countdown ring */}
             <div className="flex justify-center">
-              <div className="relative w-28 h-28">
-                <svg className="w-28 h-28 -rotate-90" viewBox="0 0 112 112">
-                  <circle cx="56" cy="56" r="50" fill="none" stroke="currentColor"
-                    className="text-gray-200 dark:text-gray-700" strokeWidth="8" />
-                  <circle cx="56" cy="56" r="50" fill="none" stroke="currentColor"
-                    className="text-blue-600 transition-all duration-1000"
-                    strokeWidth="8" strokeLinecap="round"
-                    strokeDasharray={`${2 * Math.PI * 50}`}
-                    strokeDashoffset={`${2 * Math.PI * 50 * (1 - countdown / 120)}`} />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{countdown}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">sec</p>
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 space-y-2">
+              {[
+                { label: 'Creating network', done: true },
+                { label: 'Starting MCP server', done: deployStatus !== null },
+                { label: 'Starting agent runtime', done: deployStatus === 'active' },
+              ].map(({ label, done }) => (
+                <div key={label} className="flex items-center gap-3">
+                  {done
+                    ? <span className="text-green-500 flex-shrink-0">✅</span>
+                    : <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  }
+                  <span className={`text-sm ${done ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-400 dark:text-gray-500'}`}>{label}</span>
                 </div>
-              </div>
+              ))}
             </div>
-
-            {/* Progress steps */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 space-y-3">
-              {DEPLOY_PHASES.slice(0, -1).map((phase, i) => {
-                const nextAfter = DEPLOY_PHASES[i + 1]?.after ?? 999
-                const done    = elapsed > nextAfter
-                const current = elapsed >= phase.after && elapsed <= nextAfter
-                return (
-                  <div key={phase.label} className="flex items-center gap-3">
-                    {current ? (
-                      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                    ) : done ? (
-                      <span className="text-green-500 flex-shrink-0 text-base">✅</span>
-                    ) : (
-                      <span className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0 inline-block" />
-                    )}
-                    <span className={`text-sm ${done || current ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
-                      {phase.label}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-
-            {deployError ? (
+            {deployError && (
               <div className="text-center space-y-3">
                 <p className="text-red-500 text-sm">{deployError}</p>
                 <button onClick={reset}
@@ -445,64 +522,18 @@ export function Deploy() {
                   Try Again
                 </button>
               </div>
-            ) : null}
+            )}
           </div>
         )}
 
-        {/* ── PAIRING ──────────────────────────────────────────────── */}
-        {step === 'pairing' && (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">🔗 Pair Your Bot</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Almost done! One last step.</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 space-y-3">
-              {[
-                'Open your Telegram bot',
-                'Send /start to the bot',
-                'The bot will reply with a pairing code',
-                'Enter the code below',
-              ].map((s, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 text-sm">{s}</span>
-                </div>
-              ))}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pairing Code</label>
-              <input
-                type="text"
-                value={pairingCode}
-                onChange={(e) => setPairingCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
-                placeholder="e.g. PJDNQ3VU"
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-lg tracking-widest placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {pairingError ? (
-              <p className="text-red-500 text-sm text-center">{pairingError}</p>
-            ) : null}
-
-            <button onClick={handlePair} disabled={pairingLoading || !pairingCode.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-4 rounded-2xl">
-              {pairingLoading ? 'Pairing…' : 'Pair Bot ✓'}
-            </button>
-          </div>
-        )}
-
-        {/* ── SUCCESS ──────────────────────────────────────────────── */}
+        {/* ── SUCCESS ───────────────────────────────────────────────── */}
         {step === 'success' && (
           <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6">
             <p className="text-8xl">🎉</p>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Bot Deployed!</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Agent Deployed!</h1>
               <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
-                Your Openclaw agent is live and ready.
+                <span className="font-semibold text-gray-900 dark:text-white">{agentName}</span> is live and running 24/7.
               </p>
             </div>
             <div className="flex flex-col gap-3 w-full max-w-xs">
