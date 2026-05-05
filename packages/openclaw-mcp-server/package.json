@@ -1,7 +1,7 @@
 {
   "name": "@openclaw/mcp-server",
   "version": "0.1.0",
-  "description": "Per-user Solana MCP server powered by SendAI Agent Kit — 60+ Solana tools",
+  "description": "Per-user Solana MCP server powered by SendAI Agent Kit \u2014 60+ Solana tools",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -10,11 +10,12 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@solana-agent-kit/adapter-mcp": "latest",
     "@solana-agent-kit/plugin-defi": "latest",
-    "@solana-agent-kit/plugin-misc": "latest",
-    "@solana-agent-kit/plugin-nft": "latest",
     "@solana-agent-kit/plugin-token": "latest",
+    "@solana/web3.js": "^1.98.0",
+    "bs58": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^4.18.0",
     "solana-agent-kit": "latest"
