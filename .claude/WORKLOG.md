@@ -58,30 +58,25 @@
 
 ---
 
-## CLAUDE — Status: 🔧 WORKING
+## CLAUDE — Status: ✅ DAY 1+2 COMPLETE — BUILDING IMAGES
 
 **Owns**: Agent Kit tool integration + platform scaffold + infrastructure wiring
 
-### Day 1 (May 6 — Today):
-- [ ] Scaffold `packages/openclaw-platform` skeleton (server.ts, db/schema.ts, routes structure) → hand to Kimi
-- [ ] Replace trial-api 5 custom tools with Agent Kit wrappers
-- [ ] Install `solana-agent-kit`, `@solana-agent-kit/plugin-token`, `@solana-agent-kit/plugin-misc` in trial-api
+### Completed (May 6):
+- ✅ Scaffold `packages/openclaw-platform` (server.ts, db/schema.ts, all routes) → handed to Kimi
+- ✅ Nginx: openclaw-platform upstream + `/api/platform/` route
+- ✅ docker-compose.trial.yml: openclaw-platform service on port 8788
+- ✅ `services/api.ts` — `PlatformApiClient` with 7 platform methods
+- ✅ `pages/Deploy.tsx` — 7-step wizard (wallet → payment → LLM → config → deploy → success)
+- ✅ `pages/Agents.tsx` — platform API, 5s polling, stop button, port view
+- ✅ `routes/agents.ts` — docker-deployer wired (async deploy, BYOK key vault, live status sync)
+- ✅ `services/llm-router.ts` — Poly/BYOK/Custom routing + token tracking
+- ✅ `services/token-tracker.ts` — budget tracking with 80/100/125% alerts
+- ✅ Architecture plan, product strategy, all tech decisions
 
-### Day 2 (May 7):
-- [ ] Wire `packages/trial-frontend/src/services/api.ts` — add openclaw-platform client methods
-- [ ] Update `Deploy.tsx` — connect to POST `/api/platform/agents/deploy`
-- [ ] Update `Agents.tsx` — connect to GET `/api/platform/agents` with status polling
-
-### Day 3 (May 8):
-- [ ] Add openclaw-platform to `config/nginx/conf.d/trial.conf`
-- [ ] Add openclaw-platform service to `docker-compose.trial.yml`
-- [ ] Run E2E test: subscribe → pay → deploy → agent running
-- [ ] Deploy to clawdrop.live
-
-**Completed**:
-- ✅ Architecture plan (`/Users/mac/.claude/plans/squishy-wandering-newt.md`)
-- ✅ Product strategy (`docs/PRODUCT_STRATEGY.md`)
-- ✅ All tech decisions confirmed
+### Remaining (orchestrator role):
+- [ ] E2E test — run `bash scripts/test-platform-e2e.sh` once Kimi finishes images
+- [ ] Production deploy — after E2E green
 
 ---
 
@@ -159,17 +154,29 @@ HERD pricing: TBD by team
 ## Inbox
 
 ### → KIMI
-🚨 3-day sprint. You have the heaviest backend work.
-START: `packages/openclaw-platform` (port 8788)
-Pattern to follow: `packages/trial-api/src/rate-limit.ts` (SQLite) + `packages/trial-api/src/server.ts` (Express)
-Reuse payment logic from: `packages/clawdrop-mcp/src/services/fee-collector.ts`
-Full spec above. Full plan: `/Users/mac/.claude/plans/squishy-wandering-newt.md`
+**Day 2 priorities (May 6 remaining)**:
+
+1. **Build + push Docker images** — this unblocks E2E
+   - `openclaw/mcp-server` — source at `packages/openclaw-mcp-server/`. Fixed bugs: `KeypairWallet(keypair, rpcUrl)` (2 args), only TokenPlugin + DefiPlugin (NFT/Misc have version conflicts), `startMcpServer(agent.actions, agent, { port })`. Run `npm run build` locally first to verify, then `docker build`.
+   - `openclaw/agent-runtime` — source at `packages/openclaw-agent-runtime/`. Should build cleanly.
+
+2. **llm-router.ts + token-tracker.ts** — Claude already created these in `services/`. Review and integrate into agents route if needed.
+
+3. **Test docker-deployer** — `deployStarter()` in `services/docker-deployer.ts` is fully wired into `routes/agents.ts`. Spin up a test deploy locally.
 
 ### → CODEX
-Frontend sprint — 3 components needed.
-Main new one: `PaymentModal.tsx` (Phantom wallet + token selector + payment verify)
-Then wire `Deploy.tsx` and `Agents.tsx` to the new backend.
-Full spec above.
+**One task remaining**: `PaymentModal.tsx`
+
+`Deploy.tsx` and `Agents.tsx` are already wired (Claude did it). Your only job is replacing the `window.prompt()` placeholder in the payment step of `Deploy.tsx` (search for `window.prompt` in that file) with a proper Phantom transfer modal.
+
+The modal should:
+- Show selected tier + token (props from Deploy.tsx)
+- Call `GET /api/platform/payments/quote?tier=starter` for SOL price
+- Trigger Phantom transfer to platform wallet
+- On tx confirmed → call `platformClient.verifyPayment()` (already in api.ts)
+- On success → call `onSuccess()` callback so Deploy.tsx advances
+
+Also update `PaywallModal.tsx` copy: "0.5 SOL/month" → "From 19 USDC/month", CTA → links to `/deploy`.
 
 ### → CLAUDE (self)
 Start with openclaw-platform scaffold + trial-api Agent Kit replacement today.
