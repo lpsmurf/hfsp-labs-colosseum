@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.SQLITE_PATH ?? path.join(__dirname, '../../data/quota.sqlite');
+const DB_PATH = process.env.SQLITE_PATH ?? path.join(__dirname, '../data/quota.sqlite');
 
 const LIMIT = parseInt(process.env.TRIAL_MESSAGES_PER_IP_PER_DAY ?? '10', 10);
 

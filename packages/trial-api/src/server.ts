@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { poly } from './poly-agent.js';
@@ -103,15 +104,36 @@ app.post('/api/chat', async (req, res) => {
   let closed = false;
   req.on('close', () => { closed = true; });
 
+  // Hard timeout to prevent hung connections when LLM stream fails silently
+  const streamTimeout = setTimeout(() => {
+    if (!res.writableEnded) {
+      console.warn('[stream timeout] closing SSE after 15s');
+      send('error', { message: 'Response timed out' });
+      res.end();
+    }
+  }, 15000);
+
   try {
     const stream = await poly.stream(parse.data.message);
 
+    let responseText = '';
     let inputTokens = 0;
     let outputTokens = 0;
 
     for await (const chunk of stream.textStream) {
       if (closed) break;
+      responseText += chunk;
       send('delta', { text: chunk });
+    }
+
+    clearTimeout(streamTimeout);
+
+    // If the stream produced no content, the LLM call failed internally
+    // (e.g. insufficient credits). Don't await usage — it may hang.
+    if (!responseText) {
+      send('error', { message: 'No response generated' });
+      res.end();
+      return;
     }
 
     const usage = await stream.usage;
@@ -128,6 +150,7 @@ app.post('/api/chat', async (req, res) => {
       res.end();
     }
   } catch (err) {
+    clearTimeout(streamTimeout);
     console.error('[chat error]', err instanceof Error ? err.message : err);
     if (!closed && !res.writableEnded) {
       send('error', { message: 'Agent error, please try again.' });
