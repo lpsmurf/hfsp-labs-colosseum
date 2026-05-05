@@ -16,6 +16,7 @@ export default defineConfig({
       }
     }
   },
+  base: '/try/',
   build: {
     outDir: 'dist',
     sourcemap: false
