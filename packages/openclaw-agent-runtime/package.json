@@ -1,0 +1,24 @@
+{
+  "name": "@openclaw/agent-runtime",
+  "version": "0.1.0",
+  "description": "Per-user autonomous Solana agent — connects to MCP server and runs 24/7",
+  "type": "module",
+  "main": "dist/agent.js",
+  "scripts": {
+    "dev": "tsx watch src/agent.ts",
+    "build": "tsc",
+    "start": "node dist/agent.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^4.18.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
