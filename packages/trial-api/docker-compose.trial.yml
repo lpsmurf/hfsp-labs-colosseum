@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  trial-api:
+    build: .
+    container_name: clawdrop-trial-api
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
