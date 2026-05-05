@@ -3,6 +3,7 @@
  */
 
 export type AgentStatus = 'active' | 'awaiting_pairing' | 'provisioning' | 'failed' | 'inactive';
+export type ProvisioningStatus = 'pending' | 'ssh_key_installed' | 'container_started' | 'active' | 'failed';
 
 export interface Agent {
   id: string;
@@ -12,6 +13,21 @@ export interface Agent {
   dashboardPort: number;
   status: AgentStatus;
   createdAt: string;
+  provisioning_status?: ProvisioningStatus;
+  last_heartbeat?: string;
+  description?: string;
+  config?: {
+    model?: string;
+    temperature?: number;
+  };
+  api_key?: string;
+}
+
+export interface ProvisioningEvent {
+  agent_id: string;
+  status: ProvisioningStatus;
+  progress?: number;
+  error?: string;
 }
 
 export interface AgentSetupPayload {
