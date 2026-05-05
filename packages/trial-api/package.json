@@ -12,6 +12,7 @@
     "@mastra/core": "^0.10.0",
     "axios": "^1.7.0",
     "better-sqlite3": "^9.4.0",
+    "dotenv": "^17.4.2",
     "express": "^4.18.0",
     "zod": "^3.22.4"
   },
