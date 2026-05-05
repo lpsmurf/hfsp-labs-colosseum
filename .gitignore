@@ -28,6 +28,17 @@ out/
 Thumbs.db
 .DS_Store
 
+# Claude orchestration files
+.claude/bash-log.txt
+.claude/settings.json
+
+# SQLite WAL files
+*.sqlite-shm
+*.sqlite-wal
+
+# Platform env (production values should never be committed)
+.env.platform
+
 # Logs
 logs/
 *.log
