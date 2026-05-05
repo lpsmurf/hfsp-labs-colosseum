@@ -1,0 +1,14 @@
+version: '3.9'
+
+services:
+  trial-api:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env.trial
+    restart: unless-stopped
+    environment:
+      TRUST_PROXY: "1"
