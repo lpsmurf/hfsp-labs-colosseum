@@ -72,23 +72,37 @@ export const getWalletBalance = createTool({
         }))
         .filter(t => t.amount > 0);
 
-      // Batch price lookup
+      // Resolve token symbols via Helius token metadata
       let topTokens: z.infer<typeof TokenEntry>[] = [];
       if (mints.length > 0) {
         try {
-          const mintIds = mints.slice(0, 20).map(m => m.mint).join(',');
-          const tpRes = await axios.get(`${COINGECKO_BASE}/simple/price`, { params: { ids: mintIds, vs_currencies: 'usd' }, timeout: 8000 });
-          const prices = tpRes.data ?? {};
+          const metaRes = await axios.post(
+            `https://mainnet.helius-rpc.com/?api-key=${apiKey}`,
+            { jsonrpc: '2.0', id: 3, method: 'getAssetBatch',
+              params: { ids: mints.slice(0, 10).map(m => m.mint) } },
+            { timeout: 8000 }
+          );
+          const assets: any[] = metaRes.data?.result ?? [];
+          const symFromMeta: Record<string, string> = {};
+          for (const a of assets) {
+            if (a?.id && a?.content?.metadata?.symbol) {
+              symFromMeta[a.id] = a.content.metadata.symbol;
+            }
+          }
           topTokens = mints
             .map(m => ({
               mint: m.mint,
-              symbol: SYMBOL_MAP[m.mint] ?? m.mint.slice(0, 6) + '...',
+              symbol: SYMBOL_MAP[m.mint] ?? symFromMeta[m.mint] ?? m.mint.slice(0, 6) + '...',
               amount: m.amount,
-              value_usd: 0, // token USD values require per-mint lookups
+              value_usd: 0,
             }))
-            .sort((a, b) => b.value_usd - a.value_usd)
+            .sort((a, b) => b.amount - a.amount)
             .slice(0, 5);
-        } catch { /* non-fatal — return without token values */ }
+        } catch {
+          topTokens = mints.slice(0, 5).map(m => ({
+            mint: m.mint, symbol: SYMBOL_MAP[m.mint] ?? m.mint.slice(0, 6) + '...', amount: m.amount, value_usd: 0,
+          }));
+        }
       }
 
       return {
