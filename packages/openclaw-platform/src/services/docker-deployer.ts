@@ -47,7 +47,7 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
   ].filter(Boolean).join(' ');
 
   const { stdout: mcpId } = await exec(
-    `docker run -d --name mcp-${userId} --network ${network} -p ${mcpPort}:3002 ${mcpEnv} openclaw/mcp-server:latest`
+    `docker run -d --name mcp-${userId} --network ${network} -p ${mcpPort}:3002 ${mcpEnv} clawdrop/mcp-server:latest`
   );
 
   // 3. Start autonomous agent container
