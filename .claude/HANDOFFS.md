@@ -845,3 +845,121 @@ curl -s -X POST http://localhost:3002/mcp -H 'Content-Type: application/json' -d
 Both should report ~80 tools.
 
 ### Blockers → write to HANDOFFS.md as `KIMI → CLAUDE`
+
+---
+
+## 2026-05-07 — CLAUDE → KIMI (add x402engine-mcp + invy.bot tools to both MCP packages)
+
+**Priority**: Medium
+**Branch**: `kimi/mcp-external-tools`
+**Goal**: Wire x402engine-mcp (27 pay-per-call tools) and invy.bot (wallet lookup) into both `packages/clawdrop-mcp` (stdio) and `packages/clawdrop-mcp-server` (HTTP).
+
+---
+
+### Context
+
+**x402engine-mcp** (`npm: x402engine-mcp@1.0.6`) — MCP server exposing 27 paid APIs via x402 micropayments (USDC on Base/Solana/MegaETH). No API key needed. Categories: LLM inference, image gen, code execution, TTS, crypto data, blockchain, web scrape, IPFS.
+
+**invy.bot** — Single REST call `GET https://invy.bot/{address}` returns full multi-chain wallet portfolio (tokens + NFTs + prices). Uses x402 pay-per-request ($0.01–$0.10). No API key. Chains: Ethereum, Solana, Base.
+
+---
+
+### Task A — Add as proxied MCP tools to `packages/clawdrop-mcp` (stdio)
+
+Install x402engine-mcp as a child process and proxy its tools into the clawdrop-mcp stdio server.
+
+**Option (simpler)**: Spawn x402engine-mcp as a subprocess inside `packages/clawdrop-mcp/src/solana-agent.ts` using MCP client, then merge its tools into the ListTools response and proxy CallTool to it.
+
+```bash
+cd packages/clawdrop-mcp
+npm install @modelcontextprotocol/sdk
+```
+
+Create `packages/clawdrop-mcp/src/x402-proxy.ts`:
+```typescript
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+
+let _client: Client | null = null;
+
+export async function getX402Client(): Promise<Client> {
+  if (_client) return _client;
+  const transport = new StdioClientTransport({
+    command: 'npx',
+    args: ['-y', 'x402engine-mcp'],
+  });
+  _client = new Client({ name: 'clawdrop-proxy', version: '1.0.0' }, { capabilities: {} });
+  await _client.connect(transport);
+  return _client;
+}
+
+export async function listX402Tools() {
+  const client = await getX402Client();
+  const result = await client.listTools();
+  return result.tools;
+}
+
+export async function callX402Tool(name: string, args: Record<string, unknown>) {
+  const client = await getX402Client();
+  return await client.callTool({ name, arguments: args });
+}
+```
+
+In `mcp.ts` ListTools handler, append: `const x402 = await listX402Tools(); return { tools: [...existing, ...x402] };`
+
+In `mcp.ts` CallTool handler, after existing tool lookup fails: `return await callX402Tool(name, args);`
+
+**invy.bot tool** — add to the custom tools array:
+```typescript
+{
+  name: 'get_wallet_portfolio',
+  description: 'Get full multi-chain portfolio (tokens + NFTs + prices) for any wallet address, ENS, or SNS name. Chains: Ethereum, Solana, Base.',
+  schema: z.object({
+    address: z.string().describe('Wallet address, ENS name, or SNS domain'),
+    mode: z.enum(['cached-okay', 'refresh-prices', 'refresh-holdings']).optional().describe('Data freshness: cached-okay ($0.01), refresh-prices ($0.05), refresh-holdings ($0.10)'),
+  }),
+  handler: async (_agent: any, args: any) => {
+    const mode = args.mode ?? 'cached-okay';
+    const res = await axios.get(`https://invy.bot/${args.address}`, {
+      headers: { 'X-Prefer': mode },
+    });
+    return JSON.stringify(res.data);
+  },
+},
+```
+
+---
+
+### Task B — Same for `packages/clawdrop-mcp-server` (HTTP)
+
+Same x402-proxy.ts approach, but placed in `packages/clawdrop-mcp-server/src/`.
+
+In `server.ts`, after building `actionsRecord`:
+```typescript
+import { listX402Tools, callX402Tool } from './x402-proxy.js';
+
+// In the ListTools handler, after building from agent.actions + clawdropTools:
+const x402Tools = await listX402Tools();
+// append x402Tools to the response
+
+// In the CallTool handler fallthrough:
+return await callX402Tool(request.params.name, request.params.arguments ?? {});
+```
+
+Add invy.bot tool to `clawdrop-tools.ts` same as above.
+
+---
+
+### Commit convention
+`[kimi] feat(mcp): add x402engine (27 tools) + invy.bot wallet lookup to both MCP transports`
+
+### Verification
+```bash
+# stdio: count tools (should now be ~80 + 27 + 1 = ~108)
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node packages/clawdrop-mcp/dist/index.js 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['result']['tools']), 'tools')"
+
+# HTTP: same after server starts
+curl -s -X POST http://localhost:3002/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['result']['tools']), 'tools')"
+```
