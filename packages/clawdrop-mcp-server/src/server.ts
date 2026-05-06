@@ -38,7 +38,7 @@ for (const action of agent.actions) {
 
 // Create MCP server with HTTP transport
 const mcpServer = createMcpServer(actionsRecord, agent as any, {
-  name: 'openclaw-mcp',
+  name: 'clawdrop-mcp',
   version: '0.1.0',
 });
 

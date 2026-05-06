@@ -48,7 +48,7 @@
 - Wire docker-deployer into agents/deploy route
 - Add subscription check to deploy endpoint
 
-### Task 2 — `packages/openclaw-mcp-server`
+### Task 2 — `packages/clawdrop-mcp-server`
 
 **Status**: Not started (Day 2)
 
@@ -157,7 +157,7 @@ HERD pricing: TBD by team
 **Day 2 priorities (May 6 remaining)**:
 
 1. **Build + push Docker images** — this unblocks E2E
-   - `openclaw/mcp-server` — source at `packages/openclaw-mcp-server/`. Fixed bugs: `KeypairWallet(keypair, rpcUrl)` (2 args), only TokenPlugin + DefiPlugin (NFT/Misc have version conflicts), `startMcpServer(agent.actions, agent, { port })`. Run `npm run build` locally first to verify, then `docker build`.
+   - `clawdrop/mcp-server` — source at `packages/clawdrop-mcp-server/`. Fixed bugs: `KeypairWallet(keypair, rpcUrl)` (2 args), only TokenPlugin + DefiPlugin (NFT/Misc have version conflicts), `startMcpServer(agent.actions, agent, { port })`. Run `npm run build` locally first to verify, then `docker build`.
    - `openclaw/agent-runtime` — source at `packages/openclaw-agent-runtime/`. Should build cleanly.
 
 2. **llm-router.ts + token-tracker.ts** — Claude already created these in `services/`. Review and integrate into agents route if needed.

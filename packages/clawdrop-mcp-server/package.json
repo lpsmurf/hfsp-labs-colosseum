@@ -1,7 +1,7 @@
 {
-  "name": "@openclaw/mcp-server",
+  "name": "@clawdrop/mcp-server",
   "version": "0.1.0",
-  "description": "Per-user Solana MCP server powered by SendAI Agent Kit \u2014 60+ Solana tools",
+  "description": "Per-user Solana MCP server powered by SendAI Agent Kit — 60+ Solana tools",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
