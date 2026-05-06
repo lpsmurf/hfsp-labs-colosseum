@@ -278,3 +278,336 @@ Use `[kimi]` prefix on all commits:
 
 ### Questions / blockers → write to HANDOFFS.md as `KIMI → CLAUDE`
 
+
+---
+
+## 2026-05-06 — CLAUDE → KIMI (20 new Poly chatbot skills)
+
+**Priority**: High — expands what Poly can answer dramatically
+**Branch**: `kimi/poly-skills-expansion`
+**Deadline**: Before Saturday May 9 ship
+
+### Context
+
+The Poly chatbot at `clawdrop.live/try` currently has 5 tools. The user wants all available read-only Solana skills added (~20 more). All are read-only — no wallet signing, no private keys needed.
+
+**Pattern for every tool** (follow existing tools exactly):
+```typescript
+// packages/trial-api/src/tools/example.ts
+import { createTool } from '@mastra/core/tools';
+import { z } from 'zod';
+import axios from 'axios';
+import { withCache } from './_cache.js';
+
+export const myTool = createTool({
+  id: 'my_tool_id',                  // snake_case
+  description: 'When to call this... Call this when user asks about X.',
+  inputSchema: z.object({ param: z.string().describe('...') }),
+  outputSchema: z.object({ result: z.string(), cached: z.boolean() }),
+  execute: async ({ context }) => {
+    const { param } = context;
+    return withCache(`key_${param}`, 60, async () => {
+      const res = await axios.get('https://api.example.com/...', { timeout: 8000 });
+      return { result: res.data };
+    });
+  },
+});
+```
+
+All API keys needed are already in `.env`: `HELIUS_API_KEY`, `COINGECKO_DEMO_API_KEY`.
+No new API keys required for any of these tools.
+
+---
+
+### File 1: `packages/trial-api/src/tools/dexscreener.ts`
+
+**Tool**: `getTokenByAddress` — token data by contract address
+
+API: `GET https://api.dexscreener.com/latest/dex/tokens/{address}` (no key needed)
+
+Input: `{ address: string }` — Solana mint address
+Output: `{ name, symbol, price_usd, volume_24h, liquidity_usd, price_change_24h, pair_address, dex, cached }`
+
+Logic: Take first pair from `data.pairs[]` where `chainId === 'solana'`. Return name, symbol, `priceUsd`, `volume.h24`, `liquidity.usd`, `priceChange.h24`, `pairAddress`, `dexId`.
+Cache key: `dex_${address}`, TTL: 30s
+
+---
+
+### File 2: `packages/trial-api/src/tools/jupiter.ts`
+
+**Tool 1**: `getJupiterPrice` — token price via Jupiter Price API v2
+
+API: `GET https://api.jup.ag/price/v2?ids={mint}&showExtraInfo=true` (no key needed)
+
+Input: `{ mint: string }` — Solana mint address
+Output: `{ price_usd, confidence, source, cached }`
+
+Logic: `data.data[mint].price`. Confidence from `extraInfo.confidenceLevel`.
+Cache key: `jup_price_${mint}`, TTL: 20s
+
+---
+
+**Tool 2**: `getJupiterTokenByTicker` — find token by ticker symbol
+
+API: `GET https://tokens.jup.ag/tokens?tags=verified` (no key needed)
+
+Input: `{ ticker: string }` — e.g. "BONK", "JUP", "WIF"
+Output: `{ name, symbol, mint, decimals, cached }`
+
+Logic: Filter `tokens` array where `symbol.toUpperCase() === ticker.toUpperCase()`, return first match.
+Cache key: `jup_ticker_${ticker}`, TTL: 300s (5 min — list changes rarely)
+
+---
+
+**Tool 3**: `getJupiterQuote` — swap quote between two tokens (read-only, no execution)
+
+API: `GET https://quote-api.jup.ag/v6/quote?inputMint={from}&outputMint={to}&amount={lamports}&slippageBps=50`
+
+Input: `{ from_mint: string, to_mint: string, amount_ui: number }` — human-readable amount (not lamports)
+Output: `{ in_amount, out_amount, price_impact_pct, route_plan, cached }`
+
+Logic: Convert `amount_ui` to lamports (multiply by `10 ** inputDecimals` — use 9 for SOL, 6 for USDC/USDT, assume 6 for others). Parse `outAmount / 10**outputDecimals` for human-readable output.
+Cache key: `jup_quote_${from_mint}_${to_mint}_${amount_ui}`, TTL: 15s
+
+---
+
+### File 3: `packages/trial-api/src/tools/network.ts`
+
+**Tool**: `getNetworkTPS` — current Solana network TPS
+
+API: Solana RPC `getRecentPerformanceSamples` (use `https://api.mainnet-beta.solana.com`)
+
+Input: `{}` (no params)
+Output: `{ tps, num_transactions, sample_period_secs, cached }`
+
+Logic:
+```typescript
+const res = await axios.post('https://api.mainnet-beta.solana.com', {
+  jsonrpc: '2.0', id: 1, method: 'getRecentPerformanceSamples', params: [1]
+});
+const sample = res.data.result[0];
+const tps = Math.round(sample.numTransactions / sample.samplePeriodSecs);
+```
+Cache key: `network_tps`, TTL: 10s
+
+---
+
+### File 4: `packages/trial-api/src/tools/token-balances.ts`
+
+**Tool**: `getAllTokenBalances` — full token portfolio for a wallet
+
+API: Helius `GET https://api.helius.xyz/v0/addresses/{wallet}/balances?api-key={key}`
+
+Input: `{ wallet: string }`
+Output: `{ wallet, sol_balance, tokens: Array<{ mint, symbol?, amount, decimals }>, token_count, cached }`
+
+Logic: `data.tokens` array, filter out zero balances. Map each to `{ mint, symbol: SYMBOL_MAP[mint] ?? null, amount: rawAmount / 10**decimals, decimals }`. Include `data.nativeBalance / 1e9` as `sol_balance`.
+Cache key: `balances_${wallet}`, TTL: 60s
+
+---
+
+### File 5: `packages/trial-api/src/tools/parse-tx.ts`
+
+**Tool**: `parseTransaction` — human-readable breakdown of a single transaction
+
+API: Helius `POST https://api.helius.xyz/v0/transactions/?api-key={key}` with body `{ transactions: [signature] }`
+
+Input: `{ signature: string }` — Solana tx signature
+Output: `{ signature, type, description, fee_sol, timestamp, source, cached }`
+
+Logic: `data[0]` → `{ signature, type, description, fee: fee/1e9, timestamp: new Date(timestamp*1000).toISOString(), source }`.
+Cache key: `parse_tx_${signature}`, TTL: 3600s (txs are immutable)
+
+---
+
+### File 6: `packages/trial-api/src/tools/magic-eden.ts`
+
+Magic Eden public API base: `https://api-mainnet.magiceden.dev/v2` (no key needed)
+
+**Tool 1**: `getMagicEdenCollectionStats` — floor price, volume, sales for an NFT collection
+
+API: `GET /collections/{symbol}/stats`
+
+Input: `{ collection: string }` — e.g. "mad_lads", "tensorians"
+Output: `{ floor_price_sol, listed_count, volume_24h, avg_price_24h, cached }`
+
+Logic: `data.floorPrice / 1e9`, `data.listedCount`, `data.volumeAll` (convert lamports).
+Cache key: `me_stats_${collection}`, TTL: 120s
+
+---
+
+**Tool 2**: `getMagicEdenPopularCollections` — trending NFT collections
+
+API: `GET /marketplace/popular_collections?timeRange=1d&limit=10`
+
+Input: `{ limit?: number }` (default 10, max 20)
+Output: `{ collections: Array<{ symbol, name, floor_price_sol, volume_1d }>, cached }`
+
+Cache key: `me_popular`, TTL: 300s
+
+---
+
+**Tool 3**: `getMagicEdenListings` — active listings for a collection
+
+API: `GET /collections/{symbol}/listings?offset=0&limit=10`
+
+Input: `{ collection: string, limit?: number }` (default 5)
+Output: `{ listings: Array<{ price_sol, token_address, listed_at }>, cached }`
+
+Cache key: `me_listings_${collection}_${limit}`, TTL: 60s
+
+---
+
+### File 7: `packages/trial-api/src/tools/nft-asset.ts`
+
+Uses Helius DAS API (Digital Asset Standard)
+
+**Tool 1**: `getNFTAsset` — metadata for a single NFT by mint
+
+API: `POST https://mainnet.helius-rpc.com/?api-key={key}` body: `{ jsonrpc:'2.0', id:'1', method:'getAsset', params: { id: mint } }`
+
+Input: `{ mint: string }`
+Output: `{ name, symbol, description, image, collection, attributes: Array<{trait_type, value}>, cached }`
+
+Logic: `result.content.metadata.name`, `.description`, `result.content.links.image`, `result.grouping[0].group_value` (collection), `result.content.metadata.attributes`.
+Cache key: `nft_${mint}`, TTL: 3600s
+
+---
+
+**Tool 2**: `searchNFTAssets` — search NFTs owned by a wallet
+
+API: `POST https://mainnet.helius-rpc.com/?api-key={key}` body: `{ method:'searchAssets', params: { ownerAddress: wallet, tokenType: 'nonFungible', page: 1, limit: 10 } }`
+
+Input: `{ wallet: string, limit?: number }`
+Output: `{ wallet, nfts: Array<{ mint, name, collection }>, total, cached }`
+Cache key: `nfts_${wallet}`, TTL: 120s
+
+---
+
+### File 8: `packages/trial-api/src/tools/domains.ts`
+
+**Tool 1**: `resolveSolDomain` — .sol domain → wallet address
+
+API: `GET https://sns-sdk-proxy.bonfida.workers.dev/resolve/{domain}` (no key, public proxy)
+
+Input: `{ domain: string }` — e.g. "armani.sol" or "armani" (strip .sol)
+Output: `{ domain, wallet_address, cached }`
+
+Logic: Strip `.sol` suffix if present. `data.result` is the wallet address.
+Cache key: `sns_${domain}`, TTL: 3600s
+
+---
+
+**Tool 2**: `getWalletDomain` — wallet address → primary .sol domain
+
+API: `GET https://sns-sdk-proxy.bonfida.workers.dev/favorite-domain/{wallet}`
+
+Input: `{ wallet: string }`
+Output: `{ wallet, domain, cached }` — domain will be e.g. "armani.sol"
+
+Logic: `data.result + '.sol'` if exists, else `null`.
+Cache key: `domain_${wallet}`, TTL: 3600s
+
+---
+
+**Tool 3**: `getAllDomainTLDs` — list all available domain TLDs on Solana
+
+API: `GET https://sns-sdk-proxy.bonfida.workers.dev/tlds`
+
+Input: `{}` (no params)
+Output: `{ tlds: string[], cached }`
+
+Cache key: `tlds`, TTL: 86400s (1 day)
+
+---
+
+### File 9: `packages/trial-api/src/tools/allora.ts`
+
+**Tool 1**: `getAlloraTopics` — list AI inference topics
+
+API: `GET https://api.allora.network/emissions/v7/topics` (no key)
+
+Input: `{}`
+Output: `{ topics: Array<{ id, name, description }>, cached }`
+
+Cache key: `allora_topics`, TTL: 3600s
+
+---
+
+**Tool 2**: `getAlloraInference` — get AI prediction for a topic
+
+API: `GET https://api.allora.network/emissions/v7/inference/{topicId}` (no key)
+
+Input: `{ topic_id: number }`
+Output: `{ topic_id, value, timestamp, cached }`
+
+Cache key: `allora_inf_${topic_id}`, TTL: 300s
+
+---
+
+### Update `packages/trial-api/src/tools/index.ts`
+
+Import and export all new tools, add them to the `tools` object:
+
+```typescript
+// New imports
+import { getTokenByAddress } from './dexscreener.js';
+import { getJupiterPrice, getJupiterTokenByTicker, getJupiterQuote } from './jupiter.js';
+import { getNetworkTPS } from './network.js';
+import { getAllTokenBalances } from './token-balances.js';
+import { parseTransaction } from './parse-tx.js';
+import { getMagicEdenCollectionStats, getMagicEdenPopularCollections, getMagicEdenListings } from './magic-eden.js';
+import { getNFTAsset, searchNFTAssets } from './nft-asset.js';
+import { resolveSolDomain, getWalletDomain, getAllDomainTLDs } from './domains.js';
+import { getAlloraTopics, getAlloraInference } from './allora.js';
+
+export const tools = {
+  getSolPrice, getTokenPrice, getWalletBalance, getRecentTxns, checkTokenSafety,
+  // New tools
+  getTokenByAddress, getJupiterPrice, getJupiterTokenByTicker, getJupiterQuote,
+  getNetworkTPS, getAllTokenBalances, parseTransaction,
+  getMagicEdenCollectionStats, getMagicEdenPopularCollections, getMagicEdenListings,
+  getNFTAsset, searchNFTAssets,
+  resolveSolDomain, getWalletDomain, getAllDomainTLDs,
+  getAlloraTopics, getAlloraInference,
+};
+```
+
+---
+
+### Update `poly-agent.ts` system prompt
+
+Extend the system prompt to mention new capabilities:
+
+```typescript
+const SYSTEM_PROMPT = `You are Poly, a crypto-native AI agent on Solana.
+You can: check token prices (CoinGecko, Jupiter, DexScreener), wallet balances and full token portfolios,
+recent transactions, parse any transaction by signature, check token safety (rugcheck),
+look up NFT collections (floor price, listings, trending), fetch NFT metadata by mint,
+resolve .sol domains to wallets, check Solana network TPS, get swap quotes (Jupiter),
+and fetch AI price predictions (Allora).
+Be direct, concise, and mobile-friendly — keep responses under 280 characters unless the user asks for more.
+Always call tools to get live data instead of guessing.
+Never fabricate prices, balances, or transaction data.`;
+```
+
+---
+
+### Commit convention
+
+Single commit or one per file, all tagged `[kimi]`:
+`[kimi] feat(trial-api): add 18 new read-only Poly skills — DexScreener, Jupiter, Magic Eden, Helius DAS, SNS, Allora, network TPS`
+
+### No new API keys needed
+All tools use: `HELIUS_API_KEY` (already in `.env`), or public APIs (no key). 
+Magic Eden, DexScreener, Jupiter, Bonfida SNS proxy, Allora — all public, no auth.
+
+### Test each tool manually before committing
+```bash
+# Quick smoke test from packages/trial-api/
+npx tsx -e "
+import { getTokenByAddress } from './src/tools/dexscreener.js';
+const r = await getTokenByAddress.execute({ context: { address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' } });
+console.log(r);
+"
+```
