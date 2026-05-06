@@ -319,6 +319,18 @@ export function Deploy() {
               </div>
             </div>
 
+            <p className="mt-3 text-xs text-slate-400 text-center">
+              Don't have SOL or USDC?{' '}
+              <a
+                href="https://www.moonpay.com/buy/sol"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sky-400 underline hover:text-sky-300"
+              >
+                Buy with card via MoonPay →
+              </a>
+            </p>
+
             {paymentError && <p className="text-red-500 text-sm text-center">{paymentError}</p>}
 
             <div className="flex gap-3">
