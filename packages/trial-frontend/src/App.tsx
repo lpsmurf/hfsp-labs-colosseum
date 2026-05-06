@@ -30,8 +30,10 @@ function TrialAppContent() {
   return (
     <>
       <Routes>
-        <Route path="/try" element={<Try />} />
-        <Route path="*" element={<Navigate to="/try" replace />} />
+        <Route path="/try"     element={<Try />} />
+        <Route path="/deploy"  element={<Deploy />} />
+        <Route path="/agents"  element={<Agents />} />
+        <Route path="*"        element={<Navigate to="/try" replace />} />
       </Routes>
       <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </>
@@ -96,9 +98,11 @@ function AuthenticatedAppContent() {
   );
 }
 
+const PUBLIC_PATHS = ['/try', '/deploy', '/agents'];
+
 function AppContent() {
   const location = useLocation();
-  if (location.pathname === '/try') return <TrialAppContent />;
+  if (PUBLIC_PATHS.some(p => location.pathname.startsWith(p))) return <TrialAppContent />;
   return <AuthenticatedAppContent />;
 }
 
