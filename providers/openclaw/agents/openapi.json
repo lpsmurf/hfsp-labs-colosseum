@@ -1,0 +1,263 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Openclaw Platform API",
+    "description": "Deploy and manage autonomous Solana AI agents. Subscription management, payments, agent orchestration, and token usage tracking.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "Openclaw",
+      "url": "https://clawdrop.live"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://clawdrop.live/api/platform",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate with wallet",
+        "description": "Login using a Solana wallet address. Returns a JWT token for authenticated requests.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "wallet_address": { "type": "string", "description": "Solana wallet address (32-44 chars)" },
+                  "signature": { "type": "string", "description": "Optional signature for verification" },
+                  "message": { "type": "string", "description": "Optional message that was signed" }
+                },
+                "required": ["wallet_address"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions": {
+      "get": {
+        "summary": "Get active subscription",
+        "description": "Returns the user's active subscription. 404 if no active subscription.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Active subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscription": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "tier": { "type": "string", "enum": ["starter", "pro"] },
+                        "status": { "type": "string" },
+                        "payment_token": { "type": "string" },
+                        "amount_per_month": { "type": "string" },
+                        "current_period_start": { "type": "string" },
+                        "current_period_end": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "No active subscription" }
+        }
+      }
+    },
+    "/payments/verify": {
+      "post": {
+        "summary": "Verify Solana payment",
+        "description": "Verify an on-chain Solana transaction and create/extend a subscription.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tx_signature": { "type": "string", "description": "Solana transaction signature" },
+                  "tier": { "type": "string", "enum": ["starter", "pro"] },
+                  "token": { "type": "string", "enum": ["SOL", "USDC", "USDT", "HERD"] },
+                  "wallet_address": { "type": "string", "description": "User's Solana wallet address" }
+                },
+                "required": ["tx_signature", "tier", "token", "wallet_address"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Payment verified, subscription created/updated" },
+          "400": { "description": "Invalid payment or verification failed" }
+        }
+      }
+    },
+    "/payments/quote": {
+      "get": {
+        "summary": "Get payment quote",
+        "description": "Returns current price quote for a tier in all supported tokens.",
+        "parameters": [
+          {
+            "name": "tier",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["starter", "pro"] }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Price quote" }
+        }
+      }
+    },
+    "/agents": {
+      "get": {
+        "summary": "List agents",
+        "description": "List all agents for the authenticated user.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "status": { "type": "string", "enum": ["deploying", "active", "stopped", "failed"] },
+                          "llm_provider": { "type": "string" },
+                          "llm_model": { "type": "string" },
+                          "mcp_port": { "type": "integer" },
+                          "agent_port": { "type": "integer" },
+                          "created_at": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/deploy": {
+      "post": {
+        "summary": "Deploy agent",
+        "description": "Deploy a new autonomous agent. Requires active subscription.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "llm_provider": { "type": "string", "enum": ["poly", "byok", "custom"] },
+                  "llm_model": { "type": "string" },
+                  "custom_endpoint": { "type": "string" }
+                },
+                "required": ["name", "llm_provider"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Agent deployed" },
+          "403": { "description": "Active subscription required" },
+          "409": { "description": "Active agent already running" }
+        }
+      }
+    },
+    "/agents/{id}": {
+      "delete": {
+        "summary": "Stop agent",
+        "description": "Stop and remove an agent.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Agent stopped" },
+          "404": { "description": "Agent not found" }
+        }
+      }
+    },
+    "/usage/tokens": {
+      "get": {
+        "summary": "Token usage",
+        "description": "Get monthly token usage for the authenticated user.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Token usage stats" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Check platform service health.",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "version": { "type": "string" },
+                    "service": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
