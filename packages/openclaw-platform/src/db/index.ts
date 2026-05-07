@@ -86,5 +86,13 @@ function migrate(db: Database.Database): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, month)
     );
+
+    CREATE TABLE IF NOT EXISTS telegram_pairings (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      pair_code TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }

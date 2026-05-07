@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/index.js';
 import { deployStarter, stopAgent, getAgentStatus } from '../services/docker-deployer.js';
 import { encrypt } from '../services/key-vault.js';
+import { verifyPayment } from '../services/payment-verifier.js';
+import { createUserKey } from '../services/openrouter-provisioner.js';
+import axios from 'axios';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
@@ -172,6 +175,98 @@ router.delete('/:id', async (req, res) => {
     );
   } catch (err) {
     console.error('[agents/delete]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/agents/quick-deploy — one-click deploy after payment
+router.post('/quick-deploy', async (req, res) => {
+  const bodySchema = z.object({
+    wallet: z.string().min(32).max(44),
+    tx_hash: z.string().min(1),
+    tier: z.string().min(1),
+  });
+
+  const parse = bodySchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parse.error.format() });
+  }
+
+  const { wallet, tx_hash, tier } = parse.data;
+  const userId = wallet; // Use wallet as user identifier
+
+  try {
+    // 1. Verify payment on-chain
+    const verification = await verifyPayment(tx_hash, tier, 'SOL');
+    if (!verification.valid) {
+      return res.status(402).json({ error: 'Payment verification failed', details: verification.error });
+    }
+
+    // 2. Convert SOL paid → USD via CoinGecko
+    let solPriceUsd = 150;
+    try {
+      const cg = await axios.get(
+        'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+        { timeout: 8000 }
+      );
+      solPriceUsd = cg.data?.solana?.usd ?? 150;
+    } catch {
+      solPriceUsd = 150;
+    }
+
+    const solPaid = parseFloat(verification.amount) || 0;
+    const creditsUsd = Math.max(1, parseFloat((solPaid * solPriceUsd).toFixed(2)));
+
+    // 3. Create OpenRouter child key
+    const { keyHash, key: childKey } = await createUserKey(userId, creditsUsd);
+
+    // 4. Deploy container with Poly defaults
+    const agentId = uuidv4();
+    db().prepare(`
+      INSERT INTO agents (id, user_id, name, status, deploy_type, llm_provider, llm_model)
+      VALUES (?, ?, ?, 'deploying', 'docker', 'poly', 'anthropic/claude-haiku-4.5')
+    `).run(agentId, userId, `poly-${tier}`);
+
+    res.status(202).json({
+      success: true,
+      agent_id: agentId,
+      credits_usd: creditsUsd,
+      status: 'deploying',
+    });
+
+    // Async deploy
+    void (async () => {
+      try {
+        const result = await deployStarter({
+          userId,
+          heliusApiKey: process.env.HELIUS_API_KEY ?? '',
+          llmProvider: 'poly',
+          llmModel: 'anthropic/claude-haiku-4.5',
+          llmApiKey: childKey,
+        });
+
+        db().prepare(`
+          UPDATE agents
+          SET status = 'active', mcp_port = ?, agent_port = ?, container_id = ?
+          WHERE id = ?
+        `).run(result.mcpPort, result.agentPort, result.agentContainerId, agentId);
+
+        // 5. Generate pair code + store
+        const pairCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        db().prepare(`
+          INSERT INTO telegram_pairings (id, agent_id, pair_code, expires_at)
+          VALUES (?, ?, ?, ?)
+        `).run(uuidv4(), agentId, pairCode, expiresAt.toISOString());
+
+        console.log(`[agents/quick-deploy] agent ${agentId} active on ports ${result.mcpPort}/${result.agentPort}`);
+      } catch (deployErr) {
+        console.error(`[agents/quick-deploy] deploy failed for agent ${agentId}:`, deployErr);
+        db().prepare("UPDATE agents SET status = 'failed' WHERE id = ?").run(agentId);
+      }
+    })();
+  } catch (err) {
+    console.error('[agents/quick-deploy]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
