@@ -8,7 +8,9 @@ import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import express from 'express';
 import { randomUUID } from 'crypto';
+import z from 'zod';
 import { clawdropTools } from './clawdrop-tools.js';
+import { listX402Tools, callX402Tool } from './x402-proxy.js';
 
 const HELIUS_KEY = process.env.HELIUS_API_KEY ?? '';
 const RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
@@ -52,11 +54,32 @@ const transport = new StreamableHTTPServerTransport({
   sessionIdGenerator: () => randomUUID(),
 });
 
-mcpServer.connect(transport).then(() => {
-  console.log(`[mcp-server] MCP server connected to HTTP transport`);
-}).catch((err: Error) => {
-  console.error(`[mcp-server] MCP connect error:`, err.message);
-});
+// Register x402engine proxy tools, then connect
+async function setupServer() {
+  try {
+    const x402Tools = await listX402Tools();
+    for (const tool of x402Tools) {
+      mcpServer.registerTool(
+        tool.name,
+        {
+          description: tool.description ?? '',
+          inputSchema: z.object({}).passthrough(),
+        },
+        async (args: any) => {
+          return await callX402Tool(tool.name, args);
+        }
+      );
+    }
+    console.log(`[mcp-server] ${x402Tools.length} x402engine tools registered`);
+
+    await mcpServer.connect(transport);
+    console.log(`[mcp-server] MCP server connected to HTTP transport`);
+  } catch (err) {
+    console.error(`[mcp-server] MCP setup error:`, (err as Error).message);
+  }
+}
+
+setupServer();
 
 // Express app for MCP endpoint + health
 const app = express();

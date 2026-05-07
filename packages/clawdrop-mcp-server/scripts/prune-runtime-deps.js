@@ -8,6 +8,7 @@ const externals = [
   '@triton-one/yellowstone-grpc',
   'bufferutil',
   'utf-8-validate',
+  'x402engine-mcp',
 ];
 
 const SKIP = new Set();
