@@ -1306,3 +1306,160 @@ The `@meteora-ag/dlmm` `ERR_UNSUPPORTED_DIR_IMPORT` and `BN` named-export crashe
 
 3. **No push yet** — waiting for your go-ahead.
 
+
+---
+
+## 2026-05-08 — CLAUDE → KIMI (Poly deployment build — Phases 1–4)
+
+**Branch to create:** `kimi/poly-deployment`
+**Commit prefix:** `[kimi]`
+**Telegram token:** pending from user — skip Phase 3 until received, build 1→2→4 first.
+
+---
+
+### Context
+
+One-click Poly deploy flow:
+```
+User pays SOL → backend creates OpenRouter child key → deploys agent container → returns Telegram deeplink
+```
+
+OpenRouter child key model: Clawdrop holds a provisioning key. Each user gets a child key with a hard USD credit limit = their SOL deposit converted to USD. OpenRouter meters usage — replaces `token-tracker.ts` for Poly users.
+
+---
+
+### Environment variables to add
+
+Tell the user to add these to `.env.platform` on the Hostinger VPS (do NOT commit keys):
+
+```
+OPENROUTER_PROVISIONING_KEY=<user already has this>
+TELEGRAM_BOT_TOKEN=<pending from user>
+POLY_DEFAULT_CREDIT_USD=5
+POLY_LLM_MODEL=anthropic/claude-haiku-4.5
+```
+
+Add placeholders to `packages/openclaw-platform/.env.example` only.
+
+---
+
+### Phase 1 — OpenRouter provisioner
+
+**Create:** `packages/openclaw-platform/src/services/openrouter-provisioner.ts`
+
+```ts
+// Four functions to expose:
+createUserKey(userId: string, limitUsd: number): Promise<{ keyHash: string; key: string }>
+getKeyUsage(keyHash: string): Promise<{ usage: number; limit: number; remaining: number }>
+topUpKey(keyHash: string, additionalUsd: number): Promise<void>
+deleteKey(keyHash: string): Promise<void>
+```
+
+OpenRouter provisioning API (auth: `Authorization: Bearer ${OPENROUTER_PROVISIONING_KEY}`):
+- `POST https://openrouter.ai/api/v1/keys` — body: `{ name, limit }` (limit in USD)
+- `GET https://openrouter.ai/api/v1/keys/{hash}`
+- `PATCH https://openrouter.ai/api/v1/keys/{hash}` — body: `{ limit }`
+- `DELETE https://openrouter.ai/api/v1/keys/{hash}`
+
+After `createUserKey`: encrypt the returned key with `key-vault.ts` (`encrypt(key)`) and store in `api_keys` table (provider = `'openrouter'`). Never log it, never return it from HTTP endpoints.
+
+**Verification:** write a test that creates a $0.01 key, queries it, deletes it. All three return 200.
+
+---
+
+### Phase 2 — Agent brain rewrite
+
+**File:** `packages/openclaw-agent-runtime/src/agent.ts` — replace the empty `runLoop()`.
+
+Agent becomes request-driven (not timer-driven). Expose:
+
+```
+POST /message
+Body: { text: string, chat_id: number }
+Response: { reply: string }
+```
+
+Required env vars the container receives:
+- `USER_ID`
+- `LLM_API_KEY` (the decrypted child key — injected at deploy time)
+- `LLM_MODEL` (default `anthropic/claude-haiku-4.5`)
+- `LLM_BASE_URL` (default `https://openrouter.ai/api/v1`)
+- `MCP_URL` (e.g. `https://clawdrop.live/mcp`)
+
+Inside `/message` handler:
+1. Build messages array with system prompt (below) + conversation history for `chat_id` (in-memory Map).
+2. Fetch tool list from MCP — whitelist to these 6 only:
+   `get_token_price`, `get_wallet_balance`, `swap_tokens`, `get_trending_tokens`, `get_token_analytics`, `check_token_risk`
+3. Call OpenRouter chat completion (OpenAI-compat API) with the tool list.
+4. If tool_call in response: execute via MCP HTTP client, feed result back, get final text.
+5. Return `{ reply: finalText }`.
+
+**Poly system prompt (use exactly):**
+```
+You are Poly, a crypto-native AI agent on Solana. You help users check prices,
+analyze wallets, swap tokens, and monitor markets through your built-in tools.
+Be concise, action-oriented, and never speculate about prices. When a user asks
+for an action you can execute (swap, balance check, price lookup), call the
+appropriate tool immediately rather than asking clarifying questions when the
+intent is clear. All swaps execute on Solana devnet during the trial period.
+```
+
+**Verification:** `curl -X POST localhost:3999/message -d '{"text":"what is SOL price","chat_id":1}'` returns a coherent reply with a live price.
+
+---
+
+### Phase 3 — Telegram pairing (HOLD until bot token arrives)
+
+Skip for now. When the token arrives, the handoff will cover:
+- `services/telegram-pairing.ts` — pair_code generation + lookup
+- `telegram_pairings` DB table
+- Webhook handler extension for `/start <pair_code>` routing
+
+---
+
+### Phase 4 — Quick-deploy endpoint
+
+**File:** `packages/openclaw-platform/src/routes/agents.ts` — ADD endpoint, do not touch existing ones.
+
+`POST /agents/quick-deploy`:
+
+```json
+// Request
+{ "wallet": "7qj...", "tx_hash": "5xK...", "tier": "poly-treasury" }
+
+// Response
+{ "agent_id": "...", "telegram_deeplink": "https://t.me/ClawdropPoly_bot?start=K3NZ9P", "credits_usd": 5.00 }
+```
+
+Steps (fail-fast, in order):
+1. `payment-verifier.ts` — verify tx_hash on-chain.
+2. CoinGecko `GET https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd` — convert SOL paid → USD.
+3. `openrouter-provisioner.createUserKey(userId, usdAmount)` — create child key.
+4. Encrypt + store via `key-vault.ts`.
+5. `docker-deployer.deployStarter()` with Poly defaults:
+   ```ts
+   { llmProvider: 'poly', llmApiKey: childKey, llmModel: 'anthropic/claude-haiku-4.5', llmBaseUrl: 'https://openrouter.ai/api/v1' }
+   ```
+6. Generate 6-char pair_code (alphanum), store in `telegram_pairings` with 1h expiry.
+7. Return response above.
+
+**Verification:** manual run with a devnet tx hash → receive deeplink → agent container starts.
+
+---
+
+### Do NOT touch
+
+- `src/server.ts`, `rate-limit.ts`, `budget-guard.ts` (hook blocks it)
+- Existing wizard flow in agents.ts (additive only)
+- `clawdrop-mcp-server/` (consume tools only)
+- `token-tracker.ts` (leave it — wizard still uses it)
+
+---
+
+### Open questions — bring to user, do not decide
+
+- Top-up: same `/quick-deploy` endpoint or `/agents/{id}/top-up`?
+- Refund policy on cancellation?
+- Conversation history: per-agent sqlite or central `openclaw.sqlite`?
+- Telegram spam rate-limit (coordinate with Kimi before adding)
+
