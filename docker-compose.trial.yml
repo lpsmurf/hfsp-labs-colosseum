@@ -45,11 +45,11 @@ services:
       retries: 3
 
   # Openclaw Platform (subscriptions, payments, agent orchestration)
-  openclaw-platform:
+  clawdrop-platform:
     build:
       context: packages/openclaw-platform
       dockerfile: Dockerfile
-    container_name: openclaw-platform
+    container_name: clawdrop-platform
     ports:
       - "8788:8788"
     volumes:
