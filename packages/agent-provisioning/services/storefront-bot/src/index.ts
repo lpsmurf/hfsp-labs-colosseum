@@ -595,7 +595,11 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 
 // API Key authentication for MCP endpoints
-const HFSP_API_KEY = process.env.HFSP_API_KEY || 'test-dev-key-12345';
+const HFSP_API_KEY = process.env.HFSP_API_KEY;
+if (!HFSP_API_KEY) {
+  console.warn('HFSP_API_KEY is not set; authenticated MCP endpoints will reject all requests.');
+}
+
 function requireApiKey(req: any, res: any, next: any) {
   // Skip auth for health check and webhook endpoints
   if (req.path === '/health' || req.path === '/telegram/webhook') {
@@ -605,7 +609,7 @@ function requireApiKey(req: any, res: any, next: any) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   
-  if (token !== HFSP_API_KEY) {
+  if (!HFSP_API_KEY || token !== HFSP_API_KEY) {
     return res.status(401).json({ error: 'Unauthorized - Invalid or missing API key' });
   }
   

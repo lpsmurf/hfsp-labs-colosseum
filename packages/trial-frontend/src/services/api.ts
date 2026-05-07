@@ -170,7 +170,7 @@ class PlatformApiClient {
     message: string
   ): Promise<PlatformLoginResponse> {
     const res = await axios.post<PlatformLoginResponse>('/api/platform/auth/login', {
-      walletAddress,
+      wallet_address: walletAddress,
       signature,
       message,
     });

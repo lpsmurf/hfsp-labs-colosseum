@@ -1,10 +1,23 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import jwt from 'jsonwebtoken';
 import { db } from '../db/index.js';
 import { verifyPayment, getTierPriceUsd } from '../services/payment-verifier.js';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET ?? '';
+
+function getAuthUser(req: { headers: { authorization?: string } }): { userId: string; wallet: string } | null {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return null;
+  try {
+    const decoded = jwt.verify(auth.slice(7), JWT_SECRET) as { sub: string; wallet: string };
+    return { userId: decoded.sub, wallet: decoded.wallet };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * POST /api/payments/verify
@@ -27,10 +40,17 @@ router.post('/verify', async (req, res) => {
   }
 
   const { tx_signature, tier, token, wallet_address } = parse.data;
+  const authUser = getAuthUser(req);
+  if (!authUser) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  if (authUser.wallet !== wallet_address) {
+    return res.status(403).json({ success: false, error: 'Payment wallet does not match authenticated wallet' });
+  }
 
   try {
     // 1. Verify the payment on-chain
-    const verification = await verifyPayment(tx_signature, tier);
+    const verification = await verifyPayment(tx_signature, tier, token);
     if (!verification.valid) {
       return res.status(400).json({ success: false, error: verification.error ?? 'Payment verification failed' });
     }
@@ -43,11 +63,14 @@ router.post('/verify', async (req, res) => {
     let userId: string;
     if (existingUser) {
       userId = existingUser.id;
+      if (userId !== authUser.userId) {
+        return res.status(403).json({ success: false, error: 'Authenticated user does not own this wallet' });
+      }
       // Update tier
       db().prepare("UPDATE users SET tier = ?, updated_at = datetime('now') WHERE id = ?")
         .run(tier, userId);
     } else {
-      userId = uuidv4();
+      userId = authUser.userId || uuidv4();
       db().prepare(`
         INSERT INTO users (id, wallet_address, tier)
         VALUES (?, ?, ?)
@@ -73,13 +96,13 @@ router.post('/verify', async (req, res) => {
             current_period_end = datetime('now', '+1 month'),
             status = 'active'
         WHERE id = ?
-      `).run(tier, token, `${getTierPriceUsd(tier)} ${token}`, subscriptionId);
+      `).run(tier, verification.token, `${getTierPriceUsd(tier)} ${verification.token}`, subscriptionId);
     } else {
       subscriptionId = uuidv4();
       db().prepare(`
         INSERT INTO subscriptions (id, user_id, tier, payment_token, amount_per_month, current_period_start, current_period_end)
         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now', '+1 month'))
-      `).run(subscriptionId, userId, tier, token, `${getTierPriceUsd(tier)} ${token}`);
+      `).run(subscriptionId, userId, tier, verification.token, `${getTierPriceUsd(tier)} ${verification.token}`);
     }
 
     // 4. Record the payment
@@ -87,7 +110,7 @@ router.post('/verify', async (req, res) => {
     db().prepare(`
       INSERT INTO payments (id, subscription_id, tx_signature, token, amount, verified_at)
       VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).run(paymentId, subscriptionId, tx_signature, token, verification.amount);
+    `).run(paymentId, subscriptionId, tx_signature, verification.token, verification.amount);
 
     // 5. Return subscription details
     const subscription = db()
@@ -99,7 +122,7 @@ router.post('/verify', async (req, res) => {
       subscription,
       payment: {
         id: paymentId,
-        token,
+        token: verification.token,
         amount: verification.amount,
         amount_usd: verification.amountUsd,
       },

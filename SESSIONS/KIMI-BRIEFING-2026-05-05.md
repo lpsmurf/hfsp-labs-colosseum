@@ -85,7 +85,7 @@ Before finishing, verify:
 
 - Full brief: `/Users/mac/claude/HACKATHON_AGENT_BRIEFS.md`
 - Tools API: `packages/trial-api/src/tools/index.ts`
-- Helius API key: `b72c1253-4c5d-441b-8b54-46b08d10d447` (already in Claude's .env)
+- Helius API key: `[redacted]` (already in Claude's .env)
 - OpenRouter key: See Claude (needs funding)
 
 ---

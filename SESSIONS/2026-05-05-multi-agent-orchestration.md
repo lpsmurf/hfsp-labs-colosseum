@@ -57,7 +57,7 @@ curl localhost:8787/api/health  # ✅ 200 {status,budget_remaining}
   - Solution: Fund at openrouter.ai/settings/credits ($5+)  
   - OR swap to Anthropic API directly (requires `@ai-sdk/anthropic` + ENV)
 - **Chat endpoint**: Ready to test once credits added
-- **All tools**: Live on Helius mainnet (api key: `b72c1253-4c5d-441b-8b54-46b08d10d447`)
+- **All tools**: Live on Helius mainnet (api key: `[redacted]`)
 
 ---
 
@@ -183,7 +183,7 @@ Claude (Tools + Backend)
 | Resource | Value | Status |
 |----------|-------|--------|
 | OpenRouter API Key | `sk-or-v1-bd7e7...` | ❌ No credits |
-| Helius API Key | `b72c1253-4c5d-...` | ✅ Active, mainnet |
+| Helius API Key | `[redacted]` | ✅ Active, mainnet |
 | Frontend API | `http://localhost:3000/try` | 🏗️ Building |
 | Backend API | `http://localhost:8787/api/chat` | ⏳ Testing blocked |
 | Prod VPS SSH | `root@72.62.239.63` | ✅ Ready for Gemini |
