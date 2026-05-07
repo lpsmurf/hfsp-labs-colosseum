@@ -95,6 +95,7 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
       USER_ID: userId,
       LLM_PROVIDER: config.llmProvider,
       LLM_MODEL: config.llmModel,
+      LLM_API_KEY: config.llmApiKey,
       CUSTOM_ENDPOINT: config.customEndpoint,
     }),
     'openclaw/agent-runtime:latest',
