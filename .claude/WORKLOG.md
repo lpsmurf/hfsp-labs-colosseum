@@ -3,6 +3,46 @@
 > Last updated: 2026-05-06 UTC
 > **STATUS**: 🚧 PHASE 2 — Openclaw Platform (ship by Saturday May 9)
 
+
+---
+
+## 2026-05-07 — SESSION UPDATE (Claude + Kimi)
+
+> Last updated: 2026-05-07 UTC
+
+### Shipped today
+
+**clawdrop-mcp-server — full production deploy** ✅
+
+| What | Details |
+|------|---------|
+| Meteora ESM crash | Fixed via esbuild + CJS bundle (`kimi/mcp-server-bundle-fix`) |
+| Docker build timeout | Fixed via `prune-runtime-deps.js` — 500MB → 45MB COPY, 300s+ → 1.5s |
+| Business tools | 6 clawdrop tools added: `list_tiers`, `get_token_analytics`, `get_market_overview`, `get_wallet_analytics`, `check_token_risk`, `parse_transaction` |
+| Total tools live | **99 tools** at `https://clawdrop.live/mcp/health` |
+| Process manager | Docker-managed (`restart: unless-stopped`) — was bare nohup |
+| Platform auth | Ed25519 wallet signature verification added to openclaw-platform |
+
+**Infra + tooling** ✅
+- x402engine-mcp + clawdrop-local added to Claude Code (`~/.claude/mcp.json`) and Claude Desktop
+- MCP Inspector wired to `https://clawdrop.live/mcp` — 93→99 tools verified live
+- nginx `/mcp` routing fixed (was pointing to wrong path on port 3002)
+- SSH access confirmed: `root@72.62.239.63` via `~/.ssh/id_rsa`
+- Repo is at `/srv/colosseum` on piercalito (not `/home/hfsp2`)
+
+### Pending (Kimi — next task)
+
+- `kimi/mcp-external-tools` — x402engine proxy (27 tools) + invy.bot `get_wallet_portfolio`
+- `kimi/mcp-sidecar-rebuild` — full sidecar architecture (strategic, not urgent)
+
+### Bugs caught and fixed in audit
+
+1. `npm ci` in Dockerfile (lockfile gitignored → fails on VPS) — caught and fixed before each merge
+2. nginx `.bak` files causing duplicate listen errors — rm on each reload
+3. Docker container name conflict on redeploy — rm old container before up
+4. MCP endpoint path mismatch (`/mcp/` → `/` vs `/mcp`) — fixed nginx location blocks
+
+
 ---
 
 ## MISSION: Openclaw Autonomous Agent Platform
