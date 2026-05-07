@@ -68,6 +68,28 @@ services:
       timeout: 5s
       retries: 3
 
+  # Clawdrop MCP Server (Solana Agent Kit — 93 tools over HTTP/MCP)
+  clawdrop-mcp-server:
+    build:
+      context: packages/clawdrop-mcp-server
+      dockerfile: Dockerfile
+    container_name: clawdrop-mcp-server
+    ports:
+      - "3002:3002"
+      - "3003:3003"
+    env_file:
+      - .env.mcp-server
+    environment:
+      NODE_ENV: production
+      MCP_PORT: "3002"
+      HEALTH_PORT: "3003"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
 volumes:
   trial-data:
     driver: local
