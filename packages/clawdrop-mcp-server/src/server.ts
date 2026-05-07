@@ -8,6 +8,7 @@ import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import express from 'express';
 import { randomUUID } from 'crypto';
+import { clawdropTools } from './clawdrop-tools.js';
 
 const HELIUS_KEY = process.env.HELIUS_API_KEY ?? '';
 const RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
@@ -28,13 +29,18 @@ const agent = new SolanaAgentKit(wallet, RPC_URL, {
   .use(TokenPlugin)
   .use(DefiPlugin);
 
-console.log(`[mcp-server] User ${process.env.USER_ID} — ${agent.actions.length} actions loaded`);
-
 // Build actions record for MCP server
 const actionsRecord: Record<string, any> = {};
 for (const action of agent.actions) {
   actionsRecord[action.name] = action;
 }
+
+// Append clawdrop business tools
+for (const tool of clawdropTools) {
+  actionsRecord[tool.name] = tool;
+}
+
+console.log(`[mcp-server] User ${process.env.USER_ID} — ${agent.actions.length} agent actions + ${clawdropTools.length} clawdrop tools = ${Object.keys(actionsRecord).length} total`);
 
 // Create MCP server with HTTP transport
 const mcpServer = createMcpServer(actionsRecord, agent as any, {
@@ -60,7 +66,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     user_id: process.env.USER_ID,
-    actions: agent.actions.length,
+    actions: Object.keys(actionsRecord).length,
     mcp_port: MCP_PORT,
   });
 });
@@ -86,7 +92,7 @@ if (HEALTH_PORT !== MCP_PORT) {
     res.json({
       status: 'ok',
       user_id: process.env.USER_ID,
-      actions: agent.actions.length,
+      actions: Object.keys(actionsRecord).length,
       mcp_port: MCP_PORT,
     });
   });
