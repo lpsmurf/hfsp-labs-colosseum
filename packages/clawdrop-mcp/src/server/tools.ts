@@ -646,6 +646,18 @@ export const tools: Tool[] = [
       required: [],
     },
   },
+  {
+    name: 'get_wallet_portfolio',
+    description: 'Get full multi-chain portfolio (tokens + NFTs + prices) for any wallet address, ENS, or SNS name. Chains: Ethereum, Solana, Base.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        address: { type: 'string', description: 'Wallet address, ENS name, or SNS domain' },
+        mode: { type: 'string', enum: ['cached-okay', 'refresh-prices', 'refresh-holdings'], description: 'Data freshness: cached-okay ($0.01), refresh-prices ($0.05), refresh-holdings ($0.10)' },
+      },
+      required: ['address'],
+    },
+  },
 ];
 
 
@@ -672,6 +684,7 @@ export async function handleToolCall(toolName: string, toolInput: unknown): Prom
       case 'get_wallet_analytics': return await handleGetWalletAnalytics(toolInput);
       case 'check_token_risk':    return await handleCheckTokenRisk(toolInput);
       case 'start_deployment_walkthrough': return await handleDeploymentWalkthrough(toolInput);
+      case 'get_wallet_portfolio': return await handleGetWalletPortfolio(toolInput);
       default: throw new Error(`Unknown tool: ${toolName}`);
     }
   } catch (error) {
@@ -1717,4 +1730,22 @@ Open Phantom wallet, send exactly \`${amount} ${parsed.selected_token}\` to the 
   }
 
   throw new Error(`Unknown step: ${parsed.step}. Valid steps: 0-4`);
+}
+
+
+// ─── invy.bot wallet portfolio lookup ─────────────────────────────────────────
+
+async function handleGetWalletPortfolio(input: unknown): Promise<string> {
+  const parsed = input as { address: string; mode?: string };
+  if (!parsed.address) {
+    throw new Error('address is required');
+  }
+
+  const mode = parsed.mode ?? 'cached-okay';
+  const res = await axios.get(`https://invy.bot/${parsed.address}`, {
+    headers: { 'X-Prefer': mode },
+    timeout: 15000,
+  });
+
+  return JSON.stringify(res.data, null, 2);
 }
