@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { tools, handleToolCall } from './tools.js';
 import logger from '../utils/logger.js';
+import { listX402Tools, callX402Tool } from '../x402-proxy.js';
 
 // ─── System Prompt for Claude Code ──────────────────────────────────────────
 
@@ -108,12 +109,16 @@ export function createClawdropProtocolServer(): Server {
 
   server.setRequestHandler(ListToolsRequestSchema, async (_request: ListToolsRequest) => {
     logger.info('Received list_tools request');
+    const x402Tools = await listX402Tools();
     return {
-      tools: tools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      })),
+      tools: [
+        ...tools.map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+        })),
+        ...x402Tools,
+      ],
     };
   });
 
@@ -134,17 +139,26 @@ export function createClawdropProtocolServer(): Server {
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error({ error: errorMessage, tool: request.params.name }, 'Tool execution failed');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error: ${errorMessage}`,
-          },
-        ],
-        isError: true,
-      };
+      // Fall through to x402engine proxy for unknown tools
+      try {
+        const x402Result = await callX402Tool(
+          request.params.name,
+          (request.params.arguments as Record<string, unknown>) ?? {}
+        );
+        return x402Result as any;
+      } catch (x402Error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error({ error: errorMessage, tool: request.params.name }, 'Tool execution failed');
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${errorMessage}`,
+            },
+          ],
+          isError: true,
+        };
+      }
     }
   });
 

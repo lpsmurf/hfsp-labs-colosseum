@@ -93,4 +93,20 @@ export const clawdropTools = [
       });
     },
   },
+  {
+    name: 'get_wallet_portfolio',
+    description: 'Get full multi-chain portfolio (tokens + NFTs + prices) for any wallet address, ENS, or SNS name. Chains: Ethereum, Solana, Base.',
+    schema: z.object({
+      address: z.string().describe('Wallet address, ENS name, or SNS domain'),
+      mode: z.enum(['cached-okay', 'refresh-prices', 'refresh-holdings']).optional().describe('Data freshness: cached-okay ($0.01), refresh-prices ($0.05), refresh-holdings ($0.10)'),
+    }),
+    handler: async (_agent: any, args: any) => {
+      const mode = args.mode ?? 'cached-okay';
+      const res = await axios.get(`https://invy.bot/${args.address}`, {
+        headers: { 'X-Prefer': mode },
+        timeout: 15000,
+      });
+      return JSON.stringify(res.data);
+    },
+  },
 ];
