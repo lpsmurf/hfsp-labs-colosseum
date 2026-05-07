@@ -963,3 +963,188 @@ curl -s -X POST http://localhost:3002/mcp -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['result']['tools']), 'tools')"
 ```
+
+---
+
+## 2026-05-07 — CLAUDE → KIMI (URGENT: bundle clawdrop-mcp-server with esbuild + CJS to unblock Meteora crash)
+
+**Priority**: Critical — blocks production deploy
+**Branch**: `kimi/mcp-server-bundle-fix`
+**Time estimate**: 4–8 hours
+**Goal**: Convert `packages/clawdrop-mcp-server` from plain Node ESM to esbuild-bundled CommonJS so the `@meteora-ag/dlmm` `ERR_UNSUPPORTED_DIR_IMPORT` and `BN` named-export crashes go away. This is the cheap stopgap before the full sidecar rebuild (`kimi/mcp-sidecar-rebuild`, separate plan to follow).
+
+---
+
+### Why this works
+
+The Meteora crash is `ERR_UNSUPPORTED_DIR_IMPORT` because Node ESM cannot resolve `@coral-xyz/anchor/dist/cjs/utils/bytes` (no `index.js` suffix). esbuild auto-resolves directory imports at bundle time using the same algorithm as CJS `require()`. The bare directory specifier becomes a real file path before Node ever sees it. The `BN` named-export error disappears for the same reason — esbuild reads the CJS exports and rewrites the named import as a property access at build time.
+
+See full upstream bug analysis in earlier `2026-05-07` handoff (root cause + responsibility split).
+
+---
+
+### Step-by-step changes
+
+#### 1. `packages/clawdrop-mcp-server/package.json`
+
+```diff
+{
+  "name": "@clawdrop/mcp-server",
+  "version": "0.1.0",
+- "type": "module",
+- "main": "dist/server.js",
++ "main": "dist/server.cjs",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+-   "build": "tsc",
++   "build": "esbuild src/server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/server.cjs --external:better-sqlite3 --external:bufferutil --external:utf-8-validate",
+-   "start": "node dist/server.js"
++   "start": "node dist/server.cjs",
++   "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+-   "@solana-agent-kit/adapter-mcp": "latest",
+-   "@solana-agent-kit/plugin-token": "latest",
+-   "@solana-agent-kit/plugin-defi": "latest",
+-   "solana-agent-kit": "latest",
++   "@solana-agent-kit/adapter-mcp": "2.0.8",
++   "@solana-agent-kit/plugin-token": "2.0.8",
++   "@solana-agent-kit/plugin-defi": "2.0.8",
++   "solana-agent-kit": "2.0.10",
+    ...
+  },
+  "devDependencies": {
++   "esbuild": "0.24.2",
+    ...
+  }
+}
+```
+
+#### 2. `packages/clawdrop-mcp-server/tsconfig.json`
+
+```diff
+{
+  "compilerOptions": {
+    "target": "ES2022",
+-   "module": "NodeNext",
+-   "moduleResolution": "NodeNext",
++   "module": "CommonJS",
++   "moduleResolution": "Node",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+-   "skipLibCheck": true
++   "skipLibCheck": true,
++   "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+`noEmit: true` because esbuild now produces the bundle. `tsc` is for typecheck only via `npm run typecheck`.
+
+#### 3. `packages/clawdrop-mcp-server/src/server.ts`
+
+Find/remove any `.js` extension on relative imports (TypeScript NodeNext required them, CommonJS does not). Likely already none in this single-file server — verify with:
+
+```bash
+grep -nE "from '\\./.*\\.js'" packages/clawdrop-mcp-server/src/*.ts
+```
+
+#### 4. `packages/clawdrop-mcp-server/Dockerfile`
+
+```diff
+FROM node:20-slim AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+- COPY --from=builder /app/dist ./dist
+- COPY --from=builder /app/node_modules ./node_modules
+- COPY --from=builder /app/package.json .
++ COPY --from=builder /app/dist/server.cjs ./server.cjs
++ COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
+EXPOSE 3002 3003
+HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:3003/health || exit 1
+- CMD ["node", "dist/server.js"]
++ CMD ["node", "server.cjs"]
+```
+
+The bundled CJS file inlines all of `solana-agent-kit`, `@meteora-ag/dlmm`, etc. — expected size ~5–15 MB. Only native modules (anything with `.node` files) need to remain as separate `node_modules` entries.
+
+#### 5. `packages/clawdrop-mcp-server/.dockerignore` (create — non-negotiable)
+
+```
+node_modules
+dist
+.env*
+*.sqlite
+```
+
+This is what bricked the previous deploy attempt — local macOS `node_modules` was overwriting Linux ones inside the container.
+
+---
+
+### Verification (do not declare ready until all four pass)
+
+```bash
+# 1. Clean install + build (catches dep issues at build time, not runtime)
+cd packages/clawdrop-mcp-server
+rm -rf node_modules dist package-lock.json
+npm install
+npm run build
+# Expected: dist/server.cjs exists, ~5-15 MB, no ERR_UNSUPPORTED_DIR_IMPORT during build
+
+# 2. Local boot
+HELIUS_API_KEY=b72c1253-4c5d-441b-8b54-46b08d10d447 node dist/server.cjs &
+sleep 3
+curl -fsS http://localhost:3003/health
+# Expected: {"status":"ok","actions":60} or similar
+kill %1
+
+# 3. Docker build (no cache to prove no stale layers)
+docker build --no-cache -t clawdrop-mcp-server .
+
+# 4. Docker boot
+docker run -d --name test-mcp \
+  -e HELIUS_API_KEY=b72c1253-4c5d-441b-8b54-46b08d10d447 \
+  -p 3003:3003 -p 3002:3002 \
+  clawdrop-mcp-server
+sleep 8
+curl -fsS http://localhost:3003/health
+# Expected: same {"status":"ok"} response
+docker logs test-mcp | grep -E "ERROR|crash|FAIL" && echo "FAIL: errors in logs" || echo "PASS"
+docker rm -f test-mcp
+```
+
+If all four pass, the Meteora crash is dead and the server can be deployed.
+
+---
+
+### What this does NOT solve (intentionally — full sidecar rebuild handles these)
+
+- A future broken SDK in `solana-agent-kit` will still crash the whole server (single process, single import surface).
+- Adding pay.sh, MoonPay, Jupiter, etc. still couples them in one binary.
+- No per-plugin circuit breakers, metrics, or independent restart.
+
+These are tracked in the upcoming `kimi/mcp-sidecar-rebuild` plan. The bundling work done here transfers directly into the sidecar plugins (each sidecar should also be esbuild-bundled CJS for the same defensive reasons).
+
+---
+
+### Commit convention
+- `[kimi] fix(mcp-server): switch to esbuild + CJS bundle to unblock Meteora ESM crash`
+- `[kimi] fix(mcp-server): pin solana-agent-kit deps (drop "latest")`
+- `[kimi] fix(mcp-server): add .dockerignore + Dockerfile bundle path`
+
+Separate commits per concern.
+
+### Blockers
+If `npm run build` fails with errors other than the Meteora one (i.e. esbuild itself complains), write a `KIMI → CLAUDE` note in `.claude/HANDOFFS.md` with the exact error and stop. Do not start patching transitive `node_modules`.
