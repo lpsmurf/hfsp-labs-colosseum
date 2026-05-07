@@ -9,6 +9,7 @@ const EnvSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1),
   HELIUS_API_KEY: z.string().min(1),
   PORT: z.string().default('8787'),
+  TRUST_PROXY: z.string().default('false'),
 });
 
 const env = EnvSchema.safeParse(process.env);
@@ -19,7 +20,12 @@ if (!env.success) {
 
 const PORT = parseInt(env.data.PORT, 10);
 const app = express();
+app.set('trust proxy', ['1', 'true'].includes(env.data.TRUST_PROXY.toLowerCase()));
 app.use(express.json());
+
+function clientIp(req: express.Request): string {
+  return req.ip || req.socket.remoteAddress || '0.0.0.0';
+}
 
 const ORIGINS = ['https://clawdrop.live', 'http://localhost:3000', 'http://localhost:5173'];
 app.use((req, res, next) => {
@@ -36,8 +42,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/quota', (req, res) => {
-  const ip = ((req.headers['x-real-ip'] as string) ?? req.ip ?? '0.0.0.0');
-  res.json(getQuota(ip));
+  res.json(getQuota(clientIp(req)));
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -53,7 +58,7 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Invalid request' });
   }
 
-  const ip = (req.headers['x-real-ip'] as string) ?? req.ip ?? '0.0.0.0';
+  const ip = clientIp(req);
 
   if (isBudgetExhausted()) {
     const midnight = new Date();
@@ -103,8 +108,8 @@ app.post('/api/chat', async (req, res) => {
     const iterator = stream.textStream[Symbol.asyncIterator]();
     let result = await iterator.next();
     
-    // Continue streaming even if socket closed (try to reconnect)
     while (!result.done) {
+      if (closed) break;
       const chunk = result.value;
       count++;
       if (count === 1 || count % 10 === 0) console.log(`[chunk] #${count}`);
@@ -115,6 +120,8 @@ app.post('/api/chat', async (req, res) => {
 
     console.log('[chat] done, chunks:', count);
     clearInterval(keepalive);
+
+    if (closed || res.writableEnded) return;
 
     if (!text) {
       send('error', { message: 'No response' });

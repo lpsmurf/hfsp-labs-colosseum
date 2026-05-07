@@ -56,6 +56,19 @@ function getPlatformWallet(): PublicKey {
   return new PublicKey(addr);
 }
 
+async function getSolPriceUsd(): Promise<number> {
+  try {
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+      { headers: { Accept: 'application/json' } }
+    );
+    const data = (await response.json()) as { solana?: { usd?: number } };
+    return data.solana?.usd ?? 150;
+  } catch {
+    return 150;
+  }
+}
+
 /**
  * Check if tx_signature already used (double-spend protection)
  */
@@ -84,6 +97,7 @@ function toNativeAmount(usdAmount: number, token: string, solPriceUsd: number): 
 export async function verifyPayment(
   txSignature: string,
   expectedTier: string,
+  expectedToken: string,
 ): Promise<PaymentVerification> {
   try {
     // 1. Check double-spend
@@ -97,68 +111,59 @@ export async function verifyPayment(
       return { valid: false, token: '', amount: '0', amountUsd: 0, recipient: '', sender: '', error: `Unknown tier: ${expectedTier}` };
     }
 
-    const connection = getConnection();
-    const recipient = getPlatformWallet();
-
-    // 3. Try SOL first, then SPL tokens
-    let verificationError: string | null = null;
-
-    for (const [tokenSymbol, mint] of Object.entries(SUPPORTED_MINTS)) {
-      if (!mint || (tokenSymbol === 'HERD' && !mint)) continue;
-
-      try {
-        const amount = toNativeAmount(tierPriceUsd, tokenSymbol, 150); // fallback SOL price
-
-        const validateOpts: {
-          recipient: PublicKey;
-          amount: BigNumber;
-          splToken?: PublicKey;
-        } = { recipient, amount };
-
-        if (tokenSymbol !== 'SOL') {
-          validateOpts.splToken = new PublicKey(mint);
-        }
-
-        // Cast to any due to @solana/pay expecting Rpc<GetTransactionApi> from web3.js v2
-        // while we use Connection from v1.x — the runtime behavior is identical
-        const result = await validateTransfer(
-          connection as any,
-          txSignature as any,
-          validateOpts as any
-        );
-
-        // validateTransfer returns the parsed transfer info on success
-        if (result) {
-          const amountInTokenUnits = tokenSymbol === 'SOL'
-            ? amount.dividedBy(10 ** TOKEN_DECIMALS.SOL).toNumber()
-            : amount.dividedBy(10 ** (TOKEN_DECIMALS[tokenSymbol] ?? 6)).toNumber();
-
-          return {
-            valid: true,
-            token: tokenSymbol,
-            amount: amountInTokenUnits.toString(),
-            amountUsd: tierPriceUsd,
-            recipient: recipient.toBase58(),
-            sender: 'unknown', // @solana/pay doesn't expose sender in result
-          };
-        }
-      } catch (err) {
-        // This token didn't match, try next
-        verificationError = err instanceof Error ? err.message : 'Verification failed';
-        continue;
-      }
+    const tokenSymbol = expectedToken.toUpperCase();
+    const mint = SUPPORTED_MINTS[tokenSymbol];
+    if (!mint || (tokenSymbol === 'HERD' && !mint)) {
+      return { valid: false, token: '', amount: '0', amountUsd: 0, recipient: '', sender: '', error: `Unsupported token: ${expectedToken}` };
     }
 
-    // 4. No matching transfer found
-    return {
-      valid: false,
-      token: '',
-      amount: '0',
-      amountUsd: 0,
-      recipient: recipient.toBase58(),
-      sender: '',
-      error: verificationError || `No valid transfer to platform wallet (${recipient.toBase58()}) found`,
-    };
+    const connection = getConnection();
+    const recipient = getPlatformWallet();
+    const solPriceUsd = tokenSymbol === 'SOL' ? await getSolPriceUsd() : 150;
+    const amount = toNativeAmount(tierPriceUsd, tokenSymbol, solPriceUsd);
+
+    const validateOpts: {
+      recipient: PublicKey;
+      amount: BigNumber;
+      splToken?: PublicKey;
+    } = { recipient, amount };
+
+    if (tokenSymbol !== 'SOL') {
+      validateOpts.splToken = new PublicKey(mint);
+    }
+
+    try {
+      // Cast to any due to @solana/pay expecting Rpc<GetTransactionApi> from web3.js v2
+      // while we use Connection from v1.x — the runtime behavior is identical
+      await validateTransfer(
+        connection as any,
+        txSignature as any,
+        validateOpts as any
+      );
+
+      const amountInTokenUnits = tokenSymbol === 'SOL'
+        ? amount.dividedBy(10 ** TOKEN_DECIMALS.SOL).toNumber()
+        : amount.dividedBy(10 ** (TOKEN_DECIMALS[tokenSymbol] ?? 6)).toNumber();
+
+      return {
+        valid: true,
+        token: tokenSymbol,
+        amount: amountInTokenUnits.toString(),
+        amountUsd: tierPriceUsd,
+        recipient: recipient.toBase58(),
+        sender: 'unknown', // @solana/pay doesn't expose sender in result
+      };
+    } catch (err) {
+      return {
+        valid: false,
+        token: '',
+        amount: '0',
+        amountUsd: 0,
+        recipient: recipient.toBase58(),
+        sender: '',
+        error: err instanceof Error ? err.message : 'Verification failed',
+      };
+    }
   } catch (err) {
     return {
       valid: false,

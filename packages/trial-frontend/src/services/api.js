@@ -142,12 +142,12 @@ class PlatformApiClient {
     localStorage.removeItem('platformUser');
   }
 
-  async loginWithWallet(walletAddress, signature, message) {
-    const res = await axios.post('/api/platform/auth/login', {
-      walletAddress,
-      signature,
-      message,
-    });
+    async loginWithWallet(walletAddress, signature, message) {
+        const res = await axios.post('/api/platform/auth/login', {
+            wallet_address: walletAddress,
+            signature,
+            message,
+        });
     this.setToken(res.data.token, res.data.expires_in);
     localStorage.setItem('platformUser', JSON.stringify(res.data.user));
     return res.data;

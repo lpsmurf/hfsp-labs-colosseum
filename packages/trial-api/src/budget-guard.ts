@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.SQLITE_PATH ?? path.join(__dirname, '../data/quota.sqlite');
+const DB_PATH = process.env.TRIAL_DB_PATH ?? process.env.SQLITE_PATH ?? path.join(__dirname, '../data/quota.sqlite');
 
 const DAILY_CAP = parseFloat(process.env.TRIAL_DAILY_BUDGET_USD ?? '50');
 

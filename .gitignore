@@ -8,6 +8,10 @@ pnpm-lock.yaml
 .env
 .env.local
 .env.*.local
+.env.production
+*.pem
+*.key
+**/.clawdrop/
 
 # Build outputs
 dist/
@@ -22,6 +26,7 @@ out/
 *.swp
 *.swo
 *~
+*.bak
 .DS_Store
 
 # OS
@@ -70,5 +75,4 @@ venv/
 .internal/sessions/*.log
 .internal/sessions/*.tmp
 .internal/**/*.tmp
-.env.production
 *.sqlite

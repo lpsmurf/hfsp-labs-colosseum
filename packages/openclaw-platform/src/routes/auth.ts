@@ -2,9 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import { PublicKey } from '@solana/web3.js';
+import { ed25519 } from '@noble/curves/ed25519';
 import { db } from '../db/index.js';
 
 const router = Router();
+const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
 if (!JWT_SECRET) {
@@ -12,21 +15,47 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+function decodeSignature(signature: string): Uint8Array | null {
+  if (/^[0-9a-fA-F]{128}$/.test(signature)) {
+    return Uint8Array.from(Buffer.from(signature, 'hex'));
+  }
+
+  try {
+    const decoded = Uint8Array.from(Buffer.from(signature, 'base64'));
+    return decoded.length === 64 ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function verifyWalletSignature(walletAddress: string, signature: string, message: string): boolean {
+  if (!message.startsWith('Sign in to Openclaw')) return false;
+
+  const signatureBytes = decodeSignature(signature);
+  if (!signatureBytes) return false;
+
+  try {
+    const publicKey = new PublicKey(walletAddress);
+    const messageBytes = new TextEncoder().encode(message);
+    return ed25519.verify(signatureBytes, messageBytes, publicKey.toBytes());
+  } catch {
+    return false;
+  }
+}
+
 /**
  * POST /api/auth/login
  * Wallet-based JWT auth
  *
- * Body: { wallet_address: string, signature?: string }
+ * Body: { wallet_address: string, signature: string, message: string }
  * Response: { token: string, user: object }
- *
- * For MVP: signature verification is deferred. We trust the wallet address
- * from Phantom / wallet adapter. Production should verify the signature.
  */
 router.post('/login', async (req, res) => {
   const schema = z.object({
-    wallet_address: z.string().min(32).max(44),
-    signature: z.string().optional(),
-    message: z.string().optional(),
+    wallet_address: z.string().min(32).max(44).optional(),
+    walletAddress: z.string().min(32).max(44).optional(),
+    signature: z.string().min(64).max(128),
+    message: z.string().min(1).max(512),
   });
 
   const parse = schema.safeParse(req.body);
@@ -34,7 +63,14 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Invalid request', details: parse.error.format() });
   }
 
-  const { wallet_address } = parse.data;
+  const wallet_address = parse.data.wallet_address ?? parse.data.walletAddress;
+  if (!wallet_address) {
+    return res.status(400).json({ error: 'wallet_address is required' });
+  }
+
+  if (!verifyWalletSignature(wallet_address, parse.data.signature, parse.data.message)) {
+    return res.status(401).json({ error: 'Invalid wallet signature' });
+  }
 
   try {
     // Find or create user
@@ -58,10 +94,10 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { sub: user.id, wallet: wallet_address, tier: user.tier },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: TOKEN_TTL_SECONDS }
     );
 
-    res.json({ token, user });
+    res.json({ token, expires_in: TOKEN_TTL_SECONDS, user });
   } catch (err) {
     console.error('[auth/login] error:', err);
     res.status(500).json({ error: 'Internal server error' });

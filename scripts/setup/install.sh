@@ -29,12 +29,12 @@ done
 if [ ! -f "${INSTALL_DIR}/.env" ]; then
   cat > "${INSTALL_DIR}/.env" << 'EOF'
 # Clawdrop Configuration
-HELIUS_API_KEY=7297b07c-c4d0-46f4-b8f7-242c25005e9c
-HELIUS_DEVNET_RPC=https://devnet.helius-rpc.com/?api-key=7297b07c-c4d0-46f4-b8f7-242c25005e9c
-CLAWDROP_WALLET_ADDRESS=3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw
-CLAWDROP_FEE_WALLET=3TyBTeqqN5NpMicX6JXAVAHqUyYLqSNz4EMtQxM34yMw
+HELIUS_API_KEY=your_helius_api_key_here
+HELIUS_DEVNET_RPC=https://devnet.helius-rpc.com/?api-key=your_helius_api_key_here
+CLAWDROP_WALLET_ADDRESS=your_solana_wallet_address_here
+CLAWDROP_FEE_WALLET=your_solana_wallet_address_here
 HFSP_API_URL=http://localhost:3001
-HFSP_API_KEY=test-dev-key-12345
+HFSP_API_KEY=your_hfsp_api_key_here
 PORT=3000
 NODE_ENV=production
 EOF
