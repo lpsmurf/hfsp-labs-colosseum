@@ -29,6 +29,9 @@ services:
     build:
       context: packages/trial-frontend
       dockerfile: Dockerfile
+      args:
+        VITE_PLATFORM_WALLET: ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL
+        VITE_SOLANA_RPC_URL: https://mainnet.helius-rpc.com/?api-key=b72c1253-4c5d-441b-8b54-46b08d10d447
     container_name: clawdrop-trial-frontend
     ports:
       - "3000:3000"
