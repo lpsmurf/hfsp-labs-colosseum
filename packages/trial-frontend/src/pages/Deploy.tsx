@@ -75,6 +75,7 @@ export function Deploy() {
 
   // Agent config
   const [agentName, setAgentName] = useState('')
+  const [telegramBotToken, setTelegramBotToken] = useState('')
 
   // Deploy state
   const [deployedAgentId, setDeployedAgentId] = useState('')
@@ -140,6 +141,7 @@ export function Deploy() {
     const llmErr = validateLlm()
     if (llmErr) { setDeployError(llmErr); return }
     if (!agentName.trim()) { setDeployError('Agent name is required'); return }
+    if (!telegramBotToken.trim()) { setDeployError('Telegram bot token is required'); return }
 
     setDeployError('')
     setDeployStatus(null)
@@ -148,6 +150,7 @@ export function Deploy() {
       const agent = await platformClient.deployAgent({
         name: agentName.trim(),
         llm_provider: llmProvider,
+        telegram_bot_token: telegramBotToken.trim(),
         ...(llmProvider === 'byok' ? {
           llm_model: byokModel,
           provider_name: byokProvider,
@@ -477,6 +480,13 @@ export function Deploy() {
                 placeholder="My Solana Agent"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telegram Bot Token *</label>
+              <input type="password" value={telegramBotToken} onChange={(e) => setTelegramBotToken(e.target.value)}
+                placeholder="123456789:ABCdef..."
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm" />
+              <p className="mt-1 text-xs text-gray-400">Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="underline text-blue-400">@BotFather</a> and paste the token here.</p>
+            </div>
 
             {/* Summary */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 space-y-2 text-sm">
@@ -500,7 +510,7 @@ export function Deploy() {
                 className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium">
                 ← Back
               </button>
-              <button onClick={() => void handleDeploy()} disabled={!agentName.trim()}
+              <button onClick={() => void handleDeploy()} disabled={!agentName.trim() || !telegramBotToken.trim()}
                 className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold">
                 🚀 Deploy Now
               </button>

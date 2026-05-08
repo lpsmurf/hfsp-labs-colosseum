@@ -134,6 +134,7 @@ export interface DeployAgentPayload {
   provider_name?: string;
   api_key?: string;
   custom_endpoint?: string;
+  telegram_bot_token: string;
 }
 
 export interface TokenUsage {
