@@ -1,13 +1,14 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
+
+ARG VITE_PLATFORM_WALLET
+ARG VITE_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
 RUN npm ci --production=false
 
-# Copy source
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.node.json ./
 COPY vite.config.ts ./
 COPY postcss.config.js ./
 COPY tailwind.config.js ./
@@ -15,18 +16,14 @@ COPY index.html ./
 COPY public ./public
 COPY src ./src
 
-# Build
+RUN echo "VITE_PLATFORM_WALLET=${VITE_PLATFORM_WALLET}" > .env && \
+    echo "VITE_SOLANA_RPC_URL=${VITE_SOLANA_RPC_URL}" >> .env
+
 RUN npm run build
 
-# ── Runtime ──────────────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
-
-# Install serve to run the SPA
 RUN npm install -g serve
-
-# Copy built assets from builder
-COPY --from=0 /app/dist ./dist
-
+COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 CMD ["serve", "-s", "dist", "-l", "3000"]
