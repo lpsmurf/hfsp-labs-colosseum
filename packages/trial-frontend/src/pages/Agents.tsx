@@ -1,230 +1,235 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { platformClient } from '../services/api'
-import type { PlatformAgent, PlatformAgentStatus } from '../types/api'
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { platformClient } from '../services/api';
+import type { PlatformAgent } from '../types/api';
+import { QuickDeployModal } from '../components/QuickDeployModal';
 
-type FilterStatus = 'all' | PlatformAgentStatus
-
-const STATUS_LABELS: Record<PlatformAgentStatus, string> = {
-  deploying: 'Deploying',
-  active: 'Active',
-  stopped: 'Stopped',
-  failed: 'Failed',
+function truncate(addr: string, n = 4) {
+  return addr.length > n * 2 + 3 ? `${addr.slice(0, n)}…${addr.slice(-n)}` : addr;
 }
 
-const STATUS_COLORS: Record<PlatformAgentStatus, string> = {
-  deploying: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  stopped: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-  failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
-const FILTER_PILLS: { label: string; value: FilterStatus }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Deploying', value: 'deploying' },
-  { label: 'Stopped', value: 'stopped' },
-  { label: 'Failed', value: 'failed' },
-]
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, { color: string; bg: string; dot: string; label: string }> = {
+    active:    { color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   dot: '#22c55e', label: 'Active' },
+    deploying: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  dot: '#f59e0b', label: 'Deploying' },
+    stopped:   { color: '#c7c4d8', bg: 'rgba(199,196,216,0.08)', dot: '#c7c4d8', label: 'Stopped' },
+    failed:    { color: '#ffb4ab', bg: 'rgba(255,180,171,0.12)', dot: '#ffb4ab', label: 'Failed' },
+  };
+  const s = map[status] ?? map.stopped;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full"
+          style={{ background: s.bg, color: s.color, fontFamily: "'JetBrains Mono',monospace", border: `1px solid ${s.color}30` }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
+      {s.label}
+    </span>
+  );
+}
 
-const LLM_LABEL: Record<string, string> = {
-  poly: 'Poly (managed)',
-  byok: 'BYOK',
-  custom: 'Custom endpoint',
+function AgentCard({ agent, onStop, onDelete }: { agent: PlatformAgent; onStop(): void; onDelete(): void }) {
+  return (
+    <div className="glass-card rounded-[24px] p-6 flex flex-col gap-5 relative overflow-hidden group">
+      {/* Subtle glow on hover */}
+      <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+           style={{ background: 'rgba(196,192,255,0.06)', filter: 'blur(32px)' }} />
+
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-[16px] font-bold" style={{ color: '#e4e1ee' }}>{agent.name}</h3>
+          <div className="text-[11px] mt-0.5" style={{ color: 'rgba(199,196,216,0.5)', fontFamily: "'JetBrains Mono',monospace" }}>
+            {truncate(agent.id, 6)}
+          </div>
+        </div>
+        <StatusPill status={agent.status} />
+      </div>
+
+      {/* Stats */}
+      <div className="space-y-3">
+        {/* Token usage */}
+        <div>
+          <div className="flex justify-between text-[11px] mb-1.5" style={{ color: 'rgba(199,196,216,0.6)', fontFamily: "'JetBrains Mono',monospace" }}>
+            <span>Token usage</span>
+            <span style={{ color: '#c4c0ff' }}>
+              {((agent.token_usage?.input_tokens ?? 0) + (agent.token_usage?.output_tokens ?? 0)).toLocaleString()} / {agent.tier === 'pro' ? '5M' : '1M'}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <div className="h-full rounded-full transition-all"
+                 style={{
+                   width: `${Math.min(100, ((agent.token_usage?.input_tokens ?? 0) + (agent.token_usage?.output_tokens ?? 0)) / (agent.tier === 'pro' ? 5_000_000 : 1_000_000) * 100)}%`,
+                   background: 'linear-gradient(90deg, #c4c0ff, #a2e7ff)',
+                 }} />
+          </div>
+        </div>
+
+        {/* LLM + last active */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="glass-card rounded-[12px] p-3">
+            <div className="text-[10px] mb-1" style={{ color: 'rgba(199,196,216,0.4)', fontFamily: "'JetBrains Mono',monospace" }}>LLM</div>
+            <div className="text-[12px]" style={{ color: '#c4c0ff', fontFamily: "'JetBrains Mono',monospace" }}>
+              {agent.llm_provider === 'poly' ? 'Poly' : agent.llm_provider}
+            </div>
+          </div>
+          <div className="glass-card rounded-[12px] p-3">
+            <div className="text-[10px] mb-1" style={{ color: 'rgba(199,196,216,0.4)', fontFamily: "'JetBrains Mono',monospace" }}>DEPLOYED</div>
+            <div className="text-[12px]" style={{ color: '#c7c4d8', fontFamily: "'JetBrains Mono',monospace" }}>
+              {agent.created_at ? timeAgo(agent.created_at) : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1">
+        {agent.status === 'active' ? (
+          <button onClick={onStop}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] transition-colors hover:bg-white/10"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#c7c4d8', fontFamily: "'JetBrains Mono',monospace" }}>
+            <span className="ms text-[14px]">pause</span> Pause
+          </button>
+        ) : (
+          <div className="flex-1" />
+        )}
+        <button onClick={onDelete}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] transition-colors hover:bg-red-500/10"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,180,171,0.7)', fontFamily: "'JetBrains Mono',monospace" }}>
+          <span className="ms text-[14px]">delete</span> Delete
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function Agents() {
-  const navigate = useNavigate()
-  const [agents, setAgents] = useState<PlatformAgent[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [filter, setFilter] = useState<FilterStatus>('all')
-  const [stopping, setStopping] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const qc = useQueryClient();
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchAgents = useCallback(async () => {
-    try {
-      const list = await platformClient.getAgents()
-      setAgents(list)
-      setError('')
-    } catch {
-      setError('Failed to load agents.')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const { data, isLoading, error } = useQuery<PlatformAgent[], Error>(
+    'platformAgents',
+    () => platformClient.getAgents(),
+    { refetchInterval: 10_000 }
+  );
 
-  useEffect(() => {
-    fetchAgents()
-    const interval = setInterval(fetchAgents, 5000)
-    return () => clearInterval(interval)
-  }, [fetchAgents])
+  const stopMutation = useMutation(
+    (id: string) => platformClient.stopAgent(id),
+    { onSuccess: () => qc.invalidateQueries('platformAgents') }
+  );
 
-  async function handleStop(id: string) {
-    setStopping(id)
-    try {
-      await platformClient.stopAgent(id)
-      setAgents((prev) => prev.map((a) => a.id === id ? { ...a, status: 'stopped' } : a))
-    } catch {
-      // re-fetch on error to get accurate state
-      fetchAgents()
-    } finally {
-      setStopping(null)
-    }
-  }
+  const deleteMutation = useMutation(
+    (id: string) => platformClient.stopAgent(id),
+    { onSuccess: () => { setDeletingId(null); qc.invalidateQueries('platformAgents'); } }
+  );
 
-  function formatDate(dateStr: string) {
-    try {
-      return new Date(dateStr).toLocaleDateString(undefined, {
-        month: 'short', day: 'numeric', year: 'numeric',
-      })
-    } catch {
-      return dateStr
-    }
-  }
-
-  const filtered = filter === 'all' ? agents : agents.filter((a) => a.status === filter)
+  const agents: PlatformAgent[] = data ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">My Agents</h1>
-        <button
-          onClick={() => { setIsLoading(true); fetchAgents() }}
-          className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
-          title="Refresh"
-        >
-          🔄
-        </button>
+    <div className="min-h-screen relative overflow-hidden" style={{ background: '#13121b' }}>
+      {/* Nebula */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full opacity-30"
+             style={{ background: '#c4c0ff20', filter: 'blur(100px)' }} />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full opacity-30"
+             style={{ background: '#a2e7ff15', filter: 'blur(100px)' }} />
       </div>
 
-      {/* Filter pills */}
-      <div className="px-4 py-3 flex gap-2 overflow-x-auto scrollbar-hide">
-        {FILTER_PILLS.map((pill) => (
-          <button
-            key={pill.value}
-            onClick={() => setFilter(pill.value)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              filter === pill.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-blue-400'
-            }`}
-          >
-            {pill.label}
+      <div className="relative z-10 max-w-5xl mx-auto px-8 py-12">
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-10">
+          <div>
+            <h1 className="text-[40px] font-bold" style={{ color: '#e4e1ee', letterSpacing: '-1.5px' }}>My Agents</h1>
+            <p className="text-[16px] mt-1" style={{ color: '#c7c4d8' }}>
+              {agents.length} agent{agents.length !== 1 ? 's' : ''} deployed
+            </p>
+          </div>
+          <button onClick={() => setDeployOpen(true)}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full font-bold text-[14px] hover:opacity-90 transition-opacity"
+                  style={{ background: 'linear-gradient(135deg,#c4c0ff,#4f44e2)', color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>
+            <span className="ms text-[20px]">add</span>
+            Deploy Agent
           </button>
-        ))}
-      </div>
+        </div>
 
-      <div className="px-4 pb-4">
         {/* Loading */}
         {isLoading && (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center justify-center py-24">
+            <div className="text-center">
+              <div className="w-10 h-10 rounded-full border-2 border-t-primary mx-auto mb-4 animate-spin-slow"
+                   style={{ borderColor: 'rgba(196,192,255,0.2)', borderTopColor: '#c4c0ff' }} />
+              <p className="text-[14px]" style={{ color: 'rgba(199,196,216,0.6)', fontFamily: "'JetBrains Mono',monospace" }}>Loading agents…</p>
+            </div>
           </div>
         )}
 
         {/* Error */}
         {error && !isLoading && (
-          <div className="text-center py-10">
-            <p className="text-red-500 text-sm mb-3">{error}</p>
-            <button
-              onClick={fetchAgents}
-              className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium"
-            >
-              Retry
+          <div className="glass-card rounded-[20px] p-6 text-center">
+            <span className="ms text-[40px] mb-3 block" style={{ color: '#ffb4ab' }}>error</span>
+            <p className="text-[16px]" style={{ color: '#ffb4ab' }}>Failed to load agents</p>
+            <p className="text-[13px] mt-1" style={{ color: 'rgba(199,196,216,0.5)', fontFamily: "'JetBrains Mono',monospace" }}>
+              {String(error instanceof Error ? error.message : 'Unknown error')}
+            </p>
+          </div>
+        )}
+
+        {/* Grid */}
+        {!isLoading && !error && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {agents.map(agent => (
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                onStop={() => stopMutation.mutate(agent.id)}
+                onDelete={() => setDeletingId(agent.id)}
+              />
+            ))}
+
+            {/* Empty slot / CTA */}
+            <button onClick={() => setDeployOpen(true)}
+                    className="rounded-[24px] flex flex-col items-center justify-center gap-3 py-16 transition-colors hover:bg-white/5"
+                    style={{ border: '2px dashed rgba(255,255,255,0.12)', color: 'rgba(199,196,216,0.4)' }}>
+              <span className="ms text-[40px]" style={{ color: 'rgba(196,192,255,0.4)' }}>add_circle</span>
+              <span className="text-[14px]" style={{ fontFamily: "'JetBrains Mono',monospace" }}>Deploy your {agents.length > 0 ? 'next' : 'first'} agent</span>
             </button>
           </div>
         )}
-
-        {/* Empty state */}
-        {!isLoading && !error && filtered.length === 0 && (
-          <div className="text-center py-16 space-y-4">
-            <p className="text-4xl">🤖</p>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {filter === 'all'
-                ? 'No agents yet. Deploy your first one!'
-                : `No agents with status "${STATUS_LABELS[filter as PlatformAgentStatus] ?? filter}".`}
-            </p>
-            {filter === 'all' && (
-              <button
-                onClick={() => navigate('/deploy')}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-colors"
-              >
-                🚀 Deploy First Agent
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Agent cards */}
-        {!isLoading && !error && filtered.length > 0 && (
-          <div className="space-y-3 mt-1">
-            {filtered.map((agent) => {
-              const isExpanded = expanded === agent.id
-              const isStopping = stopping === agent.id
-              return (
-                <div
-                  key={agent.id}
-                  className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 dark:text-white truncate">{agent.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {LLM_LABEL[agent.llm_provider] ?? agent.llm_provider}
-                        {agent.llm_model ? ` · ${agent.llm_model}` : ''}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        Created {formatDate(agent.created_at)}
-                      </p>
-                    </div>
-                    <span
-                      className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[agent.status] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
-                      {agent.status === 'deploying' && (
-                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse" />
-                      )}
-                      {STATUS_LABELS[agent.status] ?? agent.status}
-                    </span>
-                  </div>
-
-                  {/* Actions row */}
-                  <div className="mt-3 flex items-center gap-2">
-                    {agent.status === 'active' && (
-                      <button
-                        onClick={() => handleStop(agent.id)}
-                        disabled={isStopping}
-                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 disabled:opacity-50 transition-colors"
-                      >
-                        {isStopping ? 'Stopping…' : '⏹ Stop'}
-                      </button>
-                    )}
-                    {(agent.mcp_port || agent.agent_port) && (
-                      <button
-                        onClick={() => setExpanded(isExpanded ? null : agent.id)}
-                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                      >
-                        {isExpanded ? '▲ Hide ports' : '▼ Show ports'}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Expanded ports */}
-                  {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      {agent.mcp_port && <span>MCP port: <span className="font-mono text-gray-700 dark:text-gray-300">{agent.mcp_port}</span></span>}
-                      {agent.agent_port && <span>Agent port: <span className="font-mono text-gray-700 dark:text-gray-300">{agent.agent_port}</span></span>}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
-    </div>
-  )
-}
 
-export default Agents
+      {/* Delete confirm */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(7,7,15,0.8)', backdropFilter: 'blur(12px)' }}>
+          <div className="glass-card rounded-[24px] p-8 max-w-sm w-full text-center">
+            <span className="ms text-[48px] mb-4 block" style={{ color: '#ffb4ab' }}>warning</span>
+            <h3 className="text-[20px] font-bold mb-2" style={{ color: '#e4e1ee' }}>Delete this agent?</h3>
+            <p className="text-[14px] mb-6" style={{ color: '#c7c4d8' }}>
+              The container and all associated data will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingId(null)}
+                      className="flex-1 py-3 rounded-full text-[13px]"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#c7c4d8', fontFamily: "'JetBrains Mono',monospace" }}>
+                Cancel
+              </button>
+              <button onClick={() => deleteMutation.mutate(deletingId)}
+                      disabled={deleteMutation.isLoading}
+                      className="flex-1 py-3 rounded-full font-bold text-[13px] hover:opacity-90"
+                      style={{ background: 'rgba(239,68,68,0.8)', color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>
+                {deleteMutation.isLoading ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <QuickDeployModal open={deployOpen} onClose={() => { setDeployOpen(false); qc.invalidateQueries('platformAgents'); }} />
+    </div>
+  );
+}

@@ -2,105 +2,128 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
-}
-
-html, body, #root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Telegram Web App specific styles */
-body {
-  --tg-theme-bg-color: #ffffff;
-  --tg-theme-text-color: #000000;
-  --tg-theme-hint-color: #999999;
-  --tg-theme-link-color: #0088cc;
-  --tg-theme-button-color: #0088cc;
-  --tg-theme-button-text-color: #ffffff;
-  --tg-theme-secondary-bg-color: #f5f5f5;
-}
-
-body.dark {
-  --tg-theme-bg-color: #1e1e1e;
-  --tg-theme-text-color: #ffffff;
-  --tg-theme-hint-color: #999999;
-  --tg-theme-link-color: #6ab2f5;
-  --tg-theme-button-color: #0088cc;
-  --tg-theme-button-text-color: #ffffff;
-  --tg-theme-secondary-bg-color: #292929;
-}
-
-/* Loading animation */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Touch friendly sizes for mobile */
-button, input, select, textarea {
-  min-height: 48px;
-  touch-action: manipulation;
-}
-
-/* Safe area insets for notched devices */
-@supports (padding: max(0px)) {
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, #root { width: 100%; min-height: 100%; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
   body {
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
-    padding-top: max(12px, env(safe-area-inset-top));
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    font-family: Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: #13121b;
+    color: #e4e1ee;
+  }
+  /* Remove min-height from inputs so we can control per-component */
+  button, input, select, textarea { touch-action: manipulation; }
+
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
   }
 }
 
-/* Form input styling */
+@layer components {
+  /* Liquid glass surface */
+  .glass-card {
+    background-color: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(32px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 0.5px 0 0 rgba(255, 255, 255, 0.15);
+  }
+
+  /* Ultra-clear version for the chat window */
+  .liquid-glass {
+    background-color: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(48px) saturate(180%);
+    position: relative;
+  }
+
+  /* Iridescent border overlay */
+  .iridescent-border::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(196, 192, 255, 0.3) 0%,
+      rgba(162, 231, 255, 0.3) 25%,
+      rgba(255, 183, 133, 0.2) 50%,
+      rgba(196, 192, 255, 0.3) 75%,
+      rgba(162, 231, 255, 0.3) 100%
+    );
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: xor;
+    -webkit-mask-composite: destination-out;
+    pointer-events: none;
+  }
+
+  /* Glow utilities */
+  .glow-primary  { box-shadow: 0 0 20px rgba(196, 192, 255, 0.15); }
+  .glow-secondary { box-shadow: 0 0 20px rgba(162, 231, 255, 0.15); }
+
+  /* Material Symbols shorthand */
+  .ms {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    direction: ltr;
+    user-select: none;
+  }
+
+  /* Scrolling strip */
+  .scroll-content {
+    display: flex;
+    gap: 2rem;
+    animation: scroll-x 20s linear infinite;
+  }
+
+  /* Step progress indicator */
+  .step-dot {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step-dot-active   { background: linear-gradient(135deg, #c4c0ff, #4f44e2); color: #fff; }
+  .step-dot-done     { background: rgba(162, 231, 255, 0.2); border: 1px solid #a2e7ff; color: #a2e7ff; }
+  .step-dot-inactive { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: rgba(199,196,216,0.5); }
+}
+
+@layer utilities {
+  .pulse-secondary { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  .animate-spin-slow { animation: spin 1.5s linear infinite; }
+}
+
+/* Keyframes */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0    rgba(162, 231, 255, 0.4); }
+  70%  { box-shadow: 0 0 0 10px rgba(162, 231, 255, 0); }
+  100% { box-shadow: 0 0 0 0    rgba(162, 231, 255, 0); }
+}
+@keyframes scroll-x {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+/* Number input chrome */
 input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type=number] {
-  -moz-appearance: textfield;
-}
-
-/* Placeholder styling */
-::placeholder {
-  color: #9ca3af;
-}
-
-.dark ::placeholder {
-  color: #6b7280;
-}
-
-/* Selection styling */
-::selection {
-  background-color: #0088cc;
-  color: white;
-}
-
-.dark ::selection {
-  background-color: #0088cc;
-  color: white;
-}
+input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
