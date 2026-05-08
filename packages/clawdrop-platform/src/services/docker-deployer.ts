@@ -103,7 +103,7 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
       AGENT_ID: config.agentId,
       PLATFORM_URL: process.env.OPENCLAW_PLATFORM_URL ?? 'http://host.docker.internal:8788',
     }),
-    'openclaw/agent-runtime:latest',
+    'clawdrop/agent-runtime:latest',
   ]);
 
   return {

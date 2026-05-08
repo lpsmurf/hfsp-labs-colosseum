@@ -254,8 +254,17 @@ router.post('/quick-deploy', async (req, res) => {
       VALUES (?, ?, ?, ?)
     `).run(uuidv4(), agentId, pairCode, expiresAt);
 
-    // Derive bot handle from token for deeplink (token format: 123456:ABC...)
-    const botHandle = telegram_bot_token.split(':')[0];
+    // Resolve bot @username via Telegram getMe (numeric ID alone won't work as deeplink)
+    let botHandle = telegram_bot_token.split(':')[0];
+    try {
+      const getMeRes = await axios.get(
+        `https://api.telegram.org/bot${telegram_bot_token}/getMe`,
+        { timeout: 5000 }
+      );
+      botHandle = getMeRes.data?.result?.username ?? botHandle;
+    } catch {
+      // fallback to numeric ID (deeplink may not work, but we don't block deploy)
+    }
     res.status(202).json({
       success: true,
       agent_id: agentId,

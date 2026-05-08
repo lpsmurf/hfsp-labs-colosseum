@@ -6,7 +6,7 @@
     "category": "treasury",
     "price_sol": 5.0,
     "price_herd": 500.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "treasury-agent-pro",
@@ -15,7 +15,7 @@
     "category": "treasury",
     "price_sol": 8.5,
     "price_herd": 850.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "research-execution",
@@ -24,7 +24,7 @@
     "category": "research",
     "price_sol": 3.0,
     "price_herd": 300.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "research-execution-pro",
@@ -33,7 +33,7 @@
     "category": "research",
     "price_sol": 6.0,
     "price_herd": 600.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "wallet-policy-mgr",
@@ -42,7 +42,7 @@
     "category": "wallet",
     "price_sol": 2.0,
     "price_herd": 200.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "wallet-policy-enterprise",
@@ -51,7 +51,7 @@
     "category": "wallet",
     "price_sol": 4.5,
     "price_herd": 450.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "global-payout-agent",
@@ -60,7 +60,7 @@
     "category": "finance",
     "price_sol": 4.0,
     "price_herd": 400.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "payout-agent-plus",
@@ -69,7 +69,7 @@
     "category": "finance",
     "price_sol": 7.0,
     "price_herd": 700.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "portfolio-monitor",
@@ -78,7 +78,7 @@
     "category": "treasury",
     "price_sol": 1.5,
     "price_herd": 150.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   },
   {
     "id": "portfolio-monitor-pro",
@@ -87,6 +87,6 @@
     "category": "treasury",
     "price_sol": 3.5,
     "price_herd": 350.0,
-    "deployment_type": "openclaw"
+    "deployment_type": "clawdrop"
   }
 ]
