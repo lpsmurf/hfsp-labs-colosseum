@@ -201,6 +201,12 @@ router.post('/quick-deploy', async (req, res) => {
   const userId = wallet; // Use wallet as user identifier
 
   try {
+    // 0. Upsert user row — wallet is the identity for quick-deploy
+    db().prepare(`
+      INSERT OR IGNORE INTO users (id, wallet_address, tier)
+      VALUES (?, ?, 'starter')
+    `).run(userId, wallet);
+
     // 1. Verify payment on-chain
     const verification = await verifyPayment(tx_hash, tier, 'SOL');
     if (!verification.valid) {

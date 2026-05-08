@@ -77,31 +77,43 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  res.write(': connected\n\n');
+  // Disable Nagle's algorithm so small SSE chunks are sent immediately
+  const sock = (res as unknown as { socket?: { setNoDelay?(v: boolean): void } }).socket;
+  sock?.setNoDelay?.(true);
+
+  const flush = () => {
+    try { (res as unknown as { flush?(): void }).flush?.(); } catch { /* noop */ }
+  };
+
+  const writeSSE = (line: string) => {
+    if (!res.writableEnded) { res.write(line); flush(); }
+  };
+
+  writeSSE(': connected\n\n');
 
   const send = (event: string, data: unknown) => {
     try {
-      if (!res.writableEnded) {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      }
+      writeSSE(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     } catch (e) {
       console.log('[send-err]', e instanceof Error ? e.message : e);
     }
   };
 
   let closed = false;
-  req.on('close', () => { closed = true; console.log('[req] closed'); });
+  // Use res.on('close') — req.on('close') fires on body consumption in Node 20 (autoDestroy)
+  res.on('close', () => { closed = true; console.log('[client] disconnected'); });
 
   const keepalive = setInterval(() => {
     try {
-      if (!closed && !res.writableEnded) res.write(': keep-alive\n\n');
+      if (!closed && !res.writableEnded) writeSSE(': keep-alive\n\n');
     } catch (e) { /* ignore */ }
-  }, 1000);
+  }, 15000);
 
   try {
+    const streamStart = Date.now();
     console.log('[chat] calling poly.stream');
     const stream = await poly.stream(parse.data.message);
-    console.log('[chat] got stream');
+    console.log('[chat] got stream after', Date.now()-streamStart, 'ms');
 
     let text = '';
     let count = 0;
