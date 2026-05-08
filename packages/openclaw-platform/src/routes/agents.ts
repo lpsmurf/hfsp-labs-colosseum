@@ -227,11 +227,22 @@ router.post('/quick-deploy', async (req, res) => {
       VALUES (?, ?, ?, 'deploying', 'docker', 'poly', 'anthropic/claude-haiku-4.5')
     `).run(agentId, userId, `poly-${tier}`);
 
+    // 5. Pre-generate pair code so deeplink is available immediately
+    const pairCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    db().prepare(`
+      INSERT INTO telegram_pairings (id, agent_id, pair_code, expires_at)
+      VALUES (?, ?, ?, ?)
+    `).run(uuidv4(), agentId, pairCode, expiresAt);
+
+    const botHandle = process.env.TELEGRAM_BOT_HANDLE ?? 'ClawdropPoly_bot';
     res.status(202).json({
       success: true,
       agent_id: agentId,
       credits_usd: creditsUsd,
       status: 'deploying',
+      telegram_deeplink: `https://t.me/${botHandle}?start=${pairCode}`,
+      pair_code: pairCode,
     });
 
     // Async deploy
@@ -251,15 +262,7 @@ router.post('/quick-deploy', async (req, res) => {
           WHERE id = ?
         `).run(result.mcpPort, result.agentPort, result.agentContainerId, agentId);
 
-        // 5. Generate pair code + store
-        const pairCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-        db().prepare(`
-          INSERT INTO telegram_pairings (id, agent_id, pair_code, expires_at)
-          VALUES (?, ?, ?, ?)
-        `).run(uuidv4(), agentId, pairCode, expiresAt.toISOString());
-
-        console.log(`[agents/quick-deploy] agent ${agentId} active on ports ${result.mcpPort}/${result.agentPort}`);
+        console.log(`[agents/quick-deploy] agent ${agentId} active, pair_code ${pairCode}`);
       } catch (deployErr) {
         console.error(`[agents/quick-deploy] deploy failed for agent ${agentId}:`, deployErr);
         db().prepare("UPDATE agents SET status = 'failed' WHERE id = ?").run(agentId);
