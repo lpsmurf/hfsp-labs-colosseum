@@ -38,12 +38,14 @@ export interface DeployResult {
 }
 
 export interface AgentConfig {
+  agentId: string;
   userId: string;
   heliusApiKey: string;
   llmProvider: 'poly' | 'byok' | 'custom';
   llmModel?: string;
   llmApiKey?: string;
   customEndpoint?: string;
+  telegramBotToken?: string;
 }
 
 export async function deployStarter(config: AgentConfig): Promise<DeployResult> {
@@ -97,8 +99,11 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
       LLM_MODEL: config.llmModel,
       LLM_API_KEY: config.llmApiKey,
       CUSTOM_ENDPOINT: config.customEndpoint,
+      TELEGRAM_BOT_TOKEN: config.telegramBotToken,
+      AGENT_ID: config.agentId,
+      PLATFORM_URL: process.env.OPENCLAW_PLATFORM_URL ?? 'http://host.docker.internal:8788',
     }),
-    'openclaw/agent-runtime:latest',
+    'clawdrop/agent-runtime:latest',
   ]);
 
   return {

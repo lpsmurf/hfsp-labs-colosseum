@@ -23,7 +23,7 @@ export async function createUserKey(
 ): Promise<{ keyHash: string; key: string }> {
   const res = await axios.post(
     `${OPENROUTER_BASE}/keys`,
-    { name: `openclaw-${userId}-${Date.now()}`, limit: limitUsd },
+    { name: `clawdrop-${userId}-${Date.now()}`, limit: limitUsd },
     { headers: authHeaders(), timeout: 15000 }
   );
 

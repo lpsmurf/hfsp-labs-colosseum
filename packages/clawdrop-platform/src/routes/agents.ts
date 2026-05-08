@@ -130,6 +130,7 @@ router.post('/deploy', async (req, res) => {
       try {
         const heliusKey = process.env.HELIUS_API_KEY ?? '';
         const result = await deployStarter({
+          agentId,
           userId,
           heliusApiKey: heliusKey,
           llmProvider: llm_provider,
@@ -185,6 +186,10 @@ router.post('/quick-deploy', async (req, res) => {
     wallet: z.string().min(32).max(44),
     tx_hash: z.string().min(1),
     tier: z.string().min(1),
+    telegram_bot_token: z.string().regex(/^\d+:[A-Za-z0-9_-]{35,}$/, 'Invalid bot token format'),
+    llm_provider: z.enum(['poly', 'byok', 'custom']).optional().default('poly'),
+    llm_model: z.string().optional(),
+    llm_api_key: z.string().optional(),
   });
 
   const parse = bodySchema.safeParse(req.body);
@@ -192,7 +197,7 @@ router.post('/quick-deploy', async (req, res) => {
     return res.status(400).json({ error: 'Invalid request', details: parse.error.format() });
   }
 
-  const { wallet, tx_hash, tier } = parse.data;
+  const { wallet, tx_hash, tier, telegram_bot_token, llm_provider, llm_model, llm_api_key } = parse.data;
   const userId = wallet; // Use wallet as user identifier
 
   try {
@@ -217,17 +222,31 @@ router.post('/quick-deploy', async (req, res) => {
     const solPaid = parseFloat(verification.amount) || 0;
     const creditsUsd = Math.max(1, parseFloat((solPaid * solPriceUsd).toFixed(2)));
 
-    // 3. Create OpenRouter child key
-    const { keyHash, key: childKey } = await createUserKey(userId, creditsUsd);
+    // 3. Create OpenRouter child key (Poly mode) or use BYOK key
+    let childKey: string | undefined;
+    if (llm_provider === 'poly') {
+      const or = await createUserKey(userId, creditsUsd);
+      childKey = or.key;
+    } else if (llm_api_key) {
+      childKey = llm_api_key;
+    }
 
-    // 4. Deploy container with Poly defaults
+    // 4. Encrypt and store Telegram bot token
+    const tokenVault = encrypt(telegram_bot_token);
+    db().prepare(`
+      INSERT INTO api_keys (id, user_id, provider, encrypted_key, iv)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(uuidv4(), userId, 'telegram', tokenVault.encrypted, tokenVault.iv);
+
+    // 5. Deploy container
     const agentId = uuidv4();
+    const resolvedModel = llm_model ?? (llm_provider === 'poly' ? 'anthropic/claude-haiku-4.5' : undefined);
     db().prepare(`
       INSERT INTO agents (id, user_id, name, status, deploy_type, llm_provider, llm_model)
-      VALUES (?, ?, ?, 'deploying', 'docker', 'poly', 'anthropic/claude-haiku-4.5')
-    `).run(agentId, userId, `poly-${tier}`);
+      VALUES (?, ?, ?, 'deploying', 'docker', ?, ?)
+    `).run(agentId, userId, `${llm_provider}-${tier}`, llm_provider, resolvedModel);
 
-    // 5. Pre-generate pair code so deeplink is available immediately
+    // 6. Pre-generate pair code so deeplink is available immediately
     const pairCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     db().prepare(`
@@ -235,7 +254,17 @@ router.post('/quick-deploy', async (req, res) => {
       VALUES (?, ?, ?, ?)
     `).run(uuidv4(), agentId, pairCode, expiresAt);
 
-    const botHandle = process.env.TELEGRAM_BOT_HANDLE ?? 'ClawdropPoly_bot';
+    // Resolve bot @username via Telegram getMe (numeric ID alone won't work as deeplink)
+    let botHandle = telegram_bot_token.split(':')[0];
+    try {
+      const getMeRes = await axios.get(
+        `https://api.telegram.org/bot${telegram_bot_token}/getMe`,
+        { timeout: 5000 }
+      );
+      botHandle = getMeRes.data?.result?.username ?? botHandle;
+    } catch {
+      // fallback to numeric ID (deeplink may not work, but we don't block deploy)
+    }
     res.status(202).json({
       success: true,
       agent_id: agentId,
@@ -249,11 +278,13 @@ router.post('/quick-deploy', async (req, res) => {
     void (async () => {
       try {
         const result = await deployStarter({
+          agentId,
           userId,
           heliusApiKey: process.env.HELIUS_API_KEY ?? '',
-          llmProvider: 'poly',
-          llmModel: 'anthropic/claude-haiku-4.5',
+          llmProvider: llm_provider,
+          llmModel: resolvedModel,
           llmApiKey: childKey,
+          telegramBotToken: telegram_bot_token,
         });
 
         db().prepare(`
@@ -270,6 +301,39 @@ router.post('/quick-deploy', async (req, res) => {
     })();
   } catch (err) {
     console.error('[agents/quick-deploy]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/agents/:id/pair — pair a Telegram chat with an agent
+router.patch('/:id/pair', async (req, res) => {
+  const bodySchema = z.object({
+    pair_code: z.string().min(1),
+    chat_id: z.number().int(),
+  });
+
+  const parse = bodySchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parse.error.format() });
+  }
+
+  const { pair_code, chat_id } = parse.data;
+
+  try {
+    const row = db().prepare(
+      "SELECT * FROM telegram_pairings WHERE agent_id = ? AND pair_code = ? AND expires_at > datetime('now') AND chat_id IS NULL"
+    ).get(req.params.id, pair_code) as Record<string, unknown> | undefined;
+
+    if (!row) {
+      return res.status(404).json({ error: 'Invalid or expired pair code' });
+    }
+
+    db().prepare("UPDATE telegram_pairings SET chat_id = ?, paired_at = datetime('now') WHERE id = ?")
+      .run(chat_id, row.id);
+
+    res.json({ success: true, chat_id });
+  } catch (err) {
+    console.error('[agents/pair]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
