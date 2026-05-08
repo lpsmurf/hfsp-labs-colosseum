@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import axios from 'axios';
+import { Bot } from 'grammy';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
@@ -17,6 +18,9 @@ const LLM_MODEL = process.env.LLM_MODEL ?? 'anthropic/claude-haiku-4.5';
 const LLM_BASE_URL = process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1';
 const HEALTH_PORT = parseInt(process.env.HEALTH_PORT ?? '3999', 10);
 const APP_PORT = parseInt(process.env.APP_PORT ?? '3998', 10);
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
+const PLATFORM_URL = process.env.PLATFORM_URL ?? 'http://host.docker.internal:8788';
+const AGENT_ID = process.env.AGENT_ID ?? '';
 
 // ─── Poly System Prompt ─────────────────────────────────────────────────────
 
@@ -241,6 +245,59 @@ async function handleMessage(text: string, chatId: string): Promise<string> {
   return result.reply;
 }
 
+// ─── Telegram Bot ───────────────────────────────────────────────────────────
+
+let pairedChatId: number | null = null;
+
+async function startTelegramBot() {
+  if (!TELEGRAM_BOT_TOKEN) return;
+
+  const bot = new Bot(TELEGRAM_BOT_TOKEN);
+
+  bot.command('start', async (ctx) => {
+    const pairCode = ctx.match?.trim().toUpperCase();
+    const chatId = ctx.chat.id;
+
+    if (!pairCode) {
+      return ctx.reply('Send /start {pair_code} to activate this agent.');
+    }
+
+    // Already paired to a different chat
+    if (pairedChatId && pairedChatId !== chatId) {
+      return ctx.reply('This bot is private. Contact the owner.');
+    }
+
+    // Register pairing with platform
+    try {
+      await axios.patch(`${PLATFORM_URL}/api/agents/${AGENT_ID}/pair`, {
+        pair_code: pairCode,
+        chat_id: chatId,
+      });
+      pairedChatId = chatId;
+      await ctx.reply('✅ Poly is live. Ask me anything about Solana.');
+    } catch {
+      await ctx.reply('Invalid or expired pair code.');
+    }
+  });
+
+  bot.on('message:text', async (ctx) => {
+    if (!pairedChatId || ctx.chat.id !== pairedChatId) {
+      return ctx.reply('This bot is private.');
+    }
+    const chatId = String(ctx.chat.id);
+    const text = ctx.message.text;
+    try {
+      const reply = await handleMessage(text, chatId);
+      await ctx.reply(reply);
+    } catch {
+      await ctx.reply('Sorry, something went wrong.');
+    }
+  });
+
+  bot.start();
+  console.log('[agent] Telegram bot started');
+}
+
 // ─── Express Server ─────────────────────────────────────────────────────────
 
 const app = express();
@@ -303,6 +360,7 @@ if (HEALTH_PORT !== APP_PORT) {
 async function main() {
   try {
     await initMcp();
+    await startTelegramBot();
   } catch (err) {
     console.error('[agent] MCP init failed, retrying in 10s:', (err as Error).message);
     setTimeout(main, 10000);
