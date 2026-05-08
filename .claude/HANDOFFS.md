@@ -1463,3 +1463,286 @@ Steps (fail-fast, in order):
 - Conversation history: per-agent sqlite or central `openclaw.sqlite`?
 - Telegram spam rate-limit (coordinate with Kimi before adding)
 
+
+---
+
+## 2026-05-08 — CLAUDE → KIMI (Phase 3 BYOT + QuickDeploy Wizard)
+
+**Branch to create:** `kimi/byot-wizard`
+**Commit prefix:** `[kimi]`
+**Do NOT touch:** existing `Deploy.tsx` wizard, `token-tracker.ts`, `clawdrop-mcp-server/`
+
+---
+
+### Part A — Phase 3 revised: BYOT Telegram pairing
+
+**Why it changed:** Single shared bot requires us to hold a bot token and do `chat_id → user_id → container` routing. BYOT gives each user a dedicated bot — simpler, more private, no cross-user routing.
+
+**Pairing still needed for two reasons:**
+1. Lock the bot to owner's chat only (anyone who finds the username can't drain credits)
+2. Record owner's `chat_id` so agent can send proactive alerts
+
+**Pairing flow:**
+```
+quick-deploy response includes pair_code (already exists in DB)
+    ↓
+user sends /start {pair_code} to their own bot
+    ↓
+bot verifies pair_code exists + not expired → stores chat_id → marks paired
+    ↓
+all messages from that chat_id → agent loop
+anyone else → "This bot is private. Contact the owner."
+```
+
+---
+
+#### Backend changes
+
+**1. Update `POST /agents/quick-deploy` in `routes/agents.ts`**
+
+Add `telegram_bot_token` to the request body schema:
+```ts
+const bodySchema = z.object({
+  wallet: z.string().min(32).max(44),
+  tx_hash: z.string().min(1),
+  tier: z.string().min(1),
+  telegram_bot_token: z.string().regex(/^\d+:[A-Za-z0-9_-]{35,}$/, 'Invalid bot token format'),
+  // Dev mode extras (optional — Poly auto uses defaults)
+  llm_provider: z.enum(['poly', 'byok', 'custom']).optional().default('poly'),
+  llm_model: z.string().optional(),
+  llm_api_key: z.string().optional(),
+});
+```
+
+Encrypt + store `telegram_bot_token` in `api_keys` table (provider = `'telegram'`):
+```ts
+const tokenVault = encrypt(telegram_bot_token);
+db().prepare(`INSERT INTO api_keys (id, user_id, provider, encrypted_key, iv) VALUES (?,?,?,?,?)`)
+  .run(uuidv4(), userId, 'telegram', tokenVault.encrypted, tokenVault.iv);
+```
+
+Pass to `deployStarter()` as env var (add `telegramBotToken` to `AgentConfig`):
+```ts
+await deployStarter({
+  ...existingConfig,
+  telegramBotToken: telegram_bot_token, // raw, for container injection only
+});
+```
+
+**2. Update `docker-deployer.ts`**
+
+Add `telegramBotToken?: string` to `AgentConfig` interface.
+Inject into agent container run command:
+```ts
+'-e', `TELEGRAM_BOT_TOKEN=${config.telegramBotToken}`,
+```
+
+**3. Update `telegram_pairings` table** (add `chat_id` column for storing after pairing):
+```sql
+ALTER TABLE telegram_pairings ADD COLUMN chat_id INTEGER;
+ALTER TABLE telegram_pairings ADD COLUMN paired_at TEXT;
+```
+Add as migration in `db/index.ts` (use `ALTER TABLE IF NOT EXISTS` pattern or just add to the CREATE statement if table is new).
+
+**4. New endpoint: `PATCH /agents/:id/pair`**
+
+Called by the agent container when `/start {pair_code}` received:
+```ts
+router.patch('/:id/pair', async (req, res) => {
+  const { pair_code, chat_id } = req.body;
+  const row = db().prepare(
+    "SELECT * FROM telegram_pairings WHERE agent_id = ? AND pair_code = ? AND expires_at > datetime('now') AND chat_id IS NULL"
+  ).get(req.params.id, pair_code);
+  if (!row) return res.status(404).json({ error: 'Invalid or expired pair code' });
+  db().prepare("UPDATE telegram_pairings SET chat_id = ?, paired_at = datetime('now') WHERE id = ?")
+    .run(chat_id, row.id);
+  res.json({ success: true, chat_id });
+});
+```
+
+---
+
+#### Agent runtime changes (`packages/openclaw-agent-runtime/src/agent.ts`)
+
+**Install:** `npm install grammy` in `packages/openclaw-agent-runtime`
+
+Add Telegram bot alongside the existing `/message` HTTP endpoint:
+
+```ts
+import { Bot } from 'grammy';
+
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
+const PLATFORM_URL = process.env.PLATFORM_URL ?? 'http://localhost:8788';
+const AGENT_ID = process.env.AGENT_ID ?? '';
+
+let pairedChatId: number | null = null;
+
+async function startTelegramBot() {
+  if (!TELEGRAM_BOT_TOKEN) return;
+
+  const bot = new Bot(TELEGRAM_BOT_TOKEN);
+
+  bot.command('start', async (ctx) => {
+    const pairCode = ctx.match?.trim().toUpperCase();
+    const chatId = ctx.chat.id;
+
+    if (!pairCode) {
+      return ctx.reply('Send /start {pair_code} to activate this agent.');
+    }
+
+    // Already paired to a different chat
+    if (pairedChatId && pairedChatId !== chatId) {
+      return ctx.reply('This bot is private. Contact the owner.');
+    }
+
+    // Register pairing with platform
+    try {
+      await axios.patch(`${PLATFORM_URL}/api/agents/${AGENT_ID}/pair`, {
+        pair_code: pairCode,
+        chat_id: chatId,
+      });
+      pairedChatId = chatId;
+      await ctx.reply('✅ Poly is live. Ask me anything about Solana.');
+    } catch {
+      await ctx.reply('Invalid or expired pair code.');
+    }
+  });
+
+  bot.on('message:text', async (ctx) => {
+    if (!pairedChatId || ctx.chat.id !== pairedChatId) {
+      return ctx.reply('This bot is private.');
+    }
+    const chatId = String(ctx.chat.id);
+    const text = ctx.message.text;
+    try {
+      const reply = await handleMessage(chatId, text); // existing /message logic
+      await ctx.reply(reply);
+    } catch {
+      await ctx.reply('Sorry, something went wrong.');
+    }
+  });
+
+  bot.start();
+  console.log('[agent] Telegram bot started');
+}
+```
+
+Call `startTelegramBot()` during init alongside `initMcp()`.
+
+Add `PLATFORM_URL` and `AGENT_ID` to agent `.env.example`.
+
+---
+
+### Part B — QuickDeploy Wizard frontend
+
+**File:** `packages/trial-frontend/src/pages/QuickDeploy.tsx` (NEW — do not touch `Deploy.tsx`)
+
+**Route:** `/quick-deploy` (add to router in `App.tsx` or equivalent)
+
+**Two modes — toggled at the top of the wizard:**
+
+#### Mode 1: Poly (auto)
+Single-page form, no multi-step wizard:
+```
+[ Poly ✦ ]  [ Dev ]       ← mode toggle
+
+  ┌─────────────────────────────────────┐
+  │  🤖 Deploy Poly                     │
+  │  Your 24/7 Solana AI agent          │
+  │                                     │
+  │  Pay with SOL                       │
+  │  [$5 ≈ 0.027 SOL]  [Connect Wallet] │
+  │                                     │
+  │  Telegram bot token                 │
+  │  [________________________]         │
+  │  Get one free at @BotFather →       │
+  │                                     │
+  │  [Deploy Poly →]                    │
+  └─────────────────────────────────────┘
+```
+
+On deploy:
+1. Phantom sign + submit SOL transfer
+2. `POST /api/platform/agents/quick-deploy` with `{ wallet, tx_hash, tier: 'poly-auto', telegram_bot_token }`
+3. Show deploying spinner → on 202: show pair_code + deeplink
+4. Success screen:
+```
+✅ Poly is deploying...
+
+Open Telegram:
+t.me/YourBotName?start=K3NZ9P   [Copy link]
+
+Send /start K3NZ9P to your bot to activate it.
+```
+
+#### Mode 2: Dev
+Multi-step (reuse step pattern from `Deploy.tsx` but simplified):
+```
+Step 1 — Payment
+  Choose tier: Starter · Pro
+  Choose token: SOL · USDC · USDT
+
+Step 2 — LLM
+  Provider: Poly (OpenRouter) · BYOK · Custom endpoint
+  If BYOK: pick provider + paste key
+  Model: dropdown based on provider
+
+Step 3 — Telegram
+  Bot token input (same as Poly mode)
+
+Step 4 — Deploy
+  Same flow as Poly mode → same success screen
+```
+
+**API call shape for Dev mode:**
+```ts
+POST /api/platform/agents/quick-deploy
+{
+  wallet,
+  tx_hash,
+  tier: 'starter' | 'pro',
+  telegram_bot_token,
+  llm_provider: 'poly' | 'byok' | 'custom',
+  llm_model: 'anthropic/claude-haiku-4.5',  // etc.
+  llm_api_key: '...',                        // only for byok
+}
+```
+
+**Reuse from existing code:**
+- `platformClient` from `src/services/api.ts`
+- `PaymentModal` component (already exists — Codex built it)
+- `BYOK_MODELS`, `BYOK_KEY_PLACEHOLDER` constants from `Deploy.tsx` (extract to shared constants file)
+- Phantom wallet connect pattern from `Deploy.tsx`
+
+**Add to navbar/home:** Link to `/quick-deploy` labeled "Deploy Agent" or "Get Poly".
+
+---
+
+### Verification
+
+```bash
+# 1. Platform builds clean
+cd packages/openclaw-platform && npm run build
+
+# 2. Agent runtime builds clean
+cd packages/openclaw-agent-runtime && npm run build
+
+# 3. Frontend builds clean
+cd packages/trial-frontend && npm run build
+
+# 4. quick-deploy endpoint exists
+curl -s http://localhost:8788/api/agents/quick-deploy -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{}' | grep -q 'Invalid request'
+
+# 5. /start pairing flow (manual): deploy → get pair_code → send /start {code} to bot → see "Poly is live"
+```
+
+---
+
+### Do NOT touch
+- `Deploy.tsx` — power user wizard stays untouched
+- `clawdrop-mcp-server/` — consume only
+- `token-tracker.ts` — still used by wizard flow
+- Existing `/agents` endpoints
+
