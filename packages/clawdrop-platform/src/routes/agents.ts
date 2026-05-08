@@ -80,12 +80,13 @@ router.post('/deploy', async (req, res) => {
     provider_name: z.string().optional(),
     api_key: z.string().optional(),
     custom_endpoint: z.string().url().optional(),
+    telegram_bot_token: z.string().regex(/^\d+:[A-Za-z0-9_-]{35,}$/, 'Invalid bot token format'),
   });
 
   const parse = schema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: 'Invalid request', details: parse.error.format() });
 
-  const { name, llm_provider, llm_model, api_key, custom_endpoint } = parse.data;
+  const { name, llm_provider, llm_model, api_key, custom_endpoint, telegram_bot_token } = parse.data;
 
   try {
     // Require active subscription
@@ -114,6 +115,13 @@ router.post('/deploy', async (req, res) => {
       `).run(uuidv4(), userId, parse.data.provider_name ?? 'unknown', encryptedKey, encryptedIv);
     }
 
+    // Store Telegram bot token encrypted
+    const tgVault = encrypt(telegram_bot_token);
+    db().prepare(`
+      INSERT INTO api_keys (id, user_id, provider, encrypted_key, iv)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(uuidv4(), userId, 'telegram', tgVault.encrypted, tgVault.iv);
+
     // Create agent record
     const agentId = uuidv4();
     db().prepare(`
@@ -137,6 +145,7 @@ router.post('/deploy', async (req, res) => {
           llmModel: llm_model,
           llmApiKey: api_key,
           customEndpoint: custom_endpoint,
+          telegramBotToken: telegram_bot_token,
         });
         db().prepare(`
           UPDATE agents
