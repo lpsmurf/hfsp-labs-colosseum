@@ -36,7 +36,8 @@ const TOKEN_MINTS: Partial<Record<PaymentToken, { mint: string; decimals: number
   USDT: { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', decimals: 6 },
 };
 
-const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com';
+const IS_DEVNET = import.meta.env.VITE_SOLANA_NETWORK === 'devnet';
+const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL ?? (IS_DEVNET ? 'https://api.devnet.solana.com' : 'https://api.mainnet-beta.solana.com');
 
 function isMobile() {
   if (typeof navigator === 'undefined') return false;

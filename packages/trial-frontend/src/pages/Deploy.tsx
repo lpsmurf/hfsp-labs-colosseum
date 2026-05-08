@@ -47,6 +47,8 @@ const TIERS: { id: SubscriptionTier; name: string; price: string; description: s
 
 const PAYMENT_TOKENS: PaymentToken[] = ['USDC', 'USDT', 'SOL']
 
+const IS_DEVNET = import.meta.env.VITE_SOLANA_NETWORK === 'devnet'
+
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
@@ -212,6 +214,11 @@ export function Deploy() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {IS_DEVNET && (
+        <div className="w-full py-2 text-center text-xs font-mono" style={{ background: 'rgba(245,158,11,0.15)', borderBottom: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+          DEVNET MODE — Payments are bypassed for testing
+        </div>
+      )}
       {step !== 'success' && (
         <div className="h-1 bg-gray-200 dark:bg-gray-700 w-full sticky top-0 z-10">
           <div className="h-1 bg-blue-600 transition-all duration-700" style={{ width: `${progressPct}%` }} />

@@ -99,6 +99,12 @@ export async function verifyPayment(
   expectedTier: string,
   expectedToken: string,
 ): Promise<PaymentVerification> {
+  // Devnet / staging bypass — set BYPASS_PAYMENT_VERIFY=true to skip on-chain check
+  if (process.env.BYPASS_PAYMENT_VERIFY === 'true') {
+    const tierPriceUsd = TIER_PRICES_USD[expectedTier.toLowerCase()] ?? 19;
+    return { valid: true, token: expectedToken.toUpperCase(), amount: '1', amountUsd: tierPriceUsd, recipient: process.env.PLATFORM_WALLET_ADDRESS ?? '', sender: 'devnet-bypass' };
+  }
+
   try {
     // 1. Check double-spend
     if (isTxUsed(txSignature)) {

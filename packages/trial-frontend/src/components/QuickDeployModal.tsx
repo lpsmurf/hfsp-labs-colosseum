@@ -31,15 +31,21 @@ const TIERS = [
 
 const TOKENS: Token[] = ['SOL', 'USDC', 'USDT', 'HERD'];
 
-const TOKEN_MINTS: Partial<Record<Token, { mint: string; decimals: number }>> = {
+const MAINNET_TOKEN_MINTS: Partial<Record<Token, { mint: string; decimals: number }>> = {
   USDC: { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
   USDT: { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', decimals: 6 },
 };
 
 const TIER_PRICES_USDC: Record<Tier, number> = { starter: 19, pro: 59 };
 
-const SOLANA_RPC = import.meta.env.VITE_SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com';
+const IS_DEVNET = import.meta.env.VITE_SOLANA_NETWORK === 'devnet';
+const SOLANA_RPC = import.meta.env.VITE_SOLANA_RPC_URL ?? (IS_DEVNET ? 'https://api.devnet.solana.com' : 'https://api.mainnet-beta.solana.com');
 const PLATFORM_WALLET = import.meta.env.VITE_PLATFORM_WALLET ?? '';
+
+// Devnet token mints (Circle's devnet USDC)
+const DEVNET_TOKEN_MINTS: Partial<Record<Token, { mint: string; decimals: number }>> = {
+  USDC: { mint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', decimals: 6 },
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -133,7 +139,8 @@ export function QuickDeployModal({ open, onClose }: QuickDeployModalProps) {
         const lamports = Math.ceil((usdAmount / solPrice) * LAMPORTS_PER_SOL);
         tx.add(SystemProgram.transfer({ fromPubkey: from, toPubkey: to, lamports }));
       } else {
-        const mintInfo = TOKEN_MINTS[token];
+        const mints = IS_DEVNET ? DEVNET_TOKEN_MINTS : MAINNET_TOKEN_MINTS;
+        const mintInfo = mints[token];
         if (!mintInfo) { setPayError(`${token} payments coming soon`); setPayState('error'); return; }
         const mint = new PublicKey(mintInfo.mint);
         const fromATA = await getAssociatedTokenAddress(mint, from);
@@ -223,6 +230,13 @@ export function QuickDeployModal({ open, onClose }: QuickDeployModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(7,7,15,0.85)', backdropFilter: 'blur(16px)' }}>
       <div className="glass-card iridescent-border relative w-full max-w-xl rounded-[28px] overflow-hidden"
            style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 120px rgba(196,192,255,0.08)' }}>
+        {/* Devnet badge */}
+        {IS_DEVNET && (
+          <div className="absolute top-5 left-5 text-[10px] px-2.5 py-1 rounded-full z-10"
+               style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b', fontFamily: "'JetBrains Mono',monospace" }}>
+            DEVNET
+          </div>
+        )}
         {/* Close */}
         <button onClick={handleClose}
                 className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/10 z-10"
