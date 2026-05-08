@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env.SQLITE_PATH ?? path.join(__dirname, '../../data/openclaw.sqlite');
+const DB_PATH = process.env.SQLITE_PATH ?? path.join(__dirname, '../../data/clawdrop.sqlite');
 
 let _db: Database.Database | null = null;
 
@@ -92,7 +92,13 @@ function migrate(db: Database.Database): void {
       agent_id TEXT NOT NULL REFERENCES agents(id),
       pair_code TEXT NOT NULL UNIQUE,
       expires_at TEXT NOT NULL,
+      chat_id INTEGER,
+      paired_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Backfill existing tables that may be missing new columns
+  try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN chat_id INTEGER;`); } catch { /* already exists */ }
+  try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN paired_at TEXT;`); } catch { /* already exists */ }
 }

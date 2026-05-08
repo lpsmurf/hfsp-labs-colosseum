@@ -47,7 +47,7 @@ services:
   # Openclaw Platform (subscriptions, payments, agent orchestration)
   clawdrop-platform:
     build:
-      context: packages/openclaw-platform
+      context: packages/clawdrop-platform
       dockerfile: Dockerfile
     container_name: clawdrop-platform
     ports:
@@ -60,7 +60,7 @@ services:
     environment:
       PORT: "8788"
       NODE_ENV: production
-      SQLITE_PATH: /app/data/openclaw.sqlite
+      SQLITE_PATH: /app/data/clawdrop.sqlite
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8788/api/health"]
