@@ -27,7 +27,8 @@ export async function createUserKey(
     { headers: authHeaders(), timeout: 15000 }
   );
 
-  const key: string = res.data?.data?.key;
+  // OpenRouter returns { data: { hash, ... }, key: "sk-or-v1-..." }
+  const key: string = res.data?.key;
   const keyHash: string = res.data?.data?.hash;
   if (!key || !keyHash) throw new Error('OpenRouter did not return a key or hash');
 
