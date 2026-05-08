@@ -120,7 +120,7 @@ export async function main() {
         }),
       async (argv) => {
         try {
-          const result = await handleToolCall('deploy_openclaw_instance', {
+          const result = await handleToolCall('deploy_clawdrop_instance', {
             tier_id: argv['tier-id'],
             payment_id: argv['payment-id'],
             agent_name: argv['agent-name'],

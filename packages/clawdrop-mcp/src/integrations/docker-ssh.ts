@@ -28,7 +28,7 @@ const execAsync = promisify(exec);
 const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST || '187.124.173.69'; // Tenant VPS;
 const TENANT_VPS_USER = process.env.TENANT_VPS_USER || 'root';
 const SSH_KEY = process.env.SSH_KEY_PATH || `${process.env.HOME}/.ssh/id_rsa`;
-const OPENCLAW_IMAGE = process.env.OPENCLAW_IMAGE || 'ghcr.io/clawdrop/openclaw:latest';
+const CLAWDROP_IMAGE = process.env.CLAWDROP_IMAGE || 'ghcr.io/clawdrop/clawdrop:latest';
 
 // Map of bundle names to their npm package names
 const BUNDLE_PACKAGES: Record<string, string> = {
@@ -153,7 +153,7 @@ export async function deployViaDocker(params: {
   tier_id: string;
 }): Promise<DockerDeployResult> {
   const { agent_id, owner_wallet, bundles, tier_id } = params;
-  const containerName = `openclaw_${agent_id}`;
+  const containerName = `clawdrop_${agent_id}`;
   const bundleStr = bundles.join(',');
 
   try {
@@ -167,7 +167,7 @@ export async function deployViaDocker(params: {
     const bundleInstalls = generateBundleInstalls(bundles);
 
     // Pull latest image
-    await ssh(`docker pull ${OPENCLAW_IMAGE} > /dev/null 2>&1 || true`);
+    await ssh(`docker pull ${CLAWDROP_IMAGE} > /dev/null 2>&1 || true`);
 
     // Build environment variables for docker run
     // Always include:
@@ -212,7 +212,7 @@ export async function deployViaDocker(params: {
       ...envFlags,
       ...labels,
       '-v /var/log/agent_${agent_id}:/var/log/agent',  // volume for logs
-      OPENCLAW_IMAGE,
+      CLAWDROP_IMAGE,
       // When OpenClaw container starts, it should:
       // 1. Run "npm install" for all BUNDLE_INSTALLS
       // 2. Load MCP servers from installed packages
@@ -250,7 +250,7 @@ export async function deployViaDocker(params: {
  * Get container status for an agent via SSH.
  */
 export async function getDockerStatus(agent_id: string): Promise<DockerStatusResult> {
-  const containerName = `openclaw_${agent_id}`;
+  const containerName = `clawdrop_${agent_id}`;
   try {
     const { stdout } = await ssh(
       `docker inspect --format '{{.State.Status}} {{.State.StartedAt}}' ${containerName} 2>/dev/null || echo not_found`
@@ -279,7 +279,7 @@ export async function getDockerStatus(agent_id: string): Promise<DockerStatusRes
  * Get container logs (for debugging).
  */
 export async function getDockerLogs(agent_id: string, lines: number = 100): Promise<string> {
-  const containerName = `openclaw_${agent_id}`;
+  const containerName = `clawdrop_${agent_id}`;
   try {
     const { stdout } = await ssh(`docker logs --tail ${lines} ${containerName} 2>&1 || echo "Container not found"`);
     return stdout;
@@ -292,7 +292,7 @@ export async function getDockerLogs(agent_id: string, lines: number = 100): Prom
  * Stop and remove a container via SSH.
  */
 export async function removeDockerContainer(agent_id: string): Promise<boolean> {
-  const containerName = `openclaw_${agent_id}`;
+  const containerName = `clawdrop_${agent_id}`;
   try {
     await ssh(`docker rm -f ${containerName} 2>/dev/null || true`);
     logger.info({ agent_id }, 'Container removed');

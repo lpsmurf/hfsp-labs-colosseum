@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/platform",
+  "name": "@clawdrop/platform",
   "version": "0.1.0",
   "description": "Openclaw autonomous agent platform — subscriptions, payments, LLM routing, agent orchestration",
   "type": "module",

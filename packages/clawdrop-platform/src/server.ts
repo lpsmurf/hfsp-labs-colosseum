@@ -49,7 +49,7 @@ app.use('/api/agents', agentsRouter);
 app.use('/api/usage', usageRouter);
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', version: '0.1.0', service: 'openclaw-platform' });
+  res.json({ status: 'ok', version: '0.1.0', service: 'clawdrop-platform' });
 });
 
 // Serve OpenAPI spec for pay-skills registry
@@ -201,4 +201,4 @@ app.get('/api/openapi.json', (_req, res) => {
   });
 });
 
-app.listen(PORT, () => console.log(`openclaw-platform listening on :${PORT}`));
+app.listen(PORT, () => console.log(`clawdrop-platform listening on :${PORT}`));

@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/agent-runtime",
+  "name": "@clawdrop/agent-runtime",
   "version": "0.1.0",
   "description": "Per-user autonomous Solana agent — connects to MCP server and runs 24/7",
   "type": "module",

@@ -14,7 +14,7 @@ export const TierSchema = z.object({
   features: z.array(z.string()).describe('List of features included'),
   price_sol: z.number().positive().describe('Price in SOL'),
   price_herd: z.number().positive().describe('Price in HERD'),
-  deployment_type: z.enum(['openclaw', 'custom']),
+  deployment_type: z.enum(['clawdrop', 'custom']),
   created_at: z.date().optional(),
 });
 
