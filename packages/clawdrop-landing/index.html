@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta name="theme-color" content="#13121b"/>
+  <title>Clawdrop — Deploy your autonomous Solana AI agent</title>
+  <meta name="description" content="One-click deployment of a private, 24/7 autonomous Solana AI agent. Your keys, your agent."/>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#13121b", "surface-container-lowest": "#0e0d16",
+            "surface-container-low": "#1b1b24", "surface-container": "#1f1f28",
+            "surface-container-high": "#2a2933", "surface-container-highest": "#35343e",
+            "surface-bright": "#393842", "surface-dim": "#13121b",
+            "on-surface": "#e4e1ee", "on-surface-variant": "#c7c4d8",
+            "outline": "#918fa1", "outline-variant": "#464555",
+            "background": "#13121b", "on-background": "#e4e1ee",
+            "surface-variant": "#35343e", "surface-tint": "#c4c0ff",
+            "primary": "#c4c0ff", "on-primary": "#2000a4",
+            "primary-container": "#8781ff", "on-primary-container": "#1b0091",
+            "inverse-primary": "#4f44e2", "primary-fixed": "#e3dfff", "primary-fixed-dim": "#c4c0ff",
+            "secondary": "#a2e7ff", "on-secondary": "#003642",
+            "secondary-container": "#00d2fd", "on-secondary-container": "#005669",
+            "secondary-fixed": "#b4ebff", "secondary-fixed-dim": "#3cd7ff",
+            "tertiary": "#ffb785", "on-tertiary": "#502500",
+            "tertiary-container": "#db761f", "on-tertiary-container": "#461f00",
+            "tertiary-fixed": "#ffdcc6", "tertiary-fixed-dim": "#ffb785",
+            "error": "#ffb4ab", "on-error": "#690005",
+            "error-container": "#93000a", "on-error-container": "#ffdad6",
+            "inverse-surface": "#e4e1ee", "inverse-on-surface": "#302f39",
+          },
+          fontFamily: {
+            "h1": ["Inter"], "h2": ["Inter"], "h3": ["Inter"],
+            "body-lg": ["Inter"], "body-md": ["Inter"],
+            "mono-data": ["JetBrains Mono"], "mono-label": ["JetBrains Mono"],
+          },
+          fontSize: {
+            "h1": ["64px", { lineHeight: "1.1", letterSpacing: "-2px", fontWeight: "700" }],
+            "h2": ["48px", { lineHeight: "1.1", letterSpacing: "-1.5px", fontWeight: "700" }],
+            "h3": ["32px", { lineHeight: "1.2", letterSpacing: "-1px", fontWeight: "700" }],
+            "body-lg": ["18px", { lineHeight: "1.6", letterSpacing: "0px", fontWeight: "400" }],
+            "body-md": ["16px", { lineHeight: "1.6", letterSpacing: "0px", fontWeight: "400" }],
+            "mono-data": ["14px", { lineHeight: "1.4", letterSpacing: "0px", fontWeight: "500" }],
+            "mono-label": ["12px", { lineHeight: "1.2", letterSpacing: "0.05em", fontWeight: "600" }],
+          },
+          spacing: {
+            "xs": "8px", "sm": "16px", "md": "24px",
+            "lg": "40px", "xl": "64px", "gutter": "24px", "margin": "32px",
+          },
+          borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+        }
+      }
+    }
+  </script>
+  <style>
+    .liquid-glass {
+      background-color: rgba(255,255,255,0.03);
+      backdrop-filter: blur(48px) saturate(180%);
+      position: relative;
+    }
+    .iridescent-border::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      padding: 1px;
+      border-radius: inherit;
+      background: linear-gradient(135deg,
+        rgba(196,192,255,0.3) 0%,
+        rgba(162,231,255,0.3) 25%,
+        rgba(255,183,133,0.2) 50%,
+        rgba(196,192,255,0.3) 75%,
+        rgba(162,231,255,0.3) 100%
+      );
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: xor;
+      -webkit-mask-composite: destination-out;
+      pointer-events: none;
+    }
+    .glass-card {
+      background-color: rgba(255,255,255,0.06);
+      backdrop-filter: blur(32px);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: inset 0 0.5px 0 0 rgba(255,255,255,0.15);
+    }
+    .pulse-secondary { animation: pulse-ring 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(162,231,255,0.4); }
+      70%  { box-shadow: 0 0 0 10px rgba(162,231,255,0); }
+      100% { box-shadow: 0 0 0 0   rgba(162,231,255,0); }
+    }
+    .scroll-content {
+      display: flex;
+      gap: 2rem;
+      animation: scroll 20s linear infinite;
+    }
+    @keyframes scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ms { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; }
+  </style>
+</head>
+<body class="bg-background text-on-background antialiased min-h-screen flex flex-col relative overflow-x-hidden" style="font-family: Inter, sans-serif;">
+
+<!-- Background Nebula -->
+<div class="fixed inset-0 pointer-events-none z-0">
+  <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full opacity-40" style="background:#c4c0ff22; filter:blur(120px);"></div>
+  <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full opacity-40" style="background:#a2e7ff18; filter:blur(120px);"></div>
+</div>
+
+<!-- Nav -->
+<nav class="fixed top-0 w-full z-50 backdrop-blur-[32px] border-b border-white/10" style="background:rgba(19,18,27,0.7); box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);">
+  <div class="flex justify-between items-center h-20 px-8 max-w-7xl mx-auto">
+    <a href="/" class="font-h3 text-[24px] text-primary font-bold" style="color:#c4c0ff; text-decoration:none;">Clawdrop</a>
+    <div class="hidden md:flex items-center gap-10 text-[16px]">
+      <a href="/try/" class="text-primary border-b-2 pb-1" style="color:#c4c0ff; border-color:#c4c0ff; text-decoration:none;">Try Poly</a>
+      <a href="/try/deploy" class="text-on-surface-variant hover:text-primary transition-colors px-3 py-2 rounded" style="color:#c7c4d8; text-decoration:none;">Deploy</a>
+      <a href="#features" class="text-on-surface-variant hover:text-primary transition-colors px-3 py-2 rounded" style="color:#c7c4d8; text-decoration:none;">Docs</a>
+      <a href="#pricing" class="text-on-surface-variant hover:text-primary transition-colors px-3 py-2 rounded" style="color:#c7c4d8; text-decoration:none;">Pricing</a>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/try/deploy" class="px-6 py-2 rounded-full text-[12px] font-bold tracking-widest" style="background:linear-gradient(135deg,#c4c0ff,#4f44e2); color:#fff; text-decoration:none; font-family:'JetBrains Mono',monospace;">
+        Launch App
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Main -->
+<main class="flex-grow pt-32 pb-16 px-8 max-w-7xl mx-auto w-full flex flex-col items-center relative z-10">
+
+  <!-- Hero -->
+  <section class="flex flex-col items-center text-center max-w-4xl mt-16 mb-16">
+    <h1 class="text-[64px] font-bold leading-[1.1] mb-4" style="color:#e4e1ee; letter-spacing:-2px;">
+      Deploy your autonomous<br/>Solana AI agent.
+    </h1>
+    <p class="text-[18px] mb-10 max-w-2xl" style="color:#c7c4d8; line-height:1.6;">
+      One click. 24/7 uptime. Your keys, your agent.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 items-center justify-center w-full">
+      <a href="/try/" class="glass-card text-[12px] font-bold tracking-widest px-10 py-4 rounded-full flex items-center gap-2 hover:bg-white/10 transition-colors" style="color:#a2e7ff; font-family:'JetBrains Mono',monospace; text-decoration:none; box-shadow:0 0 20px rgba(162,231,255,0.12);">
+        <span class="w-2 h-2 rounded-full pulse-secondary" style="background:#a2e7ff;"></span>
+        Try Poly Free
+      </a>
+      <a href="/try/deploy" class="text-[12px] font-bold tracking-widest px-10 py-4 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#c4c0ff,#4f44e2); color:#fff; font-family:'JetBrains Mono',monospace; text-decoration:none; border:1px solid rgba(255,255,255,0.2); box-shadow:inset 0 1px 0 rgba(255,255,255,0.3);">
+        Deploy Agent
+        <span class="ms text-[16px]">arrow_forward</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Poly Chat Preview -->
+  <section class="w-full max-w-3xl mb-16 relative">
+    <div class="liquid-glass iridescent-border rounded-[28px] overflow-hidden flex flex-col" style="height:480px; box-shadow:0 32px 80px rgba(0,0,0,0.6), 0 0 120px rgba(196,192,255,0.08);">
+      <!-- Window header -->
+      <div class="p-6 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.08); background:rgba(255,255,255,0.04);">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center border" style="background:rgba(196,192,255,0.15); border-color:rgba(196,192,255,0.3);">
+            <span class="ms" style="color:#c4c0ff; font-variation-settings:'FILL' 1; font-size:20px;">smart_toy</span>
+          </div>
+          <div>
+            <div class="text-[12px] font-bold tracking-widest" style="color:#e4e1ee; font-family:'JetBrains Mono',monospace;">Poly AI Assistant</div>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="w-1.5 h-1.5 rounded-full pulse-secondary" style="background:#a2e7ff;"></span>
+              <span class="text-[10px] tracking-widest" style="color:rgba(162,231,255,0.7); font-family:'JetBrains Mono',monospace; text-transform:uppercase;">Autonomous Mode Active</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <div class="w-3 h-3 rounded-full" style="background:rgba(255,255,255,0.15);"></div>
+          <div class="w-3 h-3 rounded-full" style="background:rgba(255,255,255,0.15);"></div>
+          <div class="w-3 h-3 rounded-full" style="background:rgba(255,255,255,0.15);"></div>
+        </div>
+      </div>
+      <!-- Messages -->
+      <div class="flex-grow p-6 space-y-6 overflow-y-auto text-[16px]">
+        <!-- User -->
+        <div class="flex justify-end">
+          <div class="px-5 py-3 rounded-[16px] rounded-tr-none max-w-[75%]" style="background:rgba(196,192,255,0.12); border:1px solid rgba(196,192,255,0.2); color:#e4e1ee;">
+            Can you swap 0.5 SOL for JUP and then stake it?
+          </div>
+        </div>
+        <!-- AI -->
+        <div class="flex gap-3">
+          <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center border mt-1" style="background:rgba(196,192,255,0.15); border-color:rgba(196,192,255,0.3);">
+            <span class="ms text-[18px]" style="color:#c4c0ff; font-variation-settings:'FILL' 1;">auto_awesome</span>
+          </div>
+          <div class="px-5 py-3 rounded-[16px] rounded-tl-none" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.10); color:#c7c4d8;">
+            Certainly. I'll execute that sequence now:
+            <div class="mt-3 space-y-2 text-[14px]" style="font-family:'JetBrains Mono',monospace;">
+              <div class="flex items-center gap-2" style="color:#a2e7ff;">
+                <span class="ms text-[14px]">check_circle</span>
+                Swapping 0.5 SOL → 42.12 JUP via Jupiter
+              </div>
+              <div class="flex items-center gap-2" style="color:rgba(199,196,216,0.5);">
+                <span class="w-3.5 h-3.5 rounded-full border-2 border-t-primary" style="border-color:rgba(196,192,255,0.3); border-top-color:#c4c0ff; animation:spin 1s linear infinite;"></span>
+                Initiating JUP staking on-chain...
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- User 2 -->
+        <div class="flex justify-end">
+          <div class="px-5 py-3 rounded-[16px] rounded-tr-none max-w-[75%]" style="background:rgba(196,192,255,0.12); border:1px solid rgba(196,192,255,0.2); color:#e4e1ee;">
+            What's my current wallet balance?
+          </div>
+        </div>
+      </div>
+      <!-- Input -->
+      <div class="p-5 border-t" style="border-color:rgba(255,255,255,0.08); background:rgba(255,255,255,0.04);">
+        <div class="relative flex items-center">
+          <input readonly class="w-full rounded-full py-3 pl-5 pr-12 text-[16px] focus:outline-none" placeholder="Type a command for Poly…" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); color:#e4e1ee;" onclick="window.location.href='/try/'"/>
+          <a href="/try/" class="absolute right-2 w-8 h-8 rounded-full flex items-center justify-center hover:opacity-90" style="background:linear-gradient(135deg,#c4c0ff,#4f44e2);">
+            <span class="ms text-[18px]" style="color:#fff;">send</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Glow -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none" style="width:60%; height:60%; background:rgba(196,192,255,0.06); filter:blur(80px); z-index:-1;"></div>
+  </section>
+
+  <!-- Partnership Badges -->
+  <section class="w-full mb-16 flex flex-col items-center">
+    <span class="text-[12px] font-bold tracking-widest mb-4" style="color:rgba(199,196,216,0.5); font-family:'JetBrains Mono',monospace; text-transform:uppercase;">Built for</span>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+      <div class="glass-card rounded-full flex items-center gap-3 px-4 py-2 hover:bg-white/10 transition-colors">
+        <img src="https://res.cloudinary.com/dgvnuwspr/image/upload/assets/superteams/logos/netherlands.jpg" alt="Superteam Netherlands" class="w-6 h-6 rounded-full object-cover"/>
+        <span class="text-[16px]" style="color:#e4e1ee;">Superteam NL</span>
+      </div>
+      <div class="glass-card rounded-full flex items-center gap-3 px-4 py-2 hover:bg-white/10 transition-colors" style="border-color:rgba(255,183,133,0.3); box-shadow:0 0 15px rgba(255,183,133,0.08);">
+        <span class="ms" style="color:#ffb785; font-variation-settings:'FILL' 1;">landscape</span>
+        <span class="text-[12px] font-bold tracking-wider" style="color:#ffb785; font-family:'JetBrains Mono',monospace;">COLOSSEUM</span>
+      </div>
+    </div>
+    <p class="text-[12px] mt-3" style="color:rgba(199,196,216,0.4); font-family:'JetBrains Mono',monospace;">Building for Colosseum Hackathon 2025</p>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features" class="w-full mb-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+      <div class="glass-card rounded-[24px] p-10 flex flex-col gap-4 relative overflow-hidden group">
+        <div class="absolute -right-10 -top-10 w-32 h-32 rounded-full" style="background:rgba(162,231,255,0.08); filter:blur(40px);"></div>
+        <div class="w-12 h-12 rounded-full glass-card flex items-center justify-center mb-2">
+          <span class="ms" style="color:#a2e7ff; font-variation-settings:'FILL' 0;">token</span>
+        </div>
+        <h3 class="text-[24px] font-bold" style="color:#e4e1ee; letter-spacing:-0.5px;">Bring Your Own Token</h3>
+        <p class="text-[16px]" style="color:#c7c4d8; line-height:1.6;">Pair your own Telegram bot token. No middleman. Your bot, your users, your data.</p>
+      </div>
+      <div class="glass-card rounded-[24px] p-10 flex flex-col gap-4 relative overflow-hidden group" style="border-color:rgba(196,192,255,0.2);">
+        <div class="absolute -right-10 -top-10 w-32 h-32 rounded-full" style="background:rgba(196,192,255,0.08); filter:blur(40px);"></div>
+        <div class="w-12 h-12 rounded-full glass-card flex items-center justify-center mb-2">
+          <span class="ms" style="color:#c4c0ff; font-variation-settings:'FILL' 0;">route</span>
+        </div>
+        <h3 class="text-[24px] font-bold" style="color:#e4e1ee; letter-spacing:-0.5px;">Poly LLM Router</h3>
+        <p class="text-[16px]" style="color:#c7c4d8; line-height:1.6;">OpenRouter-powered, budget-tracked. Use Poly keys or bring your own for any model.</p>
+      </div>
+      <div class="glass-card rounded-[24px] p-10 flex flex-col gap-4 relative overflow-hidden group">
+        <div class="absolute -right-10 -top-10 w-32 h-32 rounded-full" style="background:rgba(255,183,133,0.08); filter:blur(40px);"></div>
+        <div class="w-12 h-12 rounded-full glass-card flex items-center justify-center mb-2">
+          <span class="ms" style="color:#ffb785; font-variation-settings:'FILL' 0;">payments</span>
+        </div>
+        <h3 class="text-[24px] font-bold" style="color:#e4e1ee; letter-spacing:-0.5px;">On-chain Payments</h3>
+        <p class="text-[16px]" style="color:#c7c4d8; line-height:1.6;">Pay in SOL, USDC, USDT, or HERD. Verified on-chain via Helius. No credit cards.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Protocol scroll -->
+  <section class="w-full mb-16 py-10 overflow-hidden relative border-y" style="border-color:rgba(255,255,255,0.06);">
+    <div class="absolute left-0 top-0 bottom-0 w-32 pointer-events-none z-10" style="background:linear-gradient(to right, #13121b, transparent);"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-32 pointer-events-none z-10" style="background:linear-gradient(to left, #13121b, transparent);"></div>
+    <div class="flex overflow-hidden w-full">
+      <div class="scroll-content items-center text-[18px] font-bold" style="color:rgba(199,196,216,0.5); font-family:'JetBrains Mono',monospace;">
+        <div class="flex items-center gap-16 min-w-max px-8">
+          <span>SOLANA</span><span>HELIUS</span><span>OPENROUTER</span><span>PHANTOM</span>
+          <span>RAYDIUM</span><span>JUPITER</span><span>COINGECKO</span><span>X402</span>
+        </div>
+        <div class="flex items-center gap-16 min-w-max px-8">
+          <span>SOLANA</span><span>HELIUS</span><span>OPENROUTER</span><span>PHANTOM</span>
+          <span>RAYDIUM</span><span>JUPITER</span><span>COINGECKO</span><span>X402</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="w-full py-16 border-t relative z-10" style="background:#0e0d16; border-color:rgba(255,255,255,0.06);">
+  <div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+    <div class="text-[20px] font-bold" style="color:#c4c0ff;">Clawdrop</div>
+    <div class="flex flex-wrap justify-center gap-6 text-[16px]">
+      <a href="/try/" style="color:#c7c4d8; text-decoration:none;">Try Poly</a>
+      <a href="/try/deploy" style="color:#c7c4d8; text-decoration:none;">Deploy</a>
+      <a href="https://colosseum.com" target="_blank" style="color:#c7c4d8; text-decoration:none;">Colosseum</a>
+      <a href="https://x.com/clawdrop" target="_blank" style="color:#c7c4d8; text-decoration:none;">X</a>
+      <a href="https://t.me/clawdrop" target="_blank" style="color:#c7c4d8; text-decoration:none;">Telegram</a>
+    </div>
+    <div class="text-[12px]" style="color:rgba(199,196,216,0.4); font-family:'JetBrains Mono',monospace;">
+      © 2025 Clawdrop · Built at Colosseum Hackathon
+    </div>
+  </div>
+</footer>
+
+<style>
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</body>
+</html>

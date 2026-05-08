@@ -104,11 +104,17 @@ export interface PlatformAgent {
   name: string;
   status: PlatformAgentStatus;
   deploy_type: string;
+  tier: SubscriptionTier;
   llm_provider: LLMProvider;
   llm_model: string | null;
   mcp_port: number | null;
   agent_port: number | null;
   created_at: string;
+  token_usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    month: string;
+  };
 }
 
 export interface Subscription {

@@ -9,6 +9,7 @@ import type {
   TokenUsage,
   VerifyPaymentPayload,
   PaymentQuote,
+  SubscriptionTier,
 } from '../types/api';
 
 // ── Existing Trial API Client ───────────────────────────────────────────────
