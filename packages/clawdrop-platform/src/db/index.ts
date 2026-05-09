@@ -101,4 +101,14 @@ function migrate(db: Database.Database): void {
   // Backfill existing tables that may be missing new columns
   try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN chat_id INTEGER;`); } catch { /* already exists */ }
   try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN paired_at TEXT;`); } catch { /* already exists */ }
+
+  // Onboarding columns — added for Poly email-gate (2026-05-09)
+  try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN onboarding_state TEXT NOT NULL DEFAULT 'not_started';`); } catch { /* already exists */ }
+  try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN email TEXT;`); } catch { /* already exists */ }
+  try { db.exec(`ALTER TABLE telegram_pairings ADD COLUMN onboarded_at TEXT;`); } catch { /* already exists */ }
+
+  // Unique index on email — one email per Poly agent (skip if already exists)
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_pairings_email ON telegram_pairings(email) WHERE email IS NOT NULL;`);
+  } catch { /* already exists */ }
 }
