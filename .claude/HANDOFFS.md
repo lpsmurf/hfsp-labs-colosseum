@@ -1746,3 +1746,17 @@ curl -s http://localhost:8788/api/agents/quick-deploy -X POST \
 - `token-tracker.ts` — still used by wizard flow
 - Existing `/agents` endpoints
 
+
+---
+
+## 2026-05-09 — CLAUDE → KIMI (OpenClaw Runtime Switch)
+**Delivered**: Full spec + build handoff for replacing `clawdrop-agent-runtime` with OpenClaw gateway
+**Location**: `.claude/handoffs/OPENCLAW_RUNTIME_SWITCH_KIMI.md`
+**Branch**: `kimi/openclaw-runtime-switch`
+**Files to change**:
+1. `packages/agent-provisioning/tenant-runtime-image/entrypoint.sh` — add OPENROUTER_API_KEY + TELEGRAM_BOT_TOKEN forwarding through `su`
+2. `packages/clawdrop-platform/src/services/docker-deployer.ts` — full rewrite: named volumes, Alpine file writes, OpenClaw gateway container
+3. `packages/clawdrop-platform/src/routes/agents.ts` — add `PATCH /:id/config` guarded merge endpoint
+4. `docker-compose.trial.yml` — add openclaw-runtime image build
+**Do NOT touch**: `trial-api/`, `clawdrop-landing/`, `clawdrop-mcp-server/`, `clawdrop-agent-runtime/`, DB schema
+**Status**: Ready — all decisions locked, full code in handoff doc
