@@ -93,6 +93,15 @@ services:
       timeout: 5s
       retries: 3
 
+  # OpenClaw tenant runtime image (built here, spawned per-user by clawdrop-platform)
+  openclaw-runtime-builder:
+    build:
+      context: packages/agent-provisioning/tenant-runtime-image
+      dockerfile: Dockerfile
+    image: colosseum-openclaw-runtime:latest
+    command: ["echo", "image built"]
+    profiles: ["build-only"]   # never actually runs, just builds the image
+
 volumes:
   trial-data:
     driver: local
