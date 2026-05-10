@@ -19,6 +19,13 @@ function db(): Database.Database {
         day TEXT NOT NULL
       )
     `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS leads (
+        email TEXT PRIMARY KEY,
+        ip TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
   }
   return _db;
 }
@@ -62,4 +69,18 @@ export function getQuota(ip: string): { used: number; limit: number; resets_at: 
 
   const used = row && row.day === d ? row.count : 0;
   return { used, limit: LIMIT, resets_at: `${d}T23:59:59Z` };
+}
+
+export function saveEmail(ip: string, email: string): void {
+  try {
+    db().prepare('INSERT OR IGNORE INTO leads (email, ip) VALUES (?, ?)').run(
+      email.toLowerCase().trim(),
+      ip
+    );
+  } catch { /* ignore duplicate */ }
+}
+
+export function getLeads(): { email: string; ip: string; created_at: string }[] {
+  return db().prepare('SELECT email, ip, created_at FROM leads ORDER BY created_at DESC').all() as
+    { email: string; ip: string; created_at: string }[];
 }
