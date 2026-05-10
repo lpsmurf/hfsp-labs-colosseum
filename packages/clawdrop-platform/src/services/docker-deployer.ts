@@ -175,9 +175,9 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
   await writeToVolume(wsVol, 'IDENTITY.md', IDENTITY_MD);
   await mkdirInVolume(wsVol, 'memory');
 
-  // 6. MCP server (unchanged)
+  // 6. MCP server
   const mcpId = await docker([
-    'run', '-d',
+    'run', '-d', '--rm',
     '--name', mcpName,
     '--network', network,
     '-p', `${mcpPort}:3002`,
@@ -189,19 +189,26 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
   ]);
 
   // 7. OpenClaw gateway (replaces clawdrop-agent-runtime)
-  const agentId = await docker([
-    'run', '-d',
-    '--name', agentName,
-    '--network', network,
-    '-p', `${agentPort}:3000`,
-    '-v', `${configVol}:/home/clawd/.openclaw:ro`,
-    '-v', `${wsVol}:/tenant/workspace`,
-    ...envArgs({
-      TELEGRAM_BOT_TOKEN: config.telegramBotToken,
-      OPENROUTER_API_KEY: config.llmApiKey,
-    }),
-    'colosseum-openclaw-runtime:latest',
-  ]);
+  let agentId: string;
+  try {
+    agentId = await docker([
+      'run', '-d', '--rm',
+      '--name', agentName,
+      '--network', network,
+      '-p', `${agentPort}:3000`,
+      '-v', `${configVol}:/home/clawd/.openclaw:ro`,
+      '-v', `${wsVol}:/tenant/workspace`,
+      ...envArgs({
+        TELEGRAM_BOT_TOKEN: config.telegramBotToken,
+        OPENROUTER_API_KEY: config.llmApiKey,
+      }),
+      'colosseum-openclaw-runtime:latest',
+    ]);
+  } catch (err) {
+    // Rollback: stop the MCP container so --rm cleans it up
+    await docker(['stop', mcpName]).catch(() => {});
+    throw err;
+  }
 
   return {
     mcpPort,
