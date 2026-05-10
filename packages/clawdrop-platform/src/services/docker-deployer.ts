@@ -215,7 +215,7 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
       '--name', agentName,
       '--network', network,
       '-p', `${agentPort}:3000`,
-      '-v', `${configVol}:/home/clawd/.openclaw:ro`,
+      '-v', `${configVol}:/home/clawd/.openclaw`,
       '-v', `${wsVol}:/tenant/workspace`,
       ...envArgs({
         TELEGRAM_BOT_TOKEN: config.telegramBotToken,
