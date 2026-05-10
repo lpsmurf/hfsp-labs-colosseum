@@ -47,13 +47,14 @@ export interface ReplyMarkup {
 export async function sendTelegramMessage(
   chatId: number,
   text: string,
-  replyMarkup?: ReplyMarkup
+  replyMarkup?: ReplyMarkup,
+  parseMode: "HTML" | "Markdown" | "MarkdownV2" = "Markdown"
 ): Promise<void> {
   try {
     await axios.post(`${TELEGRAM_API_URL}/sendMessage`, {
       chat_id: chatId,
       text,
-      parse_mode: "HTML",
+      parse_mode: parseMode,
       reply_markup: replyMarkup,
     });
 

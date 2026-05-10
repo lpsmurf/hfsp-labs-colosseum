@@ -41,12 +41,14 @@ import subscriptionsRouter from './routes/subscriptions.js';
 import paymentsRouter from './routes/payments.js';
 import agentsRouter from './routes/agents.js';
 import usageRouter from './routes/usage.js';
+import internalRouter from './routes/internal.js';
 
 app.use('/api/auth', authRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/usage', usageRouter);
+app.use('/api/internal', internalRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', version: '0.1.0', service: 'clawdrop-platform' });

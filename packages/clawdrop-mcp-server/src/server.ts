@@ -50,7 +50,7 @@ const mcpServer = createMcpServer(actionsRecord, agent as any, {
   version: '0.1.0',
 });
 
-const transport = new StreamableHTTPServerTransport({
+let transport = new StreamableHTTPServerTransport({
   sessionIdGenerator: () => randomUUID(),
 });
 
@@ -95,7 +95,26 @@ app.get('/health', (_req, res) => {
 });
 
 // MCP Streamable HTTP endpoint (GET for SSE, POST for messages)
-app.all('/mcp', (req, res) => {
+app.all('/mcp', async (req, res) => {
+  // Allow re-initialization for our 1:1 agent-MCP-server container relationship.
+  // When the agent restarts or retries, it sends a fresh initialize request.
+  // The stateful transport rejects re-init, so we close and recreate it.
+  if (req.body?.method === 'initialize') {
+    const wst = (transport as any)._webStandardTransport as
+      | { _initialized: boolean }
+      | undefined;
+    if (wst?._initialized) {
+      console.log('[mcp-server] Closing stale transport for new agent session');
+      await transport.close();
+      const newTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+      });
+      await mcpServer.connect(newTransport);
+      transport = newTransport;
+      console.log('[mcp-server] New transport ready for agent session');
+    }
+  }
+
   transport.handleRequest(req, res, req.body).catch((err: Error) => {
     console.error('[mcp-server] transport error:', err.message);
     if (!res.headersSent) {
