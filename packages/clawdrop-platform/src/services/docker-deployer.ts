@@ -146,6 +146,9 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
   const configVol = `openclaw-config-${userId}`;
   const wsVol     = `openclaw-workspace-${userId}`;
 
+  // 0. Clean up any stale containers from previous (failed) deployments
+  await docker(['rm', '-f', mcpName, agentName]).catch(() => {});
+
   // 1. Isolated network
   await docker(['network', 'create', network]).catch(() => {});
 
