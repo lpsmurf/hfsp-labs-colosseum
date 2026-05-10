@@ -6,6 +6,7 @@ import type {
   PlatformAgent,
   Subscription,
   DeployAgentPayload,
+  DeployAgentResult,
   TokenUsage,
   VerifyPaymentPayload,
   PaymentQuote,
@@ -213,9 +214,9 @@ class PlatformApiClient {
 
   // ── Agents ──────────────────────────────────────────────────────────────
 
-  async deployAgent(payload: DeployAgentPayload): Promise<PlatformAgent> {
-    const res = await this.client.post<{ agent: PlatformAgent }>('/agents/deploy', payload);
-    return res.data.agent;
+  async deployAgent(payload: DeployAgentPayload): Promise<DeployAgentResult> {
+    const res = await this.client.post<DeployAgentResult>('/agents/deploy', payload);
+    return res.data;
   }
 
   async getAgents(): Promise<PlatformAgent[]> {

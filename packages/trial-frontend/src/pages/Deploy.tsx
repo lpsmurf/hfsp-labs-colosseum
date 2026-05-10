@@ -81,6 +81,9 @@ export function Deploy() {
   const [deployedAgentId, setDeployedAgentId] = useState('')
   const [deployStatus, setDeployStatus] = useState<PlatformAgentStatus | null>(null)
   const [deployError, setDeployError] = useState('')
+  const [telegramDeeplink, setTelegramDeeplink] = useState('')
+  const [pairCode, setPairCode] = useState('')
+  const [deeplinkCopied, setDeeplinkCopied] = useState(false)
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -147,7 +150,7 @@ export function Deploy() {
     setDeployStatus(null)
 
     try {
-      const agent = await platformClient.deployAgent({
+      const result = await platformClient.deployAgent({
         name: agentName.trim(),
         llm_provider: llmProvider,
         telegram_bot_token: telegramBotToken.trim(),
@@ -161,8 +164,10 @@ export function Deploy() {
           ...(customKey.trim() ? { api_key: customKey.trim() } : {}),
         } : {}),
       })
-      setDeployedAgentId(agent.id)
-      setDeployStatus(agent.status)
+      setDeployedAgentId(result.agent.id)
+      setDeployStatus(result.agent.status)
+      if (result.telegram_deeplink) setTelegramDeeplink(result.telegram_deeplink)
+      if (result.pair_code) setPairCode(result.pair_code)
       setStep('deploying')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -213,6 +218,9 @@ export function Deploy() {
     setDeployedAgentId('')
     setDeployStatus(null)
     setDeployError('')
+    setTelegramDeeplink('')
+    setPairCode('')
+    setDeeplinkCopied(false)
   }
 
   return (
@@ -557,22 +565,58 @@ export function Deploy() {
 
         {/* ── SUCCESS ───────────────────────────────────────────────── */}
         {step === 'success' && (
-          <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6">
-            <p className="text-8xl">🎉</p>
-            <div>
+          <div className="space-y-6 pt-4">
+            <div className="text-center">
+              <p className="text-6xl mb-3">🎉</p>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Agent Deployed!</h1>
               <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
                 <span className="font-semibold text-gray-900 dark:text-white">{agentName}</span> is live and running 24/7.
               </p>
             </div>
-            <div className="flex flex-col gap-3 w-full max-w-xs">
+
+            {/* Telegram pairing */}
+            {telegramDeeplink && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">💬</span>
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white">Pair your Telegram bot</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Click the link below to open Telegram and start your agent</p>
+                  </div>
+                </div>
+
+                {pairCode && (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pair code</p>
+                    <p className="text-2xl font-mono font-bold text-blue-600 dark:text-blue-400 tracking-widest">{pairCode}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Expires in 1 hour</p>
+                  </div>
+                )}
+
+                <a href={telegramDeeplink} target="_blank" rel="noreferrer"
+                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm">
+                  <span>Open in Telegram →</span>
+                </a>
+
+                <button onClick={() => {
+                  navigator.clipboard.writeText(telegramDeeplink)
+                  setDeeplinkCopied(true)
+                  setTimeout(() => setDeeplinkCopied(false), 2000)
+                }}
+                  className="w-full py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium">
+                  {deeplinkCopied ? '✅ Copied!' : '📋 Copy invite link'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
               <button onClick={() => navigate('/agents')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl">
+                className="w-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-semibold py-3 rounded-2xl text-sm">
                 View My Agents
               </button>
               <button onClick={reset}
-                className="w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium py-3 rounded-2xl">
-                Deploy Another
+                className="w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium py-3 rounded-2xl text-sm">
+                Deploy Another Agent
               </button>
             </div>
           </div>

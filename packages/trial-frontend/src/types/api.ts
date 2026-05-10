@@ -137,6 +137,12 @@ export interface DeployAgentPayload {
   telegram_bot_token: string;
 }
 
+export interface DeployAgentResult {
+  agent: PlatformAgent;
+  telegram_deeplink: string;
+  pair_code: string;
+}
+
 export interface TokenUsage {
   month: string;
   input_tokens: number;
