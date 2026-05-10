@@ -292,6 +292,38 @@
   </div>
 </footer>
 
+  <!-- ── Email gate modal ─────────────────────────────────────────────────── -->
+  <div id="email-gate" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,7,16,0.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;">
+    <div class="liquid-glass iridescent-border" style="width:100%;max-width:400px;border-radius:24px;padding:32px;box-shadow:0 32px 80px rgba(0,0,0,0.6);">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:rgba(196,192,255,0.15);border:1px solid rgba(196,192,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <span class="ms" style="color:#c4c0ff;font-size:26px;font-variation-settings:'FILL' 1;">smart_toy</span>
+        </div>
+        <div style="font-size:18px;font-weight:700;color:#e4e1ee;font-family:'JetBrains Mono',monospace;margin-bottom:8px;">Try Poly Free</div>
+        <div style="font-size:13px;color:rgba(199,196,216,0.6);line-height:1.6;">Enter your email to start chatting.<br>No wallet required.</div>
+      </div>
+      <form id="email-gate-form">
+        <input
+          id="email-gate-input"
+          type="email"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#e4e1ee;font-size:14px;padding:12px 16px;border-radius:12px;outline:none;margin-bottom:8px;font-family:'JetBrains Mono',monospace;"
+        />
+        <div id="email-gate-error" style="display:none;font-size:12px;color:#ffb785;margin-bottom:8px;padding-left:4px;font-family:'JetBrains Mono',monospace;"></div>
+        <button
+          type="submit"
+          id="email-gate-submit"
+          style="width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,#c4c0ff,#4f44e2);color:#fff;font-weight:700;font-size:14px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:opacity 0.2s;"
+        >Start Chatting →</button>
+      </form>
+      <p style="text-align:center;font-size:10px;color:rgba(199,196,216,0.25);font-family:'JetBrains Mono',monospace;margin-top:16px;margin-bottom:0;">
+        No spam · Unsubscribe anytime
+      </p>
+    </div>
+  </div>
+
 <script>
 (function () {
   'use strict';
@@ -564,36 +596,5 @@
 })();
 </script>
 
-  <!-- ── Email gate modal ─────────────────────────────────────────────────── -->
-  <div id="email-gate" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,7,16,0.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;">
-    <div class="liquid-glass iridescent-border" style="width:100%;max-width:400px;border-radius:24px;padding:32px;box-shadow:0 32px 80px rgba(0,0,0,0.6);">
-      <div style="text-align:center;margin-bottom:24px;">
-        <div style="width:52px;height:52px;border-radius:50%;background:rgba(196,192,255,0.15);border:1px solid rgba(196,192,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-          <span class="ms" style="color:#c4c0ff;font-size:26px;font-variation-settings:'FILL' 1;">smart_toy</span>
-        </div>
-        <div style="font-size:18px;font-weight:700;color:#e4e1ee;font-family:'JetBrains Mono',monospace;margin-bottom:8px;">Try Poly Free</div>
-        <div style="font-size:13px;color:rgba(199,196,216,0.6);line-height:1.6;">Enter your email to start chatting.<br>No wallet required.</div>
-      </div>
-      <form id="email-gate-form">
-        <input
-          id="email-gate-input"
-          type="email"
-          placeholder="you@example.com"
-          required
-          autocomplete="email"
-          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#e4e1ee;font-size:14px;padding:12px 16px;border-radius:12px;outline:none;margin-bottom:8px;font-family:'JetBrains Mono',monospace;"
-        />
-        <div id="email-gate-error" style="display:none;font-size:12px;color:#ffb785;margin-bottom:8px;padding-left:4px;font-family:'JetBrains Mono',monospace;"></div>
-        <button
-          type="submit"
-          id="email-gate-submit"
-          style="width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,#c4c0ff,#4f44e2);color:#fff;font-weight:700;font-size:14px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:opacity 0.2s;"
-        >Start Chatting →</button>
-      </form>
-      <p style="text-align:center;font-size:10px;color:rgba(199,196,216,0.25);font-family:'JetBrains Mono',monospace;margin-top:16px;margin-bottom:0;">
-        No spam · Unsubscribe anytime
-      </p>
-    </div>
-  </div>
 </body>
 </html>
