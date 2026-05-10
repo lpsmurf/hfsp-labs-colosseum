@@ -8,6 +8,23 @@ import { encrypt } from '../services/key-vault.js';
 import { verifyPayment } from '../services/payment-verifier.js';
 import { createUserKey } from '../services/openrouter-provisioner.js';
 import axios from 'axios';
+import { execFile as execFileCb } from 'child_process';
+import { promisify } from 'util';
+
+const execFile = promisify(execFileCb);
+
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...target };
+  for (const [k, v] of Object.entries(source)) {
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) &&
+        typeof out[k] === 'object' && !Array.isArray(out[k])) {
+      out[k] = deepMerge(out[k] as Record<string, unknown>, v as Record<string, unknown>);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
@@ -130,8 +147,28 @@ router.post('/deploy', async (req, res) => {
     `).run(agentId, userId, name, llm_provider, llm_model ?? null, custom_endpoint ?? null);
 
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(agentId);
+
+    // Generate Telegram pair code and deeplink before responding
+    const pairCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    db().prepare(`
+      INSERT INTO telegram_pairings (id, agent_id, pair_code, expires_at)
+      VALUES (?, ?, ?, ?)
+    `).run(uuidv4(), agentId, pairCode, expiresAt);
+
+    let botHandle = telegram_bot_token.split(':')[0];
+    try {
+      const getMeRes = await axios.get(
+        `https://api.telegram.org/bot${telegram_bot_token}/getMe`,
+        { timeout: 5000 }
+      );
+      botHandle = getMeRes.data?.result?.username ?? botHandle;
+    } catch { /* fallback to numeric ID */ }
+
+    const telegramDeeplink = `https://t.me/${botHandle}?start=${pairCode}`;
+
     // Respond immediately — deploy runs in background
-    res.json({ success: true, agent });
+    res.json({ success: true, agent, telegram_deeplink: telegramDeeplink, pair_code: pairCode });
 
     // Async deploy (do not await in response path)
     void (async () => {
@@ -143,7 +180,7 @@ router.post('/deploy', async (req, res) => {
           heliusApiKey: heliusKey,
           llmProvider: llm_provider,
           llmModel: llm_model,
-          llmApiKey: api_key,
+          llmApiKey: llm_provider === 'poly' ? process.env.POLY_OPENROUTER_KEY : api_key,
           customEndpoint: custom_endpoint,
           telegramBotToken: telegram_bot_token,
         });
@@ -186,6 +223,92 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('[agents/delete]', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/agents/:id/config — guarded config update
+router.patch('/:id/config', async (req, res) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const agent = db()
+    .prepare('SELECT * FROM agents WHERE id = ? AND user_id = ?')
+    .get(req.params.id, userId) as Record<string, unknown> | undefined;
+  if (!agent) return res.status(404).json({ error: 'Agent not found' });
+
+  const patchSchema = z.object({
+    identity: z.object({
+      name:  z.string().min(1).max(64).optional(),
+      emoji: z.string().max(4).optional(),
+    }).optional(),
+    agents: z.object({
+      defaults: z.object({
+        model: z.object({
+          primary: z.string().min(1),
+        }).optional(),
+        heartbeat: z.object({
+          enabled:         z.boolean().optional(),
+          intervalSeconds: z.number().int().min(60).max(86400).optional(),
+        }).optional(),
+      }).optional(),
+    }).optional(),
+  });
+
+  const parse = patchSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'Invalid config patch', details: parse.error.format() });
+
+  try {
+    // Read current config from volume via one-shot Alpine container
+    const configVol = `openclaw-config-${userId}`;
+    const { stdout: rawJson } = await execFile('docker', [
+      'run', '--rm',
+      '-v', `${configVol}:/vol:ro`,
+      'alpine:3.20',
+      'sh', '-c', 'cat /vol/openclaw.json',
+    ], { timeout: 15_000, maxBuffer: 1024 * 1024 });
+
+    const current = JSON.parse(rawJson);
+
+    // Deep merge user patch
+    const merged = deepMerge(current, parse.data) as Record<string, any>;
+
+    // Enforce locked fields — platform always wins on these
+    const mcpName = `mcp-${userId}`;
+    merged.gateway   = { port: 3000 };
+    merged.workspace = { path: '/tenant/workspace', skipBootstrap: true };
+    merged.channels  = {
+      ...merged.channels,
+      telegram: {
+        ...(merged.channels?.telegram ?? {}),
+        botToken: '${TELEGRAM_BOT_TOKEN}',
+        dmPolicy: 'pairing',
+      },
+    };
+    // Ensure user's own MCP server is always first entry
+    const userMcpServer = {
+      name: 'solana',
+      transport: 'streamable-http',
+      url: `http://${mcpName}:3002/mcp`,
+    };
+    const otherServers = (merged.mcp?.servers ?? []).filter(
+      (s: { name: string }) => s.name !== 'solana'
+    );
+    merged.mcp = { servers: [userMcpServer, ...otherServers] };
+
+    // Write merged config back
+    const b64 = Buffer.from(JSON.stringify(merged, null, 2), 'utf8').toString('base64');
+    await execFile('docker', [
+      'run', '--rm',
+      '-v', `${configVol}:/vol`,
+      '-e', `CONTENT=${b64}`,
+      'alpine:3.20',
+      'sh', '-c', `printf '%s' "$CONTENT" | base64 -d > /vol/openclaw.json`,
+    ], { timeout: 15_000, maxBuffer: 1024 * 1024 });
+
+    res.json({ success: true, config: merged });
+  } catch (err) {
+    console.error('[agents/config]', err);
+    res.status(500).json({ error: 'Failed to update config' });
   }
 });
 
@@ -320,6 +443,26 @@ router.post('/quick-deploy', async (req, res) => {
   }
 });
 
+// GET /api/agents/:id/telegram — fetch Telegram pairing for an agent
+// Auth: X-Agent-Id header must match the agent ID (inter-service)
+router.get('/:id/telegram', (req, res) => {
+  const agentId = req.params.id;
+  if (req.headers['x-agent-id'] !== agentId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const pairing = db().prepare(
+      'SELECT chat_id, pair_code, expires_at, paired_at FROM telegram_pairings WHERE agent_id = ?'
+    ).get(agentId) as Record<string, unknown> | undefined;
+
+    res.json({ pairing: pairing ?? null });
+  } catch (err) {
+    console.error('[agents/telegram]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // PATCH /api/agents/:id/pair — pair a Telegram chat with an agent
 router.patch('/:id/pair', async (req, res) => {
   const bodySchema = z.object({
@@ -335,9 +478,12 @@ router.patch('/:id/pair', async (req, res) => {
   const { pair_code, chat_id } = parse.data;
 
   try {
+    // Allow pairing if:
+    // 1. Code is unused (chat_id IS NULL), OR
+    // 2. Code is already paired to the SAME chat (re-pair after agent restart)
     const row = db().prepare(
-      "SELECT * FROM telegram_pairings WHERE agent_id = ? AND pair_code = ? AND expires_at > datetime('now') AND chat_id IS NULL"
-    ).get(req.params.id, pair_code) as Record<string, unknown> | undefined;
+      "SELECT * FROM telegram_pairings WHERE agent_id = ? AND pair_code = ? AND expires_at > datetime('now') AND (chat_id IS NULL OR chat_id = ?)"
+    ).get(req.params.id, pair_code, chat_id) as Record<string, unknown> | undefined;
 
     if (!row) {
       return res.status(404).json({ error: 'Invalid or expired pair code' });

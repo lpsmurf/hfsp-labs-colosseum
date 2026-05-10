@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Tenant runtime entrypoint
-# - openclaw.json is bind-mounted read-only to: /home/clawd/.openclaw/openclaw.json
-# - secrets dir is bind-mounted read-only to: /home/clawd/.openclaw/secrets
-# - workspace is bind-mounted to: /tenant/workspace
-#
-# IMPORTANT: Do not create symlinks in /home/clawd/.openclaw when mounts are read-only.
-
 mkdir -p /tenant/workspace
 
-# Resolve provider keys from mounted secrets.
-# IMPORTANT: `su` typically clears env vars, so we pass them inline to the command.
+# Resolve provider keys — env var takes precedence, secrets file is fallback
 ANTHROPIC_KEY="${ANTHROPIC_API_KEY:-}"
 if [[ -z "$ANTHROPIC_KEY" ]] && [[ -f /home/clawd/.openclaw/secrets/anthropic.key ]]; then
   ANTHROPIC_KEY="$(tr -d '\r\n' < /home/clawd/.openclaw/secrets/anthropic.key)"
@@ -22,17 +14,17 @@ if [[ -z "$OPENAI_KEY" ]] && [[ -f /home/clawd/.openclaw/secrets/openai.key ]]; 
   OPENAI_KEY="$(tr -d '\r\n' < /home/clawd/.openclaw/secrets/openai.key)"
 fi
 
-# Drop privileges and run gateway
-# IMPORTANT:
-# - Do NOT use `su -m` here, because it preserves HOME=/root and OpenClaw then
-#   looks for /root/.openclaw/openclaw.json ("Missing config" + default port 18789).
-# - Instead, pass HOME + keys inline.
+OPENROUTER_KEY="${OPENROUTER_API_KEY:-}"
+if [[ -z "$OPENROUTER_KEY" ]] && [[ -f /home/clawd/.openclaw/secrets/openrouter.key ]]; then
+  OPENROUTER_KEY="$(tr -d '\r\n' < /home/clawd/.openclaw/secrets/openrouter.key)"
+fi
+
+TG_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+
 CMD_PREFIX="HOME=/home/clawd"
-if [[ -n "$ANTHROPIC_KEY" ]]; then
-  CMD_PREFIX+=" ANTHROPIC_API_KEY=\"$ANTHROPIC_KEY\""
-fi
-if [[ -n "$OPENAI_KEY" ]]; then
-  CMD_PREFIX+=" OPENAI_API_KEY=\"$OPENAI_KEY\""
-fi
+[[ -n "$ANTHROPIC_KEY" ]]  && CMD_PREFIX+=" ANTHROPIC_API_KEY=\"$ANTHROPIC_KEY\""
+[[ -n "$OPENAI_KEY" ]]     && CMD_PREFIX+=" OPENAI_API_KEY=\"$OPENAI_KEY\""
+[[ -n "$OPENROUTER_KEY" ]] && CMD_PREFIX+=" OPENROUTER_API_KEY=\"$OPENROUTER_KEY\""
+[[ -n "$TG_TOKEN" ]]       && CMD_PREFIX+=" TELEGRAM_BOT_TOKEN=\"$TG_TOKEN\""
 
 exec su -s /bin/bash -c "$CMD_PREFIX openclaw gateway run --force" clawd
