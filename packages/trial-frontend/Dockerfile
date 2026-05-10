@@ -22,6 +22,7 @@ RUN echo "VITE_PLATFORM_WALLET=${VITE_PLATFORM_WALLET}" > .env && \
 RUN npm run build
 
 FROM node:20-alpine
+RUN apk add --no-cache curl
 WORKDIR /app
 RUN npm install -g serve
 COPY --from=builder /app/dist ./dist

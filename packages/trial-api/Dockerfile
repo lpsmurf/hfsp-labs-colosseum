@@ -12,6 +12,7 @@ RUN npm run build
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM node:20-alpine
+RUN apk add --no-cache curl
 WORKDIR /app
 
 COPY --from=0 /app/package*.json ./
