@@ -55,29 +55,48 @@ async function mkdirInVolume(volume: string, dir: string): Promise<void> {
 
 function buildConfig(mcpContainerName: string, llmModel: string): string {
   return JSON.stringify({
-    identity: { name: 'Solana Agent', emoji: '🤖' },
     gateway: { port: 3000 },
-    workspace: { path: '/tenant/workspace', skipBootstrap: true },
     channels: {
       telegram: {
         botToken: '${TELEGRAM_BOT_TOKEN}',
         dmPolicy: 'pairing',
       },
     },
-    mcp: {
-      servers: [
-        {
-          name: 'solana',
-          transport: 'streamable-http',
-          url: `http://${mcpContainerName}:3002/mcp`,
+    models: {
+      providers: {
+        openrouter: {
+          baseUrl: 'https://openrouter.ai/api/v1',
+          apiKey: '${OPENROUTER_API_KEY}',
+          api: 'openai-completions',
         },
-      ],
+      },
+    },
+    plugins: {
+      entries: {
+        'openclaw-mcp-plugin': {
+          enabled: true,
+          config: {
+            mcpUrl: `http://${mcpContainerName}:3002/mcp`,
+            transport: 'streamable-http',
+          },
+        },
+      },
     },
     agents: {
       defaults: {
         model: { primary: llmModel },
-        heartbeat: { enabled: true, intervalSeconds: 3600 },
+        workspace: '/tenant/workspace',
+        skipBootstrap: true,
       },
+      list: [
+        {
+          id: 'main',
+          identity: {
+            name: 'Solana Agent',
+            emoji: '🤖',
+          },
+        },
+      ],
     },
   }, null, 2);
 }

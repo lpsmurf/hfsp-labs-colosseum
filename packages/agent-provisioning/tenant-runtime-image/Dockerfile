@@ -13,8 +13,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
   && apt-get update && apt-get install -y --no-install-recommends nodejs \
   && rm -rf /var/lib/apt/lists/*
 
-# Install OpenClaw pinned
-RUN npm i -g openclaw@${OPENCLAW_VERSION}
+# Install OpenClaw pinned + MCP plugin
+RUN npm i -g openclaw@${OPENCLAW_VERSION} openclaw-mcp-plugin
 
 # Runtime user
 RUN useradd -m -u 10001 -s /bin/bash clawd \
