@@ -3,6 +3,10 @@ set -euo pipefail
 
 mkdir -p /tenant/workspace
 
+# Ensure OpenClaw config dir is writable by the runtime user
+# (volumes are populated by root-owned Alpine one-shots in the deployer)
+chown -R clawd:clawd /home/clawd/.openclaw 2>/dev/null || true
+
 # Resolve provider keys — env var takes precedence, secrets file is fallback
 ANTHROPIC_KEY="${ANTHROPIC_API_KEY:-}"
 if [[ -z "$ANTHROPIC_KEY" ]] && [[ -f /home/clawd/.openclaw/secrets/anthropic.key ]]; then
