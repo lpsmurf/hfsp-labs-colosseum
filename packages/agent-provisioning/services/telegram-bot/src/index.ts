@@ -3,14 +3,37 @@ import express, { Request, Response } from "express";
 import { createLogger } from "./utils/logger.js";
 import { validateSignature } from "./utils/telegram-security.js";
 import { handleWebhook } from "./handlers/webhook.js";
+import {
+  configureOnboarding,
+  configurePairingLookup,
+  configureCreditLookup,
+} from "./guardrails/index.js";
+import {
+  getOnboardingRecord,
+  saveEmail,
+  getPairingRecord,
+  getCreditBalance,
+} from "./services/platform-client.js";
 
 const logger = createLogger();
 
+// --- Guardrail startup configuration ---
+configureOnboarding(
+  (chatId) => getOnboardingRecord(chatId),
+  (chatId, email) => saveEmail(chatId, email),
+);
+
+configurePairingLookup((chatId) => getPairingRecord(chatId));
+
+configureCreditLookup((userId) => getCreditBalance(userId));
+
+logger.info("Guardrails configured");
+
+// --- Express app ---
 const app = express();
 const port = parseInt(process.env.PORT || "3335", 10);
 const secretToken = process.env.TELEGRAM_SECRET_TOKEN;
 
-// Middleware
 app.use(express.json());
 
 // Health check endpoint
@@ -26,7 +49,6 @@ app.get("/health", (req: Request, res: Response) => {
 // Webhook endpoint for Telegram updates
 app.post("/webhook", async (req: Request, res: Response) => {
   try {
-    // Validate signature if token is configured
     if (secretToken) {
       if (!validateSignature(secretToken, req as any)) {
         logger.warn("Invalid signature received");
@@ -35,10 +57,7 @@ app.post("/webhook", async (req: Request, res: Response) => {
       }
     }
 
-    // Process the webhook
     await handleWebhook(req.body);
-
-    // Always respond 200 to Telegram
     res.status(200).json({ ok: true });
   } catch (error) {
     logger.error({ error }, "Error processing webhook");

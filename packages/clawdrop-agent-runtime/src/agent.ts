@@ -229,8 +229,6 @@ async function handleMessage(text: string, chatId: string): Promise<string> {
         content: toolResult,
         tool_call_id: tc.id,
       });
-      // Also update local history
-      addMessage(chatId, { role: 'tool', content: toolResult, tool_call_id: tc.id });
     }
 
     // Second completion with tool results
@@ -249,6 +247,23 @@ async function handleMessage(text: string, chatId: string): Promise<string> {
 
 let pairedChatId: number | null = null;
 
+async function restorePairedChatId(): Promise<void> {
+  if (!AGENT_ID) return;
+  try {
+    const res = await axios.get(`${PLATFORM_URL}/api/agents/${AGENT_ID}/telegram`, {
+      headers: { 'X-Agent-Id': AGENT_ID },
+      timeout: 5000,
+    });
+    const chatId = res.data?.pairing?.chat_id;
+    if (chatId) {
+      pairedChatId = chatId;
+      console.log(`[agent] Restored Telegram pairing — chat ${chatId}`);
+    }
+  } catch (err) {
+    console.error('[agent] Failed to restore Telegram pairing:', (err as Error).message);
+  }
+}
+
 async function startTelegramBot() {
   if (!TELEGRAM_BOT_TOKEN) return;
 
@@ -260,6 +275,11 @@ async function startTelegramBot() {
 
     if (!pairCode) {
       return ctx.reply('Send /start {pair_code} to activate this agent.');
+    }
+
+    // Already paired to THIS chat — just welcome back
+    if (pairedChatId === chatId) {
+      return ctx.reply('✅ Poly is live. Ask me anything about Solana.');
     }
 
     // Already paired to a different chat
@@ -357,14 +377,27 @@ if (HEALTH_PORT !== APP_PORT) {
 
 // ─── Startup ────────────────────────────────────────────────────────────────
 
-async function main() {
-  try {
-    await initMcp();
-    await startTelegramBot();
-  } catch (err) {
-    console.error('[agent] MCP init failed, retrying in 10s:', (err as Error).message);
-    setTimeout(main, 10000);
+async function connectMcpWithRetry(): Promise<void> {
+  while (true) {
+    try {
+      await initMcp();
+      return;
+    } catch (err) {
+      console.error('[agent] MCP init failed, retrying in 10s:', (err as Error).message);
+      await new Promise((r) => setTimeout(r, 10000));
+    }
   }
+}
+
+async function main() {
+  // Restore Telegram pairing from platform before starting bot
+  await restorePairedChatId();
+  // Start Telegram bot immediately — doesn't need MCP
+  await startTelegramBot();
+  // MCP connects in background with retries
+  connectMcpWithRetry().catch((err) =>
+    console.error('[agent] MCP retry loop exited unexpectedly:', err)
+  );
 }
 
 main();
