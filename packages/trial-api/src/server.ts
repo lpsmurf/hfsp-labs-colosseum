@@ -2,8 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import { z } from 'zod';
 import { poly } from './poly-agent.js';
-import { checkAndIncrement, getQuota } from './rate-limit.js';
+import { checkAndIncrement, getQuota, saveEmail } from './rate-limit.js';
 import { isBudgetExhausted, getBudgetRemaining, recordSpend, estimateCost } from './budget-guard.js';
+import { checkInput, sanitizeOutput } from './guardrails.js';
 
 const EnvSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1),
@@ -45,12 +46,21 @@ app.get('/api/quota', (req, res) => {
   res.json(getQuota(clientIp(req)));
 });
 
+app.post('/api/lead', (req, res) => {
+  const schema = z.object({ email: z.string().email().max(254) });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'Invalid email' });
+  saveEmail(clientIp(req), parse.data.email);
+  res.json({ ok: true });
+});
+
 app.post('/api/chat', async (req, res) => {
   console.log('[chat] start');
   
   const ChatSchema = z.object({
     message: z.string().min(1).max(1000),
     sessionId: z.string().min(1).max(64),
+    email: z.string().email().max(254).optional(),
   });
 
   const parse = ChatSchema.safeParse(req.body);
@@ -69,6 +79,16 @@ app.post('/api/chat', async (req, res) => {
   const quota = checkAndIncrement(ip);
   if (!quota.allowed) {
     return res.status(429).json({ error: 'Daily message limit reached' });
+  }
+
+  if (parse.data.email) {
+    saveEmail(ip, parse.data.email);
+  }
+
+  // Input guardrail — prompt injection
+  const inputCheck = checkInput(parse.data.message);
+  if (!inputCheck.ok) {
+    return res.status(400).json({ error: inputCheck.error });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -144,7 +164,8 @@ app.post('/api/chat', async (req, res) => {
     const usage = await stream.usage;
     if (usage) recordSpend(estimateCost(usage.promptTokens ?? 0, usage.completionTokens ?? 0));
 
-    send('done', { remaining: quota.remaining });
+    const finalText = sanitizeOutput(text);
+    send('done', { remaining: quota.remaining, finalText });
     if (!res.writableEnded) res.end();
   } catch (err) {
     console.error('[err]', err instanceof Error ? err.message : err);
