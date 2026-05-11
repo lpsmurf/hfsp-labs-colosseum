@@ -33,8 +33,18 @@ const DEV_WALLETS = new Set(
   (process.env.DEV_WALLETS ?? '').split(',').map(w => w.trim()).filter(Boolean)
 );
 
-function isDevWallet(id: string | null): boolean {
-  return id !== null && DEV_WALLETS.has(id);
+function getWalletFromToken(req: { headers: { authorization?: string } }): string | null {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return null;
+  try {
+    const decoded = jwt.verify(auth.slice(7), JWT_SECRET) as { sub: string; wallet?: string };
+    return decoded.wallet ?? null;
+  } catch { return null; }
+}
+
+function isDevWallet(req: { headers: { authorization?: string } }): boolean {
+  const wallet = getWalletFromToken(req);
+  return wallet !== null && DEV_WALLETS.has(wallet);
 }
 
 function getUserId(req: { headers: { authorization?: string } }): string | null {
@@ -115,7 +125,7 @@ router.post('/deploy', async (req, res) => {
 
   try {
     // Require active subscription (skipped for dev wallets)
-    if (!isDevWallet(userId)) {
+    if (!isDevWallet(req)) {
       const sub = db()
         .prepare("SELECT 1 FROM subscriptions WHERE user_id = ? AND status = 'active'")
         .get(userId);
@@ -351,7 +361,7 @@ router.post('/quick-deploy', async (req, res) => {
 
     // 1. Verify payment on-chain (skipped for dev wallets)
     let verification: { valid: boolean; amount: string; error?: string } = { valid: true, amount: '0' };
-    if (!isDevWallet(userId)) {
+    if (!DEV_WALLETS.has(wallet)) {
       verification = await verifyPayment(tx_hash, tier, 'SOL');
       if (!verification.valid) {
         return res.status(402).json({ error: 'Payment verification failed', details: verification.error });
