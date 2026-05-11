@@ -183,8 +183,10 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
   // 1. Isolated network
   await docker(['network', 'create', network]).catch(() => {});
 
-  // 2. Named volumes (survive container restarts — agent memory persists)
-  await docker(['volume', 'create', configVol]).catch(() => {});
+  // 2. Config volume: always recreate fresh so OpenClaw can't restore stale backups.
+  //    Workspace volume: preserved across redeploys (agent memory persists).
+  await docker(['volume', 'rm', configVol]).catch(() => {});
+  await docker(['volume', 'create', configVol]);
   await docker(['volume', 'create', wsVol]).catch(() => {});
 
   // 3. Write openclaw.json into config volume
