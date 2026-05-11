@@ -59,7 +59,7 @@ app.post('/api/chat', async (req, res) => {
   
   const ChatSchema = z.object({
     message: z.string().min(1).max(1000),
-    sessionId: z.string().min(1).max(64),
+    sessionId: z.string().min(1).max(64).optional(),
     email: z.string().email().max(254).optional(),
   });
 
