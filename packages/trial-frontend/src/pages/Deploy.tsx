@@ -4,9 +4,9 @@ import { platformClient } from '../services/api'
 import PaymentModal from '../components/PaymentModal'
 import type { LLMProvider, PlatformAgentStatus, SubscriptionTier, PaymentToken } from '../types/api'
 
-type Step = 'intro' | 'wallet' | 'payment' | 'llm' | 'config' | 'deploying' | 'success'
+type Step = 'intro' | 'wallet' | 'payment' | 'llm' | 'config' | 'deploying' | 'pairing' | 'success'
 
-const STEP_ORDER: Step[] = ['intro', 'wallet', 'payment', 'llm', 'config', 'deploying', 'success']
+const STEP_ORDER: Step[] = ['intro', 'wallet', 'payment', 'llm', 'config', 'deploying', 'pairing', 'success']
 
 type ByokProvider = 'anthropic' | 'openai' | 'openrouter' | 'google'
 
@@ -82,8 +82,10 @@ export function Deploy() {
   const [deployStatus, setDeployStatus] = useState<PlatformAgentStatus | null>(null)
   const [deployError, setDeployError] = useState('')
   const [telegramDeeplink, setTelegramDeeplink] = useState('')
-  const [pairCode, setPairCode] = useState('')
-  const [deeplinkCopied, setDeeplinkCopied] = useState(false)
+  const [userPairCode, setUserPairCode] = useState('')
+  const [pairingError, setPairingError] = useState('')
+  const [pairingLoading, setPairingLoading] = useState(false)
+  const [pairingDone, setPairingDone] = useState(false)
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -167,7 +169,6 @@ export function Deploy() {
       setDeployedAgentId(result.agent.id)
       setDeployStatus(result.agent.status)
       if (result.telegram_deeplink) setTelegramDeeplink(result.telegram_deeplink)
-      if (result.pair_code) setPairCode(result.pair_code)
       setStep('deploying')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -185,7 +186,7 @@ export function Deploy() {
       setDeployStatus(agent.status)
       if (agent.status === 'active') {
         if (pollingRef.current) clearInterval(pollingRef.current)
-        setStep('success')
+        setStep('pairing')
       } else if (agent.status === 'failed') {
         if (pollingRef.current) clearInterval(pollingRef.current)
         setDeployError('Deployment failed. Please try again.')
@@ -219,8 +220,7 @@ export function Deploy() {
     setDeployStatus(null)
     setDeployError('')
     setTelegramDeeplink('')
-    setPairCode('')
-    setDeeplinkCopied(false)
+    
   }
 
   return (
@@ -570,6 +570,64 @@ export function Deploy() {
           </div>
         )}
 
+        {/* ── PAIRING ──────────────────────────────────────────────── */}
+        {step === 'pairing' && (
+          <div className="space-y-6 pt-4">
+            <div className="text-center">
+              <p className="text-5xl mb-3">💬</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Connect Telegram</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Your agent is running. Pair it with your Telegram account to start chatting.</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Step 1 — Open your Telegram bot</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Send any message to the bot. It will reply with a pairing code.</p>
+                {telegramDeeplink && (
+                  <a href={telegramDeeplink} target="_blank" rel="noreferrer"
+                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm">
+                    Open Telegram Bot →
+                  </a>
+                )}
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Step 2 — Enter the pairing code</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Copy the code shown by the bot and paste it below.</p>
+                <input
+                  type="text"
+                  placeholder="e.g. A1B2C3D4"
+                  value={userPairCode}
+                  onChange={e => { setUserPairCode(e.target.value.toUpperCase()); setPairingError(''); }}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-lg text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {pairingError && <p className="text-xs text-red-500">{pairingError}</p>}
+                {pairingDone && <p className="text-xs text-green-500">✅ Paired! Your bot is ready.</p>}
+              </div>
+              {!pairingDone && (
+                <button
+                  onClick={async () => {
+                    if (!userPairCode.trim()) { setPairingError('Enter the code from Telegram'); return; }
+                    setPairingLoading(true); setPairingError('');
+                    try {
+                      await platformClient.approvePairing(deployedAgentId, userPairCode.trim());
+                      setPairingDone(true);
+                      setTimeout(() => setStep('success'), 1500);
+                    } catch {
+                      setPairingError('Code not found or expired. Send a new message to the bot to get a fresh code.');
+                    } finally { setPairingLoading(false); }
+                  }}
+                  disabled={pairingLoading}
+                  className="w-full py-3 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-semibold text-sm disabled:opacity-50">
+                  {pairingLoading ? 'Approving…' : 'Approve Pairing'}
+                </button>
+              )}
+            </div>
+            <button onClick={() => setStep('success')}
+              className="w-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm py-2 rounded-xl">
+              Skip for now
+            </button>
+          </div>
+        )}
+
         {/* ── SUCCESS ───────────────────────────────────────────────── */}
         {step === 'success' && (
           <div className="space-y-6 pt-4">
@@ -581,38 +639,18 @@ export function Deploy() {
               </p>
             </div>
 
-            {/* Telegram pairing */}
+            {/* Telegram link */}
             {telegramDeeplink && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">💬</span>
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">Pair your Telegram bot</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Click the link below to open Telegram and start your agent</p>
-                  </div>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 border border-green-200 dark:border-green-800 flex items-center gap-3">
+                <span className="text-2xl">✅</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-green-800 dark:text-green-300 text-sm">Telegram paired</p>
+                  <p className="text-xs text-green-600 dark:text-green-400">Your bot is connected and ready to chat</p>
                 </div>
-
-                {pairCode && (
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pair code</p>
-                    <p className="text-2xl font-mono font-bold text-blue-600 dark:text-blue-400 tracking-widest">{pairCode}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Expires in 1 hour</p>
-                  </div>
-                )}
-
                 <a href={telegramDeeplink} target="_blank" rel="noreferrer"
-                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm">
-                  <span>Open in Telegram →</span>
+                   className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold">
+                  Open →
                 </a>
-
-                <button onClick={() => {
-                  navigator.clipboard.writeText(telegramDeeplink)
-                  setDeeplinkCopied(true)
-                  setTimeout(() => setDeeplinkCopied(false), 2000)
-                }}
-                  className="w-full py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium">
-                  {deeplinkCopied ? '✅ Copied!' : '📋 Copy invite link'}
-                </button>
               </div>
             )}
 
