@@ -83,18 +83,14 @@ function buildConfig(
       entries: {
         // bonjour (mDNS) crashes in Docker — multicast probing is cancelled → unhandled rejection
         bonjour: { enabled: false },
-        // openclaw-mcp-plugin was renamed in 2026.4.24; use bundle-mcp config below
-        'bundle-mcp': {
-          enabled: true,
-          config: {
-            servers: [
-              {
-                id: 'clawdrop-mcp',
-                url: `http://${mcpContainerName}:3002/mcp`,
-                transport: 'streamable-http',
-              },
-            ],
-          },
+      },
+    },
+    // MCP servers — top-level key, not a plugin (OpenClaw 2026.4.24 schema)
+    mcp: {
+      servers: {
+        'clawdrop-solana': {
+          url: `http://${mcpContainerName}:3002/mcp`,
+          transport: 'streamable-http',
         },
       },
     },
