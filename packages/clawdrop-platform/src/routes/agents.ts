@@ -523,3 +523,36 @@ router.patch('/:id/pair', async (req, res) => {
 });
 
 export default router;
+
+// POST /api/agents/:id/pairing/approve
+// User submits the pairing code shown by the Telegram bot → approve it inside the container
+router.post('/:id/pairing/approve', async (req, res) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const bodySchema = z.object({ code: z.string().min(4).max(32) });
+  const parse = bodySchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'Invalid request' });
+
+  const agent = db().prepare('SELECT id, user_id FROM agents WHERE id = ?').get(req.params.id) as
+    | { id: string; user_id: string } | undefined;
+  if (!agent || agent.user_id !== userId) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+
+  const agentName = `agent-${agent.user_id}`;
+  try {
+    await execFile('docker', [
+      'exec', agentName,
+      'su', '-s', '/bin/sh', 'clawd', '-c',
+      `openclaw pairing approve telegram ${parse.data.code}`,
+    ], { timeout: 10_000 });
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const isNotFound = msg.includes('No pending pairing request');
+    res.status(isNotFound ? 404 : 500).json({
+      error: isNotFound ? 'Pairing code not found or expired' : 'Failed to approve pairing',
+    });
+  }
+});

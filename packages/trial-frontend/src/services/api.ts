@@ -229,6 +229,10 @@ class PlatformApiClient {
     return res.data.agent;
   }
 
+  async approvePairing(agentId: string, code: string): Promise<void> {
+    await this.client.post(`/agents/${agentId}/pairing/approve`, { code });
+  }
+
   async stopAgent(id: string): Promise<void> {
     await this.client.delete(`/agents/${id}`);
   }
