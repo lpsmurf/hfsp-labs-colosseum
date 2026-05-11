@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Connection,
-  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -27,8 +26,8 @@ interface PaymentModalProps {
 }
 
 const TIER_LABELS: Record<SubscriptionTier, string> = {
-  starter: 'Starter',
-  pro: 'Pro',
+  free_trial: 'Free Trial',
+  starter: 'Builder',
 };
 
 const TOKEN_MINTS: Partial<Record<PaymentToken, { mint: string; decimals: number }>> = {

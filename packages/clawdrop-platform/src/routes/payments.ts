@@ -29,7 +29,7 @@ function getAuthUser(req: { headers: { authorization?: string } }): { userId: st
 router.post('/verify', async (req, res) => {
   const schema = z.object({
     tx_signature: z.string().min(1).max(128),
-    tier: z.enum(['starter', 'pro']),
+    tier: z.enum(['free_trial', 'starter']),
     token: z.enum(['SOL', 'USDC', 'USDT', 'HERD']),
     wallet_address: z.string().min(32).max(44), // user's wallet
   });
@@ -82,9 +82,8 @@ router.post('/verify', async (req, res) => {
       .prepare("SELECT id FROM subscriptions WHERE user_id = ? AND status = 'active'")
       .get(userId) as { id: string } | undefined;
 
-    const now = new Date();
-    const periodEnd = new Date(now);
-    periodEnd.setUTCMonth(periodEnd.getUTCMonth() + 1);
+    const daysForTier = tier === 'free_trial' ? 7 : 30;
+    const periodEnd = new Date(Date.now() + daysForTier * 86400000).toISOString();
 
     let subscriptionId: string;
     if (existingSub) {
@@ -93,16 +92,16 @@ router.post('/verify', async (req, res) => {
       db().prepare(`
         UPDATE subscriptions
         SET tier = ?, payment_token = ?, amount_per_month = ?,
-            current_period_end = datetime('now', '+1 month'),
+            current_period_end = ?,
             status = 'active'
         WHERE id = ?
-      `).run(tier, verification.token, `${getTierPriceUsd(tier)} ${verification.token}`, subscriptionId);
+      `).run(tier, verification.token, `${getTierPriceUsd(tier)} ${verification.token}`, periodEnd, subscriptionId);
     } else {
       subscriptionId = uuidv4();
       db().prepare(`
         INSERT INTO subscriptions (id, user_id, tier, payment_token, amount_per_month, current_period_start, current_period_end)
-        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now', '+1 month'))
-      `).run(subscriptionId, userId, tier, verification.token, `${getTierPriceUsd(tier)} ${verification.token}`);
+        VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
+      `).run(subscriptionId, userId, tier, verification.token, `${getTierPriceUsd(tier)} ${verification.token}`, periodEnd);
     }
 
     // 4. Record the payment
@@ -143,10 +142,10 @@ router.post('/verify', async (req, res) => {
  * Query: ?tier=starter
  */
 router.get('/quote', async (_req, res) => {
-  const schema = z.object({ tier: z.enum(['starter', 'pro']) });
+  const schema = z.object({ tier: z.enum(['free_trial', 'starter']) });
   const parse = schema.safeParse({ tier: _req.query.tier });
   if (!parse.success) {
-    return res.status(400).json({ error: 'Invalid tier', valid: ['starter', 'pro'] });
+    return res.status(400).json({ error: 'Invalid tier', valid: ['free_trial', 'starter'] });
   }
 
   const tierPriceUsd = getTierPriceUsd(parse.data.tier);

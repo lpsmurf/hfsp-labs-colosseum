@@ -114,7 +114,7 @@ app.get('/api/openapi.json', (_req, res) => {
                   type: 'object',
                   properties: {
                     tx_signature: { type: 'string' },
-                    tier: { type: 'string', enum: ['starter', 'pro'] },
+                    tier: { type: 'string', enum: ['free_trial', 'starter'] },
                     token: { type: 'string', enum: ['SOL', 'USDC', 'USDT', 'HERD'] },
                     wallet_address: { type: 'string' },
                   },
@@ -133,7 +133,7 @@ app.get('/api/openapi.json', (_req, res) => {
         get: {
           summary: 'Get payment quote',
           parameters: [
-            { name: 'tier', in: 'query', required: true, schema: { type: 'string', enum: ['starter', 'pro'] } },
+            { name: 'tier', in: 'query', required: true, schema: { type: 'string', enum: ['free_trial', 'starter'] } },
           ],
           responses: { '200': { description: 'Price quote' } },
         },

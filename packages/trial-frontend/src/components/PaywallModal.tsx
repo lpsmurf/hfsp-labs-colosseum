@@ -8,18 +8,6 @@ interface PaywallModalProps {
   latestSolPrice?: number | null;
 }
 
-interface PhantomProvider {
-  isPhantom?: boolean;
-  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>;
-  signMessage: (message: Uint8Array, encoding: string) => Promise<{ signature: Uint8Array }>;
-}
-
-declare global {
-  interface Window {
-    solana?: PhantomProvider;
-  }
-}
-
 function isMobile() {
   if (typeof navigator === 'undefined') return false;
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);

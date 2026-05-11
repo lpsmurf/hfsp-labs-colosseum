@@ -28,7 +28,7 @@ export function Admin() {
     if (!t) return '—'
     switch (t) {
       case 'free_trial': return 'Free Trial'
-      case 'pro': return 'Pro'
+      case 'starter': return 'Builder'
       case 'enterprise': return 'Enterprise'
       default: return t.charAt(0).toUpperCase() + t.slice(1)
     }
@@ -81,7 +81,7 @@ export function Admin() {
               <span className="text-sm text-red-500">Error loading</span>
             ) : (
               <span className={`text-sm font-semibold px-2.5 py-1 rounded-full ${
-                tier === 'pro'
+                tier === 'starter'
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                   : tier === 'enterprise'
                   ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'

@@ -327,7 +327,7 @@ router.post('/quick-deploy', async (req, res) => {
   const bodySchema = z.object({
     wallet: z.string().min(32).max(44),
     tx_hash: z.string().min(1),
-    tier: z.string().min(1),
+    tier: z.enum(['free_trial', 'starter']),
     telegram_bot_token: z.string().regex(/^\d+:[A-Za-z0-9_-]{35,}$/, 'Invalid bot token format'),
     llm_provider: z.enum(['poly', 'byok', 'custom']).optional().default('poly'),
     llm_model: z.string().optional(),

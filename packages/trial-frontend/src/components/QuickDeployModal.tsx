@@ -13,7 +13,7 @@ import axios from 'axios';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Step = 1 | 2 | 3;
-type Tier = 'starter' | 'pro';
+type Tier = 'free_trial' | 'starter';
 type Token = 'SOL' | 'USDC' | 'USDT' | 'HERD';
 type LLM = 'poly' | 'byok' | 'custom';
 
@@ -25,8 +25,8 @@ interface PhantomProvider {
 }
 
 const TIERS = [
-  { id: 'starter' as Tier, name: 'Starter', usdc: '19', sol: '~0.12', features: ['1 agent', 'Shared VPS', '1M tokens/mo'] },
-  { id: 'pro' as Tier, name: 'Pro', usdc: '59', sol: '~0.38', features: ['Unlimited agents', 'Dedicated VPS', '5M tokens/mo'], popular: true },
+  { id: 'free_trial' as Tier, name: 'Free Trial', usdc: '0.10', sol: '0.10', features: ['1 agent', 'Shared VPS', '100K tokens', '7 days'], badge: 'Builder verify' },
+  { id: 'starter' as Tier, name: 'Builder', usdc: '29', sol: '~0.19', features: ['1 agent', 'Shared VPS', '1M tokens/mo'], popular: true },
 ];
 
 const TOKENS: Token[] = ['SOL', 'USDC', 'USDT', 'HERD'];
@@ -36,7 +36,7 @@ const MAINNET_TOKEN_MINTS: Partial<Record<Token, { mint: string; decimals: numbe
   USDT: { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', decimals: 6 },
 };
 
-const TIER_PRICES_USDC: Record<Tier, number> = { starter: 19, pro: 59 };
+const TIER_PRICES_USDC: Record<Tier, number> = { free_trial: 0.10, starter: 29 };
 
 const IS_DEVNET = import.meta.env.VITE_SOLANA_NETWORK === 'devnet';
 const SOLANA_RPC = import.meta.env.VITE_SOLANA_RPC_URL ?? (IS_DEVNET ? 'https://api.devnet.solana.com' : 'https://api.mainnet-beta.solana.com');
