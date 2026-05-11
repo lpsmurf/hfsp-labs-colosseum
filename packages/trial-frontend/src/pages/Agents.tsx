@@ -58,13 +58,13 @@ function AgentCard({ agent, onStop, onDelete }: { agent: PlatformAgent; onStop()
           <div className="flex justify-between text-[11px] mb-1.5" style={{ color: 'rgba(199,196,216,0.6)', fontFamily: "'JetBrains Mono',monospace" }}>
             <span>Token usage</span>
             <span style={{ color: '#c4c0ff' }}>
-              {((agent.token_usage?.input_tokens ?? 0) + (agent.token_usage?.output_tokens ?? 0)).toLocaleString()} / {agent.tier === 'pro' ? '5M' : '1M'}
+              {((agent.token_usage?.input_tokens ?? 0) + (agent.token_usage?.output_tokens ?? 0)).toLocaleString()} / {agent.tier === 'free_trial' ? '100K' : '1M'}
             </span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <div className="h-full rounded-full transition-all"
                  style={{
-                   width: `${Math.min(100, ((agent.token_usage?.input_tokens ?? 0) + (agent.token_usage?.output_tokens ?? 0)) / (agent.tier === 'pro' ? 5_000_000 : 1_000_000) * 100)}%`,
+                   width: `${Math.min(100, ((agent.token_usage?.input_tokens ?? 0) + (agent.token_usage?.output_tokens ?? 0)) / (agent.tier === 'free_trial' ? 100_000 : 1_000_000) * 100)}%`,
                    background: 'linear-gradient(90deg, #c4c0ff, #a2e7ff)',
                  }} />
           </div>

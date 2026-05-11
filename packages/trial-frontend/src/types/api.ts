@@ -97,7 +97,7 @@ export interface PlatformLoginResponse {
 export type PlatformAgentStatus = 'deploying' | 'active' | 'stopped' | 'failed';
 export type LLMProvider = 'poly' | 'byok' | 'custom';
 export type PaymentToken = 'SOL' | 'USDC' | 'USDT' | 'HERD';
-export type SubscriptionTier = 'starter' | 'pro';
+export type SubscriptionTier = 'free_trial' | 'starter';
 
 export interface PlatformAgent {
   id: string;

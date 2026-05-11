@@ -40,9 +40,9 @@ const BYOK_KEY_PLACEHOLDER: Record<ByokProvider, string> = {
   google: 'AIza...',
 }
 
-const TIERS: { id: SubscriptionTier; name: string; price: string; description: string }[] = [
-  { id: 'starter', name: 'Starter', price: '19 USDC / mo', description: '1 agent · 1M tokens/mo · Shared VPS' },
-  { id: 'pro', name: 'Pro', price: '59 USDC / mo', description: 'Unlimited agents · 5M tokens/mo · Dedicated VPS' },
+const TIERS: { id: SubscriptionTier; name: string; price: string; badge?: string; description: string }[] = [
+  { id: 'free_trial', name: 'Free Trial', price: '0.10 SOL (one-time)', badge: '7 days', description: '1 agent · 100K tokens · Verify you are a builder' },
+  { id: 'starter', name: 'Builder', price: '$29 / mo', description: '1 agent · 1M tokens/mo · Full access' },
 ]
 
 const PAYMENT_TOKENS: PaymentToken[] = ['USDC', 'USDT', 'SOL']
@@ -313,7 +313,14 @@ export function Deploy() {
                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{tier.name}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {tier.name}
+                        {tier.badge && (
+                          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full ml-1">
+                            {tier.badge}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tier.description}</p>
                     </div>
                     <p className="font-bold text-blue-600 dark:text-blue-400 text-sm ml-3 flex-shrink-0">{tier.price}</p>

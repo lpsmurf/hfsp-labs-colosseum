@@ -33,8 +33,8 @@ const SUPPORTED_MINTS: Record<string, string> = {
 };
 
 const TIER_PRICES_USD: Record<string, number> = {
-  starter: 19,
-  pro: 59,
+  free_trial: 0.10,
+  starter: 29,
 };
 
 const TOKEN_DECIMALS: Record<string, number> = {
