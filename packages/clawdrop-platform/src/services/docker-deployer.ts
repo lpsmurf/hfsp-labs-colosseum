@@ -208,6 +208,11 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
   await writeToVolume(wsVol, 'IDENTITY.md', IDENTITY_MD);
   await mkdirInVolume(wsVol, 'memory');
 
+  // chown both volumes to clawd (UID 10001) — Alpine writes as root, OpenClaw runs as clawd
+  for (const vol of [configVol, wsVol]) {
+    await docker(['run', '--rm', '-v', `${vol}:/vol`, 'alpine:3.20', 'chown', '-R', '10001:10001', '/vol']);
+  }
+
   // 6. MCP server
   const mcpId = await docker([
     'run', '-d', '--rm',
