@@ -53,12 +53,19 @@ async function mkdirInVolume(volume: string, dir: string): Promise<void> {
 
 // --- openclaw.json template ---
 
-function buildConfig(mcpContainerName: string, llmModel: string): string {
+function buildConfig(
+  mcpContainerName: string,
+  llmModel: string,
+  telegramBotToken: string,
+  openrouterApiKey: string,
+): string {
+  // Strip provider prefix from model id for the models list
+  const modelId = llmModel.replace(/^openrouter\//, '');
   return JSON.stringify({
-    gateway: { port: 3000 },
+    gateway: { port: 3000, mode: 'local' },
     channels: {
       telegram: {
-        botToken: '${TELEGRAM_BOT_TOKEN}',
+        botToken: telegramBotToken,
         dmPolicy: 'pairing',
       },
     },
@@ -66,8 +73,9 @@ function buildConfig(mcpContainerName: string, llmModel: string): string {
       providers: {
         openrouter: {
           baseUrl: 'https://openrouter.ai/api/v1',
-          apiKey: '${OPENROUTER_API_KEY}',
+          apiKey: openrouterApiKey,
           api: 'openai-completions',
+          models: [{ id: modelId, name: modelId }],
         },
       },
     },
@@ -177,7 +185,9 @@ export async function deployStarter(config: AgentConfig): Promise<DeployResult> 
 
   // 3. Write openclaw.json into config volume
   const model = config.llmModel ?? 'openrouter/anthropic/claude-haiku-4-5';
-  const openclawJson = buildConfig(mcpName, model);
+  const openrouterKey = config.llmApiKey ?? '';
+  const telegramToken = config.telegramBotToken ?? '';
+  const openclawJson = buildConfig(mcpName, model, telegramToken, openrouterKey);
   await writeToVolume(configVol, 'openclaw.json', openclawJson);
 
   // 4. Write OpenRouter child key into secrets/
