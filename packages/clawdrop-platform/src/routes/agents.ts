@@ -29,6 +29,14 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
 
+const DEV_WALLETS = new Set(
+  (process.env.DEV_WALLETS ?? '').split(',').map(w => w.trim()).filter(Boolean)
+);
+
+function isDevWallet(id: string | null): boolean {
+  return id !== null && DEV_WALLETS.has(id);
+}
+
 function getUserId(req: { headers: { authorization?: string } }): string | null {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return null;
@@ -106,17 +114,19 @@ router.post('/deploy', async (req, res) => {
   const { name, llm_provider, llm_model, api_key, custom_endpoint, telegram_bot_token } = parse.data;
 
   try {
-    // Require active subscription
-    const sub = db()
-      .prepare("SELECT 1 FROM subscriptions WHERE user_id = ? AND status = 'active'")
-      .get(userId);
-    if (!sub) return res.status(403).json({ error: 'Active subscription required' });
+    // Require active subscription (skipped for dev wallets)
+    if (!isDevWallet(userId)) {
+      const sub = db()
+        .prepare("SELECT 1 FROM subscriptions WHERE user_id = ? AND status = 'active'")
+        .get(userId);
+      if (!sub) return res.status(403).json({ error: 'Active subscription required' });
 
-    // Require active subscription — only one active agent per user for Starter tier
-    const existing = db()
-      .prepare("SELECT id FROM agents WHERE user_id = ? AND status IN ('active', 'deploying')")
-      .get(userId);
-    if (existing) return res.status(409).json({ error: 'An agent is already running. Stop it first.' });
+      // Only one active agent per user for Starter tier (skipped for dev wallets)
+      const existing = db()
+        .prepare("SELECT id FROM agents WHERE user_id = ? AND status IN ('active', 'deploying')")
+        .get(userId);
+      if (existing) return res.status(409).json({ error: 'An agent is already running. Stop it first.' });
+    }
 
     // Store BYOK api key encrypted
     let encryptedKey: string | undefined;
@@ -339,10 +349,13 @@ router.post('/quick-deploy', async (req, res) => {
       VALUES (?, ?, 'starter')
     `).run(userId, wallet);
 
-    // 1. Verify payment on-chain
-    const verification = await verifyPayment(tx_hash, tier, 'SOL');
-    if (!verification.valid) {
-      return res.status(402).json({ error: 'Payment verification failed', details: verification.error });
+    // 1. Verify payment on-chain (skipped for dev wallets)
+    let verification: { valid: boolean; amount: string; error?: string } = { valid: true, amount: '0' };
+    if (!isDevWallet(userId)) {
+      verification = await verifyPayment(tx_hash, tier, 'SOL');
+      if (!verification.valid) {
+        return res.status(402).json({ error: 'Payment verification failed', details: verification.error });
+      }
     }
 
     // 2. Convert SOL paid → USD via CoinGecko
