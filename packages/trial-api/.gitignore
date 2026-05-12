@@ -1,2 +1,5 @@
 data/
 .env
+
+!src/data/
+!src/data/*.json
