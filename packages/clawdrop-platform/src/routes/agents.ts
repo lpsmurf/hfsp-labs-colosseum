@@ -131,11 +131,11 @@ router.post('/deploy', async (req, res) => {
         .get(userId);
       if (!sub) return res.status(403).json({ error: 'Active subscription required' });
 
-      // Only one active agent per user for Starter tier (skipped for dev wallets)
-      const existing = db()
-        .prepare("SELECT id FROM agents WHERE user_id = ? AND status IN ('active', 'deploying')")
-        .get(userId);
-      if (existing) return res.status(409).json({ error: 'An agent is already running. Stop it first.' });
+      // Multi-agent: allow concurrent deploys (demo mode)
+      // const existing = db()
+      //   .prepare("SELECT id FROM agents WHERE user_id = ? AND status IN ('active', 'deploying')")
+      //   .get(userId);
+      // if (existing) return res.status(409).json({ error: 'An agent is already running. Stop it first.' });
     }
 
     // Store BYOK api key encrypted
