@@ -1,0 +1,364 @@
+{
+  "mcps": [
+    {
+      "id": "solana-mcp-official",
+      "name": "Solana Developer MCP (Official)",
+      "repo": "solana-foundation/solana-mcp-official",
+      "description": "Official Solana Developer MCP serving up-to-date documentation, account queries, transaction analysis, and CPI generation",
+      "category": "infrastructure",
+      "setup_command": "codex mcp add --transport http solana-mcp-server https://mcp.solana.com/mcp",
+      "url": "https://github.com/solana-foundation/solana-mcp-official",
+      "keywords": ["solana", "foundation", "official", "documentation", "rpc", "anchor", "cpi"]
+    },
+    {
+      "id": "solana-dev-mcp",
+      "name": "Solana Dev MCP (Foundation Demo)",
+      "repo": "solana-foundation/solana-dev-mcp",
+      "description": "Solana Foundation demo MCP showcasing basic Solana RPC methods like getBalance, getAccountInfo, getTransaction",
+      "category": "infrastructure",
+      "setup_command": "git clone https://github.com/solana-foundation/solana-dev-mcp && cd solana-dev-mcp && npm install && npm run build",
+      "url": "https://github.com/solana-foundation/solana-dev-mcp",
+      "keywords": ["solana", "foundation", "official", "demo", "rpc", "balance", "account"]
+    },
+    {
+      "id": "solana-mcp",
+      "name": "Solana Agent Kit MCP",
+      "repo": "sendaifun/solana-mcp",
+      "description": "MCP server powered by the Solana Agent Kit with comprehensive onchain tools for AI agents — deploy tokens, trade, mint NFTs, transfer",
+      "category": "tooling",
+      "setup_command": "npm install -g solana-mcp",
+      "url": "https://github.com/sendaifun/solana-mcp",
+      "keywords": ["sendai", "agent-kit", "solana", "deploy", "trade", "nft", "transfer", "mint", "tps"]
+    },
+    {
+      "id": "solana-agent-kit-adapter-mcp",
+      "name": "Solana Agent Kit Adapter MCP",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Official MCP adapter for the Solana Agent Kit framework — 60+ actions including trading, lending, staking, NFTs, perps, cross-chain",
+      "category": "tooling",
+      "setup_command": "npm install @solana-agent-kit/adapter-mcp",
+      "url": "https://github.com/sendaifun/solana-agent-kit/tree/v2/packages/adapter-mcp",
+      "keywords": ["sendai", "agent-kit", "adapter", "framework", "defi", "lending", "staking", "nft", "perps"]
+    },
+    {
+      "id": "helius-mcp",
+      "name": "Helius MCP (Official)",
+      "repo": "helius-labs/core-ai",
+      "description": "Official Helius AI tooling — 60+ tools across 10 domains for querying Solana, sending transactions, managing webhooks, wallet analysis",
+      "category": "infrastructure",
+      "setup_command": "codex mcp add helius npx helius-mcp@latest",
+      "url": "https://github.com/helius-labs/core-ai",
+      "keywords": ["helius", "rpc", "infrastructure", "wallet", "asset", "transaction", "webhook", "streaming", "compression", "das"]
+    },
+    {
+      "id": "opensvm-solana-mcp-server",
+      "name": "openSVM Solana MCP Server",
+      "repo": "openSVM/solana-mcp-server",
+      "description": "Comprehensive MCP server implementing 73+ Solana RPC methods with stdio and web modes, multi-SVM-network support",
+      "category": "infrastructure",
+      "setup_command": "git clone https://github.com/openSVM/solana-mcp-server && cd solana-mcp-server && npm install && npm run build",
+      "url": "https://github.com/openSVM/solana-mcp-server",
+      "keywords": ["opensvm", "rpc", "infrastructure", "73", "methods", "accounts", "blocks", "transactions", "tokens"]
+    },
+    {
+      "id": "quicknode-mcp",
+      "name": "QuickNode MCP",
+      "repo": "quiknode-labs/qn-guide-examples",
+      "description": "MCP server wrapping QuickNode Admin API — lets AI agents provision and manage QuickNode blockchain infrastructure",
+      "category": "infrastructure",
+      "setup_command": "git clone https://github.com/quiknode-labs/qn-guide-examples && cd qn-guide-examples/AI/solana-mcp && npm install",
+      "url": "https://github.com/quiknode-labs/qn-guide-examples/tree/main/AI/solana-mcp",
+      "keywords": ["quicknode", "rpc", "infrastructure", "admin", "provision", "manage"]
+    },
+    {
+      "id": "dcspark-jupiter",
+      "name": "Jupiter MCP (dcSpark)",
+      "repo": "dcSpark/mcp-server-jupiter",
+      "description": "MCP server for Jupiter swap API — quote retrieval, transaction building, and execution on Solana DEX",
+      "category": "defi",
+      "setup_command": "npx @mcp-dockmaster/mcp-server-jupiter",
+      "url": "https://github.com/dcSpark/mcp-server-jupiter",
+      "keywords": ["jupiter", "dex", "swap", "defi", "trading", "quote", "transaction"]
+    },
+    {
+      "id": "demcp-orca-mcp",
+      "name": "Orca DEX MCP",
+      "repo": "demcp/demcp-orca-mcp",
+      "description": "Comprehensive tools for Orca DEX on Solana and Eclipse — token swaps, liquidity operations, pool analytics",
+      "category": "defi",
+      "setup_command": "git clone https://github.com/demcp/demcp-orca-mcp && cd demcp-orca-mcp && npm install",
+      "url": "https://github.com/demcp/demcp-orca-mcp",
+      "keywords": ["orca", "dex", "swap", "defi", "liquidity", "pool", "eclipse", "whirlpool"]
+    },
+    {
+      "id": "marinade-finance-mcp-server",
+      "name": "Marinade Finance MCP",
+      "repo": "leandrogavidia/marinade-finance-mcp-server",
+      "description": "Marinade Finance MCP for liquid staking — stake/unstake, mSOL balance, transfers, protocol state queries, docs search",
+      "category": "defi",
+      "setup_command": "git clone https://github.com/leandrogavidia/marinade-finance-mcp-server && cd marinade-finance-mcp-server && npm install",
+      "url": "https://github.com/leandrogavidia/marinade-finance-mcp-server",
+      "keywords": ["marinade", "staking", "liquid-staking", "msol", "defi", "stake", "unstake"]
+    },
+    {
+      "id": "solentic",
+      "name": "Solentic (Blueprint Staking)",
+      "repo": "blueprint-infrastructure/solentic-mcp",
+      "description": "Native Solana staking infrastructure for AI agents — 18 MCP tools, 21 REST endpoints, 13 A2A skills",
+      "category": "defi",
+      "setup_command": "codex mcp add --transport http solentic https://solentic.theblueprint.xyz/mcp",
+      "url": "https://github.com/blueprint-infrastructure/solentic-mcp",
+      "keywords": ["staking", "defi", "blueprint", "a2a", "agents", "validator", "delegate"]
+    },
+    {
+      "id": "dflow-mcp",
+      "name": "DFlow Prediction Markets MCP",
+      "repo": "openSVM/dflow-mcp",
+      "description": "Unified spot + prediction market trading on Solana via DFlow — trade Kalshi markets with smart routing, events, forecasts",
+      "category": "defi",
+      "setup_command": "git clone https://github.com/openSVM/dflow-mcp && cd dflow-mcp && npm install",
+      "url": "https://github.com/openSVM/dflow-mcp",
+      "keywords": ["dflow", "prediction-markets", "kalshi", "defi", "trading", "forecasts", "events"]
+    },
+    {
+      "id": "metaplex-genesis-mcp",
+      "name": "Metaplex Genesis MCP",
+      "repo": "maikershq/metaplex-genesis-mcp",
+      "description": "Interact with Metaplex Genesis program — fetch accounts, query bonding curves, get swap quotes",
+      "category": "defi",
+      "setup_command": "git clone https://github.com/maikershq/metaplex-genesis-mcp && cd metaplex-genesis-mcp && npm install",
+      "url": "https://github.com/maikershq/metaplex-genesis-mcp",
+      "keywords": ["metaplex", "genesis", "bonding-curve", "defi", "token-launch", "nft"]
+    },
+    {
+      "id": "phantom-mcp-server",
+      "name": "Phantom Wallet MCP (Official)",
+      "repo": "phantom/mcp-server",
+      "description": "Official Phantom MCP — embedded wallet access, sign/send transactions, token swaps, transfers across Solana and EVM chains",
+      "category": "wallet",
+      "setup_command": "npm install @phantom/mcp-server",
+      "url": "https://docs.phantom.com/resources/mcp-server",
+      "keywords": ["phantom", "wallet", "sign", "send", "transaction", "swap", "transfer", "multi-chain", "evm"]
+    },
+    {
+      "id": "rug-check-mcp",
+      "name": "Rug Check MCP",
+      "repo": "kukapay/rug-check-mcp",
+      "description": "Detect potential risks in Solana meme tokens — helps AI agents avoid rug pulls and unsafe projects",
+      "category": "security",
+      "setup_command": "git clone https://github.com/kukapay/rug-check-mcp && cd rug-check-mcp && npm install",
+      "url": "https://github.com/kukapay/rug-check-mcp",
+      "keywords": ["rug-check", "security", "scam", "risk", "memecoin", "safety"]
+    },
+    {
+      "id": "aethercore-token-rugcheck",
+      "name": "AetherCore Token Rug Check",
+      "repo": "AetherCore-Dev/token-rugcheck",
+      "description": "Three-layer safety audit — machine verdict, LLM analysis, raw on-chain evidence via RugCheck.xyz, DexScreener, GoPlus",
+      "category": "security",
+      "setup_command": "npx mcp-remote https://rugcheck.aethercore.dev",
+      "url": "https://github.com/AetherCore-Dev/token-rugcheck",
+      "keywords": ["rugcheck", "security", "audit", "goplus", "dexscreener", "safety", "x402"]
+    },
+    {
+      "id": "solana-fender-mcp",
+      "name": "Solana Fender (Anchor Security)",
+      "repo": "honey-guard/solana-fender",
+      "description": "Security analysis for Solana Anchor programs — static analysis checking smart contracts against known vulnerability patterns",
+      "category": "security",
+      "setup_command": "cargo install anchor-mcp && anchor-mcp --mcp",
+      "url": "https://github.com/honey-guard/solana-fender",
+      "keywords": ["anchor", "security", "static-analysis", "vulnerability", "smart-contract", "audit"]
+    },
+    {
+      "id": "opensvm-dexscreener-mcp",
+      "name": "DexScreener MCP (openSVM)",
+      "repo": "openSVM/dexscreener-mcp-server",
+      "description": "Real-time DEX pair data, token information, market statistics across multiple blockchains (best on Solana)",
+      "category": "data",
+      "setup_command": "npx -y @opensvm/dexscreener-mcp-server",
+      "url": "https://github.com/openSVM/dexscreener-mcp-server",
+      "keywords": ["dexscreener", "dex", "data", "price", "pair", "market", "token", "analytics"]
+    },
+    {
+      "id": "spice-mcp",
+      "name": "Spice (Flipside Analytics)",
+      "repo": "getnimbus/spice",
+      "description": "Query Solana blockchain data via Flipside API — fetch catalog metadata and run Flipside analytics queries",
+      "category": "data",
+      "setup_command": "git clone https://github.com/getnimbus/spice && cd spice && npm install",
+      "url": "https://github.com/getnimbus/spice",
+      "keywords": ["flipside", "data", "analytics", "query", "catalog", "nimbus"]
+    },
+    {
+      "id": "anchor-mcp",
+      "name": "Anchor MCP (Security CLI)",
+      "repo": "honey-guard/anchor-mcp",
+      "description": "MCP CLI server template for Anchor programs — expose security checks and Anchor-specific tools to LLMs",
+      "category": "tooling",
+      "setup_command": "cargo install anchor-mcp",
+      "url": "https://github.com/honey-guard/anchor-mcp",
+      "keywords": ["anchor", "tooling", "security", "cli", "rust", "cargo", "smart-contract"]
+    },
+    {
+      "id": "goat-sdk-mcp",
+      "name": "GOAT SDK MCP",
+      "repo": "goat-sdk/goat",
+      "description": "The largest agentic finance toolkit — 200+ integrations, MCP server supporting EVM and Solana chains",
+      "category": "multi-chain",
+      "setup_command": "git clone https://github.com/goat-sdk/goat && cd goat && npm install && npm run build",
+      "url": "https://github.com/goat-sdk/goat",
+      "keywords": ["goat", "multi-chain", "evm", "solana", "defi", "framework", "200+", "integrations", "finance"]
+    },
+    {
+      "id": "hummingbot-mcp",
+      "name": "Hummingbot MCP",
+      "repo": "hummingbot/mcp",
+      "description": "Control Hummingbot for automated crypto trading — portfolio balances, order management, Orca/Jupiter/Raydium DEX connectors",
+      "category": "multi-chain",
+      "setup_command": "docker pull hummingbot/mcp",
+      "url": "https://github.com/hummingbot/mcp",
+      "keywords": ["hummingbot", "trading", "automated", "portfolio", "orca", "jupiter", "raydium", "multi-chain"]
+    },
+    {
+      "id": "chainguard",
+      "name": "ChainGuard (Crime Detection)",
+      "repo": "N-45div/ChainGuard",
+      "description": "AI-powered real-time blockchain crime detection across Bitcoin, Ethereum, Hedera, and Solana — ML-powered pattern detection",
+      "category": "multi-chain",
+      "setup_command": "npx mcp-remote https://chainguard-mcp-server.ndivij2004.workers.dev/mcp",
+      "url": "https://github.com/N-45div/ChainGuard",
+      "keywords": ["chainguard", "security", "forensics", "crime", "multi-chain", "bitcoin", "ethereum", "solana"]
+    },
+    {
+      "id": "aeamcp",
+      "name": "openSVM Agent & MCP Registry",
+      "repo": "openSVM/aeamcp",
+      "description": "On-chain registry for autonomous AI agents and MCP servers on Solana — agent and tool/resource/prompt discovery",
+      "category": "infrastructure",
+      "setup_command": "git clone https://github.com/openSVM/aeamcp && cd aeamcp && npm install",
+      "url": "https://github.com/openSVM/aeamcp",
+      "keywords": ["registry", "opensvm", "agents", "discovery", "on-chain", "a2a", "devnet"]
+    },
+    {
+      "id": "defi-analytics-mcp",
+      "name": "Solana DeFi Analytics MCP",
+      "repo": "kirtiraj22/Solana-DeFi-Analytics-MCP-Server",
+      "description": "Wallet analytics, transaction monitoring, and DeFi strategy optimization",
+      "category": "data",
+      "setup_command": "git clone https://github.com/kirtiraj22/Solana-DeFi-Analytics-MCP-Server.git",
+      "url": "https://github.com/kirtiraj22/Solana-DeFi-Analytics-MCP-Server",
+      "keywords": ["defi", "analytics", "wallet", "strategy", "optimization"]
+    },
+    {
+      "id": "solana-mcp-cloudflare",
+      "name": "Solana MCP (Cloudflare)",
+      "repo": "sendaifun/solana-mcp-cloudflare",
+      "description": "Solana MCP server deployed on Cloudflare Workers for edge execution",
+      "category": "infrastructure",
+      "setup_command": "git clone https://github.com/sendaifun/solana-mcp-cloudflare.git",
+      "url": "https://github.com/sendaifun/solana-mcp-cloudflare",
+      "keywords": ["solana", "mcp", "cloudflare", "workers", "edge", "sendai"]
+    },
+    {
+      "id": "devrel-mcp",
+      "name": "SendAI DevRel MCP",
+      "repo": "sendaifun/devrel-mcp",
+      "description": "Developer relations MCP server by SendAI",
+      "category": "tooling",
+      "setup_command": "git clone https://github.com/sendaifun/devrel-mcp.git",
+      "url": "https://github.com/sendaifun/devrel-mcp",
+      "keywords": ["devrel", "sendai", "developer", "relations"]
+    },
+    {
+      "id": "x402-mcp",
+      "name": "x402 MCP",
+      "repo": "sendaifun/x402-mcp",
+      "description": "x402 payment protocol MCP server for micropayment-gated AI operations",
+      "category": "infrastructure",
+      "setup_command": "git clone https://github.com/sendaifun/x402-mcp.git",
+      "url": "https://github.com/sendaifun/x402-mcp",
+      "keywords": ["x402", "payment", "micropayment", "sendai"]
+    },
+    {
+      "id": "flash-trade-mcp",
+      "name": "Flash Trade MCP",
+      "repo": "flash-trade/flash-trade-MCP",
+      "description": "Perpetual DEX tooling for Flash Trade on Solana — leveraged long/short positions across SOL, BTC, ETH with Pyth Lazer prices, non-custodial",
+      "category": "defi",
+      "setup_command": "npx flash-trade-mcp",
+      "url": "https://github.com/flash-trade/flash-trade-MCP",
+      "keywords": ["flash", "trade", "perpetual", "perps", "leverage", "futures", "defi", "trading", "pyth"]
+    },
+    {
+      "id": "solscan-mcp",
+      "name": "Solscan MCP",
+      "repo": "wowinter13/solscan-mcp",
+      "description": "Query Solana transactions, token info, and account activities via Solscan Pro API — Rust-based MCP for blockchain forensics and analytics",
+      "category": "data",
+      "setup_command": "cargo install solscan-mcp",
+      "url": "https://github.com/wowinter13/solscan-mcp",
+      "keywords": ["solscan", "explorer", "transaction", "analytics", "forensics", "account", "token", "rust"]
+    },
+    {
+      "id": "perp-cli-mcp",
+      "name": "Perp CLI MCP (HypurrQuant)",
+      "repo": "hypurrquant/perp-cli",
+      "description": "Multi-DEX perpetual futures CLI + MCP server — Pacifica (Solana), Hyperliquid, Lighter. 18 tools for AI-powered perps trading",
+      "category": "trading",
+      "setup_command": "npx -y -p perp-cli perp-mcp",
+      "url": "https://github.com/hypurrquant/perp-cli",
+      "keywords": ["perps", "perpetual", "futures", "pacifica", "hyperliquid", "trading", "leverage", "orderbook"]
+    },
+    {
+      "id": "dexter-mcp",
+      "name": "Dexter MCP",
+      "repo": "Dexter-DAO/dexter-mcp",
+      "description": "60+ Solana DeFi tools over HTTP and stdio — swaps, liquidity, lending, staking, and portfolio management in one MCP server",
+      "category": "defi",
+      "setup_command": "git clone https://github.com/Dexter-DAO/dexter-mcp && cd dexter-mcp && npm install",
+      "url": "https://github.com/Dexter-DAO/dexter-mcp",
+      "keywords": ["dexter", "defi", "swap", "liquidity", "lending", "staking", "portfolio", "aggregator"]
+    },
+    {
+      "id": "unclaimed-sol-mcp",
+      "name": "Unclaimed SOL MCP",
+      "repo": "unclaimed-sol/unclaimed-sol-mcp",
+      "description": "Scan and claim reclaimable SOL from dormant wallet accounts — close empty token accounts, burn dust, reclaim rent via AI assistants",
+      "category": "tooling",
+      "setup_command": "npx -y @unclaimed-sol/mcp",
+      "url": "https://github.com/unclaimed-sol/unclaimed-sol-mcp",
+      "keywords": ["unclaimed", "sol", "rent", "reclaim", "token", "accounts", "cleanup", "dust"]
+    },
+    {
+      "id": "jupiter-docs-mcp",
+      "name": "Jupiter Docs MCP (Official)",
+      "repo": "jup-ag/docs",
+      "description": "Official Jupiter documentation MCP — search and query Jupiter docs and OpenAPI specs for swaps, perps, lending, prediction markets, and CLI integration",
+      "category": "defi",
+      "setup_command": "codex mcp add --transport http jupiter-docs https://dev.jup.ag/mcp",
+      "url": "https://dev.jup.ag/mcp",
+      "keywords": ["jupiter", "docs", "official", "swap", "perps", "lend", "prediction-markets", "cli", "ultra"]
+    },
+    {
+      "id": "dflow-docs-mcp",
+      "name": "DFlow Docs MCP (Official)",
+      "repo": "DFlowProtocol/docs",
+      "description": "Official DFlow documentation MCP — search and query DFlow docs and API specs for spot trading, prediction markets, and Phantom Connect integration",
+      "category": "defi",
+      "setup_command": "codex mcp add --transport http dflow-docs https://pond.dflow.net/mcp",
+      "url": "https://pond.dflow.net/mcp",
+      "keywords": ["dflow", "docs", "official", "trading", "prediction-markets", "phantom", "kalshi"]
+    },
+    {
+      "id": "alchemy-mcp",
+      "name": "Alchemy MCP (Official)",
+      "repo": "alchemyplatform/alchemy-mcp-server",
+      "description": "Official Alchemy MCP — token prices, balances, NFT data, transaction history, swaps, and smart contract interactions across Solana and EVM chains",
+      "category": "infrastructure",
+      "setup_command": "claude mcp add alchemy --transport http https://mcp.alchemy.com/mcp",
+      "url": "https://github.com/alchemyplatform/alchemy-mcp-server",
+      "keywords": ["alchemy", "rpc", "infrastructure", "token", "nft", "balance", "transaction", "swap", "multi-chain"]
+    }
+  ]
+}

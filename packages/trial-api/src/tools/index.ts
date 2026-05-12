@@ -13,6 +13,7 @@ export { getMagicEdenCollectionStats, getMagicEdenPopularCollections, getMagicEd
 export { getNFTAsset, searchNFTAssets } from './nft-asset.js';
 export { resolveSolDomain, getWalletDomain, getAllDomainTLDs } from './domains.js';
 export { getAlloraTopics, getAlloraInference } from './allora.js';
+export { searchSolanaEcosystem } from './solana-ecosystem.js';
 
 import { getSolPrice } from './sol-price.js';
 import { getTokenPrice } from './token-price.js';
@@ -29,6 +30,7 @@ import { getMagicEdenCollectionStats, getMagicEdenPopularCollections, getMagicEd
 import { getNFTAsset, searchNFTAssets } from './nft-asset.js';
 import { resolveSolDomain, getWalletDomain, getAllDomainTLDs } from './domains.js';
 import { getAlloraTopics, getAlloraInference } from './allora.js';
+import { searchSolanaEcosystem } from './solana-ecosystem.js';
 
 export const tools = {
   getSolPrice,
@@ -54,4 +56,5 @@ export const tools = {
   getAllDomainTLDs,
   getAlloraTopics,
   getAlloraInference,
+  searchSolanaEcosystem,
 };

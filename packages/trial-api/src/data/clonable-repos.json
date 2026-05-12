@@ -1,0 +1,1691 @@
+{
+  "repos": [
+    {
+      "id": "create-solana-dapp",
+      "repo": "solana-foundation/create-solana-dapp",
+      "description": "Official CLI that scaffolds Solana dApps from templates (Next.js, React+Vite, Express, Node scripts)",
+      "category": "scaffold",
+      "keywords": [
+        "scaffold",
+        "create",
+        "init",
+        "starter",
+        "next",
+        "react",
+        "vite",
+        "express"
+      ],
+      "clone_command": "npx create-solana-dapp@latest",
+      "is_template": true
+    },
+    {
+      "id": "anchor-by-example",
+      "repo": "coral-xyz/anchor-by-example",
+      "description": "Curated Anchor program examples (escrow, auction, counter, etc.)",
+      "category": "example",
+      "keywords": [
+        "anchor",
+        "program",
+        "example",
+        "escrow",
+        "auction",
+        "counter",
+        "on-chain"
+      ],
+      "clone_command": "git clone https://github.com/coral-xyz/anchor-by-example.git",
+      "is_template": false
+    },
+    {
+      "id": "program-examples",
+      "repo": "solana-developers/program-examples",
+      "description": "Comprehensive on-chain program examples in Anchor, Native, Steel, and Poseidon",
+      "category": "example",
+      "keywords": [
+        "program",
+        "native",
+        "anchor",
+        "steel",
+        "token",
+        "compression",
+        "oracle",
+        "on-chain"
+      ],
+      "clone_command": "git clone https://github.com/solana-developers/program-examples.git",
+      "is_template": false
+    },
+    {
+      "id": "mpl-candy-machine",
+      "repo": "metaplex-foundation/mpl-candy-machine",
+      "description": "Metaplex Candy Machine for NFT collection minting and distribution",
+      "category": "nft",
+      "keywords": [
+        "nft",
+        "mint",
+        "candy",
+        "collection",
+        "metaplex",
+        "launch"
+      ],
+      "clone_command": "git clone https://github.com/metaplex-foundation/mpl-candy-machine.git",
+      "is_template": false
+    },
+    {
+      "id": "mpl-bubblegum",
+      "repo": "metaplex-foundation/mpl-bubblegum",
+      "description": "Compressed NFTs (cNFTs) using Solana state compression for cheap large-scale minting",
+      "category": "nft",
+      "keywords": [
+        "nft",
+        "compressed",
+        "cnft",
+        "bubblegum",
+        "state-compression",
+        "merkle"
+      ],
+      "clone_command": "git clone https://github.com/metaplex-foundation/mpl-bubblegum.git",
+      "is_template": false
+    },
+    {
+      "id": "compressed-nfts",
+      "repo": "solana-developers/compressed-nfts",
+      "description": "Example code for working with compressed NFTs on Solana",
+      "category": "nft",
+      "keywords": [
+        "nft",
+        "compressed",
+        "cnft",
+        "example",
+        "state-compression"
+      ],
+      "clone_command": "git clone https://github.com/solana-developers/compressed-nfts.git",
+      "is_template": true
+    },
+    {
+      "id": "mosaic",
+      "repo": "solana-foundation/mosaic",
+      "description": "Token-2022 tokenization engine for stablecoins, RWAs, and arcade tokens",
+      "category": "token",
+      "keywords": [
+        "token",
+        "token-2022",
+        "stablecoin",
+        "rwa",
+        "tokenization",
+        "extensions"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/mosaic.git",
+      "is_template": true
+    },
+    {
+      "id": "whirlpools",
+      "repo": "orca-so/whirlpools",
+      "description": "Orca concentrated liquidity AMM programs + TS/Rust SDKs",
+      "category": "defi",
+      "keywords": [
+        "amm",
+        "dex",
+        "swap",
+        "liquidity",
+        "pool",
+        "clmm",
+        "orca",
+        "defi"
+      ],
+      "clone_command": "git clone https://github.com/orca-so/whirlpools.git",
+      "is_template": false
+    },
+    {
+      "id": "raydium-cp-swap",
+      "repo": "raydium-io/raydium-cp-swap",
+      "description": "Raydium constant product AMM with Token-2022 support",
+      "category": "defi",
+      "keywords": [
+        "amm",
+        "dex",
+        "swap",
+        "pool",
+        "raydium",
+        "defi",
+        "token-2022"
+      ],
+      "clone_command": "git clone https://github.com/raydium-io/raydium-cp-swap.git",
+      "is_template": false
+    },
+    {
+      "id": "marinade-liquid-staking",
+      "repo": "marinade-finance/liquid-staking-program",
+      "description": "Anchor-based liquid staking protocol (mSOL)",
+      "category": "defi",
+      "keywords": [
+        "staking",
+        "liquid",
+        "msol",
+        "marinade",
+        "defi",
+        "yield"
+      ],
+      "clone_command": "git clone https://github.com/marinade-finance/liquid-staking-program.git",
+      "is_template": false
+    },
+    {
+      "id": "squads-v4",
+      "repo": "Squads-Protocol/v4",
+      "description": "Squads multisig V4 — timelocks, spending limits, roles, sub-accounts",
+      "category": "governance",
+      "keywords": [
+        "multisig",
+        "dao",
+        "governance",
+        "treasury",
+        "squads",
+        "voting"
+      ],
+      "clone_command": "git clone https://github.com/Squads-Protocol/v4.git",
+      "is_template": false
+    },
+    {
+      "id": "spl-governance",
+      "repo": "Mythic-Project/solana-program-library",
+      "description": "SPL Governance program (maintained fork) for DAO voting and proposals",
+      "category": "governance",
+      "keywords": [
+        "dao",
+        "governance",
+        "voting",
+        "proposal",
+        "treasury"
+      ],
+      "clone_command": "git clone https://github.com/Mythic-Project/solana-program-library.git --sparse && cd solana-program-library && git sparse-checkout set governance",
+      "is_template": false
+    },
+    {
+      "id": "helius-core-ai",
+      "repo": "helius-labs/core-ai",
+      "description": "Official Helius AI tooling — CLI, MCP server, skills, and Claude plugin for Solana RPC, DAS API, webhooks, and transaction sending",
+      "category": "infrastructure",
+      "keywords": [
+        "helius",
+        "rpc",
+        "das",
+        "mcp",
+        "cli",
+        "webhook",
+        "api",
+        "infrastructure",
+        "ai"
+      ],
+      "clone_command": "git clone https://github.com/helius-labs/core-ai.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-agent-kit",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Connect AI agents to 60+ Solana protocols (LangChain/Vercel AI/Eliza compatible)",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "ai",
+        "langchain",
+        "eliza",
+        "protocol",
+        "defi",
+        "trading"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-mcp",
+      "repo": "sendaifun/solana-mcp",
+      "description": "MCP server for AI-to-Solana blockchain interaction",
+      "category": "agent",
+      "keywords": [
+        "mcp",
+        "agent",
+        "ai",
+        "server",
+        "blockchain"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-mcp.git",
+      "is_template": true
+    },
+    {
+      "id": "pinocchio",
+      "repo": "anza-xyz/pinocchio",
+      "description": "Zero-dependency, zero-copy Solana program framework (88-95% CU savings vs Anchor)",
+      "category": "framework",
+      "keywords": [
+        "program",
+        "native",
+        "performance",
+        "zero-copy",
+        "pinocchio",
+        "on-chain"
+      ],
+      "clone_command": "git clone https://github.com/anza-xyz/pinocchio.git",
+      "is_template": false
+    },
+    {
+      "id": "seahorse",
+      "repo": "solana-developers/seahorse",
+      "description": "Write Anchor-compatible Solana programs in Python",
+      "category": "framework",
+      "keywords": [
+        "python",
+        "program",
+        "anchor",
+        "seahorse",
+        "on-chain"
+      ],
+      "clone_command": "git clone https://github.com/solana-developers/seahorse.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-mobile-dapp-scaffold",
+      "repo": "solana-mobile/solana-mobile-dapp-scaffold",
+      "description": "React Native mobile dApp scaffold for Android with Mobile Wallet Adapter",
+      "category": "mobile",
+      "keywords": [
+        "mobile",
+        "react-native",
+        "android",
+        "mwa",
+        "wallet"
+      ],
+      "clone_command": "git clone https://github.com/solana-mobile/solana-mobile-dapp-scaffold.git",
+      "is_template": true
+    },
+    {
+      "id": "solana-kotlin-compose",
+      "repo": "solana-mobile/solana-kotlin-compose-scaffold",
+      "description": "Native Android scaffold with Kotlin + Jetpack Compose + Solana Mobile",
+      "category": "mobile",
+      "keywords": [
+        "kotlin",
+        "android",
+        "jetpack",
+        "compose",
+        "mobile",
+        "native"
+      ],
+      "clone_command": "git clone https://github.com/solana-mobile/solana-kotlin-compose-scaffold.git",
+      "is_template": true
+    },
+    {
+      "id": "pyth-sdk",
+      "repo": "pyth-network/pyth-sdk-rs",
+      "description": "Pyth oracle Rust SDK for on-chain price feed integration",
+      "category": "oracle",
+      "keywords": [
+        "oracle",
+        "price",
+        "pyth",
+        "feed",
+        "data"
+      ],
+      "clone_command": "git clone https://github.com/pyth-network/pyth-sdk-rs.git",
+      "is_template": false
+    },
+    {
+      "id": "switchboard-solana",
+      "repo": "rain-foundation/switchboard-solana",
+      "description": "Switchboard oracle integration for Solana — price feeds, VRF randomness, and custom data feeds",
+      "category": "oracle",
+      "keywords": [
+        "oracle",
+        "switchboard",
+        "price",
+        "vrf",
+        "randomness",
+        "data"
+      ],
+      "clone_command": "git clone https://github.com/rain-foundation/switchboard-solana.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-unity-sdk",
+      "repo": "magicblock-labs/Solana.Unity-SDK",
+      "description": "Unity SDK for Solana — wallets, NFTs, RPC integration for game development",
+      "category": "gaming",
+      "keywords": [
+        "game",
+        "unity",
+        "gaming",
+        "nft",
+        "sdk"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/Solana.Unity-SDK.git",
+      "is_template": false
+    },
+    {
+      "id": "wormhole-sdk",
+      "repo": "wormhole-foundation/wormhole-sdk-ts",
+      "description": "Wormhole TypeScript SDK for cross-chain token and message transfers",
+      "category": "bridge",
+      "keywords": [
+        "bridge",
+        "cross-chain",
+        "wormhole",
+        "transfer",
+        "multichain"
+      ],
+      "clone_command": "git clone https://github.com/wormhole-foundation/wormhole-sdk-ts.git",
+      "is_template": false
+    },
+    {
+      "id": "light-protocol",
+      "repo": "Lightprotocol/light-protocol",
+      "description": "ZK Compression protocol for rent-free tokens and PDAs on Solana",
+      "category": "infrastructure",
+      "keywords": [
+        "zk",
+        "compression",
+        "zero-knowledge",
+        "state",
+        "privacy"
+      ],
+      "clone_command": "git clone https://github.com/Lightprotocol/light-protocol.git",
+      "is_template": false
+    },
+    {
+      "id": "depin-examples",
+      "repo": "solana-developers/solana-depin-examples",
+      "description": "Examples connecting Solana to physical devices and IoT hardware",
+      "category": "depin",
+      "keywords": [
+        "depin",
+        "iot",
+        "hardware",
+        "physical",
+        "device",
+        "sensor"
+      ],
+      "clone_command": "git clone https://github.com/solana-developers/solana-depin-examples.git",
+      "is_template": true
+    },
+    {
+      "id": "trident",
+      "repo": "Ackee-Blockchain/trident",
+      "description": "Rust-based fuzzing framework for Solana program security testing",
+      "category": "tooling",
+      "keywords": [
+        "fuzz",
+        "security",
+        "test",
+        "audit",
+        "trident"
+      ],
+      "clone_command": "git clone https://github.com/Ackee-Blockchain/trident.git",
+      "is_template": false
+    },
+    {
+      "id": "builderz-scaffold",
+      "repo": "builderz-labs/builderz-solana-dapp-scaffold",
+      "description": "Next.js 14 + App Dir + TailwindCSS + MaterialUI advanced scaffold",
+      "category": "scaffold",
+      "keywords": [
+        "next",
+        "tailwind",
+        "material",
+        "ui",
+        "web",
+        "frontend",
+        "advanced"
+      ],
+      "clone_command": "git clone https://github.com/builderz-labs/builderz-solana-dapp-scaffold.git",
+      "is_template": true
+    },
+    {
+      "id": "sak-market-making",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "AI market maker on Manifest DEX using Solana Agent Kit",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "market-making",
+        "dex",
+        "manifest",
+        "trading",
+        "defi"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/defi/market-making-agent",
+      "is_template": true
+    },
+    {
+      "id": "sak-wormhole-agent",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Cross-chain agent with Wormhole + Solana Agent Kit in Next.js",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "wormhole",
+        "cross-chain",
+        "bridge",
+        "next",
+        "cctp"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/defi/wormhole-nextjs-agent",
+      "is_template": true
+    },
+    {
+      "id": "sak-phantom-agent",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Next.js agent with Phantom wallet authentication and AI capabilities",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "phantom",
+        "wallet",
+        "next",
+        "auth",
+        "ai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/embedded-wallets/phantom-agent-starter",
+      "is_template": true
+    },
+    {
+      "id": "sak-privy-agent",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Agent with Privy auth, TanStack Router, React, and OpenAI integration",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "privy",
+        "auth",
+        "tanstack",
+        "react",
+        "ai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/embedded-wallets/privy-agent-tanstack-starter",
+      "is_template": true
+    },
+    {
+      "id": "sak-privy-mobile",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "React Native mobile chat agent with Privy auth and Solana transactions",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "mobile",
+        "react-native",
+        "privy",
+        "expo",
+        "chat"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/embedded-wallets/privy-sak-react-native",
+      "is_template": true
+    },
+    {
+      "id": "sak-mcp-server",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "MCP server for Solana Agent Kit blockchain operations",
+      "category": "agent",
+      "keywords": [
+        "mcp",
+        "agent",
+        "server",
+        "protocol",
+        "blockchain"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/mcp/agent-kit-mcp-server",
+      "is_template": true
+    },
+    {
+      "id": "sak-langgraph",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Multi-agent Solana system using LangGraph with directed workflow",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "langgraph",
+        "langchain",
+        "multi-agent",
+        "workflow",
+        "ai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/misc/agent-kit-langgraph",
+      "is_template": true
+    },
+    {
+      "id": "sak-nextjs-langchain",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Next.js + LangChain + LangGraph starter for Solana agentic workflows",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "next",
+        "langchain",
+        "langgraph",
+        "starter",
+        "ai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/misc/agent-kit-nextjs-langchain",
+      "is_template": true
+    },
+    {
+      "id": "sak-persistent-agent",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Persistent agent with PostgreSQL memory across sessions",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "persistent",
+        "postgres",
+        "memory",
+        "database"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/misc/persistent-agent",
+      "is_template": true
+    },
+    {
+      "id": "sak-discord-bot",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Discord bot starter using Solana Agent Kit",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "discord",
+        "bot",
+        "social",
+        "chat"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/social/discord-bot-starter",
+      "is_template": true
+    },
+    {
+      "id": "sak-telegram-bot",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Telegram bot with Solana Agent Kit — single user, multi-user with Firebase, and group chat variants",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "telegram",
+        "bot",
+        "social",
+        "chat",
+        "firebase"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/social/tg-bot-starter",
+      "is_template": true
+    },
+    {
+      "id": "sak-n8n-agent",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "n8n workflow automation node for Solana Agent Kit blockchain operations",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "n8n",
+        "automation",
+        "workflow",
+        "no-code"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/n8n-solana-agent",
+      "is_template": true
+    },
+    {
+      "id": "create-solana-agent",
+      "repo": "sendaifun/create-solana-agent",
+      "description": "CLI to spin up LLM-powered chat agents for Solana actions",
+      "category": "scaffold",
+      "keywords": [
+        "agent",
+        "create",
+        "cli",
+        "scaffold",
+        "llm",
+        "chat",
+        "sendai"
+      ],
+      "clone_command": "npx create-solana-agent",
+      "is_template": true
+    },
+    {
+      "id": "solana-agent-kit-py",
+      "repo": "sendaifun/solana-agent-kit-py",
+      "description": "Python version of Solana Agent Kit for building AI agents",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "python",
+        "sendai",
+        "langchain",
+        "ai",
+        "kit"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit-py.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-app-kit",
+      "repo": "sendaifun/solana-app-kit",
+      "description": "Build Solana apps in under 15 minutes with pre-built modules",
+      "category": "scaffold",
+      "keywords": [
+        "app",
+        "kit",
+        "scaffold",
+        "fast",
+        "modules",
+        "sendai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-app-kit.git",
+      "is_template": true
+    },
+    {
+      "id": "sonic-agent-kit",
+      "repo": "sendaifun/sonic-agent-kit",
+      "description": "Connect AI agents to Sonic SVM protocols",
+      "category": "agent",
+      "keywords": [
+        "sonic",
+        "svm",
+        "agent",
+        "kit",
+        "sendai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/sonic-agent-kit.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-mcp-cloudflare",
+      "repo": "sendaifun/solana-mcp-cloudflare",
+      "description": "Solana MCP server deployed on Cloudflare Workers",
+      "category": "agent",
+      "keywords": [
+        "mcp",
+        "cloudflare",
+        "workers",
+        "deploy",
+        "sendai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-mcp-cloudflare.git",
+      "is_template": true
+    },
+    {
+      "id": "sak-lite",
+      "repo": "sendaifun/sak-lite",
+      "description": "Lightweight version of Solana Agent Kit for minimal setups",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "lite",
+        "lightweight",
+        "minimal",
+        "sendai"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/sak-lite.git",
+      "is_template": false
+    },
+    {
+      "id": "sak-okx-dex",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "OKX DEX integration with Solana Agent Kit — quotes and swap execution",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "okx",
+        "dex",
+        "swap",
+        "trade"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/defi/okx-dex-starter",
+      "is_template": true
+    },
+    {
+      "id": "sak-crossmint",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Crossmint embedded wallet integration with Solana Agent Kit",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "crossmint",
+        "wallet",
+        "embedded",
+        "auth"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/embedded-wallets/crossmint-sak-v2",
+      "is_template": true
+    },
+    {
+      "id": "sak-para-plugin",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Para embedded wallet plugin for Solana Agent Kit",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "para",
+        "wallet",
+        "embedded",
+        "plugin"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/embedded-wallets/para-plugin-example",
+      "is_template": true
+    },
+    {
+      "id": "sak-turnkey-agent",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Turnkey embedded wallet agent starter with Next.js",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "turnkey",
+        "wallet",
+        "embedded",
+        "next"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/embedded-wallets/turnkey-agent-starter",
+      "is_template": true
+    },
+    {
+      "id": "sak-ottersec",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "OtterSec security verification integration for Solana Agent Kit",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "ottersec",
+        "security",
+        "verification",
+        "audit"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/misc/ottersec-verification-example",
+      "is_template": true
+    },
+    {
+      "id": "sak-privy-server-wallet",
+      "repo": "sendaifun/solana-agent-kit",
+      "description": "Privy server-side wallet agent with Next.js 15, Drizzle ORM, and PostgreSQL",
+      "category": "agent",
+      "keywords": [
+        "agent",
+        "privy",
+        "server",
+        "wallet",
+        "postgres",
+        "next"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/solana-agent-kit.git && cd solana-agent-kit/examples/misc/privy-server-wallet-agent",
+      "is_template": true
+    },
+    {
+      "id": "action-registry",
+      "repo": "sendaifun/action-registry",
+      "description": "Registry of all Solana actions supported by Solana Agent Kit",
+      "category": "agent",
+      "keywords": [
+        "action",
+        "registry",
+        "agent",
+        "sendai",
+        "catalog"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/action-registry.git",
+      "is_template": false
+    },
+    {
+      "id": "x-research-x402",
+      "repo": "sendaifun/x-research-x402",
+      "description": "Crypto Twitter intelligence skill for Claude Code via x402 micropayments",
+      "category": "agent",
+      "keywords": [
+        "twitter",
+        "x",
+        "research",
+        "alpha",
+        "x402",
+        "crypto",
+        "intelligence"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/x-research-x402.git",
+      "is_template": false
+    },
+    {
+      "id": "fraction",
+      "repo": "sendaifun/fraction",
+      "description": "Fraction by SendAI — fractional ownership and token distribution on Solana",
+      "category": "token",
+      "keywords": [
+        "fraction",
+        "sendai",
+        "token",
+        "fractional",
+        "ownership",
+        "distribution"
+      ],
+      "clone_command": "git clone https://github.com/sendaifun/fraction.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-bolt",
+      "repo": "magicblock-labs/bolt",
+      "description": "BOLT — high-performance composable ECS framework for fully on-chain games and autonomous worlds on Solana",
+      "category": "gaming",
+      "keywords": [
+        "game",
+        "ecs",
+        "bolt",
+        "on-chain",
+        "magicblock",
+        "autonomous-worlds",
+        "entity-component-system"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/bolt.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-validator",
+      "repo": "magicblock-labs/magicblock-validator",
+      "description": "Blazing-fast SVM Ephemeral Validator for sub-10ms latency on-chain gaming and real-time apps",
+      "category": "gaming",
+      "keywords": [
+        "validator",
+        "ephemeral",
+        "svm",
+        "magicblock",
+        "latency",
+        "real-time"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/magicblock-validator.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-engine-examples",
+      "repo": "magicblock-labs/magicblock-engine-examples",
+      "description": "Ephemeral Rollups integration examples — delegation, undelegation, and on-chain game patterns",
+      "category": "gaming",
+      "keywords": [
+        "example",
+        "ephemeral-rollups",
+        "magicblock",
+        "game",
+        "delegation"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/magicblock-engine-examples.git",
+      "is_template": true
+    },
+    {
+      "id": "magicblock-ephemeral-rollups-sdk",
+      "repo": "magicblock-labs/ephemeral-rollups-sdk",
+      "description": "Rust SDK with convenience utils to prepare Solana programs for executing in Ephemeral Rollups",
+      "category": "gaming",
+      "keywords": [
+        "sdk",
+        "ephemeral-rollups",
+        "rust",
+        "magicblock",
+        "delegation"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/ephemeral-rollups-sdk.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-delegation-program",
+      "repo": "magicblock-labs/delegation-program",
+      "description": "On-chain delegation mechanism — entrypoint for Ephemeral Rollups account delegation on Solana",
+      "category": "gaming",
+      "keywords": [
+        "delegation",
+        "ephemeral-rollups",
+        "on-chain",
+        "magicblock",
+        "program"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/delegation-program.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-super-smart-contracts",
+      "repo": "magicblock-labs/super-smart-contracts",
+      "description": "Solana Super Smart Contracts — enhanced program capabilities with MagicBlock's ephemeral infrastructure",
+      "category": "gaming",
+      "keywords": [
+        "smart-contracts",
+        "super",
+        "magicblock",
+        "program",
+        "ephemeral"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/super-smart-contracts.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-soar",
+      "repo": "magicblock-labs/SOAR",
+      "description": "SOAR — Solana On-chain Achievements and Rankings for game leaderboards and reward systems",
+      "category": "gaming",
+      "keywords": [
+        "soar",
+        "achievements",
+        "rankings",
+        "leaderboard",
+        "game",
+        "rewards",
+        "magicblock"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/SOAR.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-starter-kits",
+      "repo": "magicblock-labs/starter-kits",
+      "description": "MagicBlock starter kits for building on-chain games and real-time apps with Ephemeral Rollups",
+      "category": "gaming",
+      "keywords": [
+        "starter",
+        "template",
+        "magicblock",
+        "game",
+        "ephemeral-rollups"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/starter-kits.git",
+      "is_template": true
+    },
+    {
+      "id": "magicblock-ephemeral-vrf",
+      "repo": "magicblock-labs/ephemeral-vrf",
+      "description": "Verifiable Random Function (VRF) implementation for Solana — provable on-chain randomness",
+      "category": "gaming",
+      "keywords": [
+        "vrf",
+        "randomness",
+        "verifiable",
+        "magicblock",
+        "on-chain"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/ephemeral-vrf.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-real-time-pricing-oracle",
+      "repo": "magicblock-labs/real-time-pricing-oracle",
+      "description": "Low-latency pricing oracle for Ephemeral Rollups — real-time price feeds for on-chain games and DeFi",
+      "category": "gaming",
+      "keywords": [
+        "oracle",
+        "price",
+        "real-time",
+        "magicblock",
+        "ephemeral-rollups"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/real-time-pricing-oracle.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-mirage",
+      "repo": "magicblock-labs/mirage",
+      "description": "Mirage CLI for private payments, wallet funding, and Solana transactions using Private Ephemeral Rollups",
+      "category": "gaming",
+      "keywords": [
+        "private-payments",
+        "per",
+        "mirage",
+        "magicblock",
+        "cli",
+        "wallet"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/mirage.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-ephemeral-spl-token",
+      "repo": "magicblock-labs/ephemeral-spl-token",
+      "description": "Native SPL token delegation for Private Ephemeral Rollups — confidential token deposits, transfers, and withdrawals",
+      "category": "gaming",
+      "keywords": [
+        "spl-token",
+        "private",
+        "per",
+        "magicblock",
+        "ephemeral-rollups",
+        "confidential"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/ephemeral-spl-token.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-session-keys",
+      "repo": "magicblock-labs/session-keys",
+      "description": "Session Key programs for gasless transactions in on-chain games on Solana",
+      "category": "gaming",
+      "keywords": [
+        "session-keys",
+        "gasless",
+        "magicblock",
+        "game",
+        "ux"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/session-keys.git",
+      "is_template": false
+    },
+    {
+      "id": "magicblock-solana-rpcx",
+      "repo": "magicblock-labs/solana-rpcx",
+      "description": "Solana RpcX — enhanced RPC utilities for working with Ephemeral Rollups and the MagicBlock validator",
+      "category": "gaming",
+      "keywords": [
+        "rpc",
+        "rpcx",
+        "magicblock",
+        "utilities",
+        "typescript"
+      ],
+      "clone_command": "git clone https://github.com/magicblock-labs/solana-rpcx.git",
+      "is_template": false
+    },
+    {
+      "id": "jupiter-cli",
+      "repo": "jup-ag/cli",
+      "description": "Jupiter CLI — non-interactive LLM-friendly terminal for spot trading, perps, lending, and prediction markets on Solana",
+      "category": "defi",
+      "keywords": [
+        "jupiter",
+        "cli",
+        "swap",
+        "perps",
+        "lend",
+        "trading",
+        "terminal"
+      ],
+      "clone_command": "npm i -g @jup-ag/cli",
+      "is_template": false
+    },
+    {
+      "id": "jupiter-swap-api-client",
+      "repo": "jup-ag/jupiter-swap-api-client",
+      "description": "Jupiter Swap API client for Rust and TypeScript — quote, build, and execute swaps programmatically",
+      "category": "defi",
+      "keywords": [
+        "jupiter",
+        "swap",
+        "api",
+        "client",
+        "sdk",
+        "rust",
+        "typescript"
+      ],
+      "clone_command": "git clone https://github.com/jup-ag/jupiter-swap-api-client.git",
+      "is_template": false
+    },
+    {
+      "id": "jupiter-sol-swap-cpi",
+      "repo": "jup-ag/sol-swap-cpi",
+      "description": "Swap any token to SOL via Jupiter CPI when the user has no SOL — gasless swap pattern",
+      "category": "defi",
+      "keywords": [
+        "jupiter",
+        "cpi",
+        "sol",
+        "swap",
+        "gasless"
+      ],
+      "clone_command": "git clone https://github.com/jup-ag/sol-swap-cpi.git",
+      "is_template": true
+    },
+    {
+      "id": "jupiter-instruction-parser",
+      "repo": "jup-ag/instruction-parser",
+      "description": "Instruction parser for Jupiter — decode and analyze Jupiter swap transactions",
+      "category": "defi",
+      "keywords": [
+        "jupiter",
+        "parser",
+        "instruction",
+        "decode",
+        "analytics"
+      ],
+      "clone_command": "git clone https://github.com/jup-ag/instruction-parser.git",
+      "is_template": false
+    },
+    {
+      "id": "jupiter-quote-api-node",
+      "repo": "jup-ag/jupiter-quote-api-node",
+      "description": "Jupiter Quote API Node.js client — get optimal swap routes and quotes",
+      "category": "defi",
+      "keywords": [
+        "jupiter",
+        "quote",
+        "api",
+        "node",
+        "routing",
+        "swap"
+      ],
+      "clone_command": "git clone https://github.com/jup-ag/jupiter-quote-api-node.git",
+      "is_template": false
+    },
+    {
+      "id": "jupiter-agent-skills",
+      "repo": "jup-ag/agent-skills",
+      "description": "Official Jupiter skills for AI coding agents — integration guidance for swaps, lending, perps, and prediction markets",
+      "category": "defi",
+      "keywords": [
+        "jupiter",
+        "skills",
+        "agent",
+        "ai",
+        "integration"
+      ],
+      "clone_command": "git clone https://github.com/jup-ag/agent-skills.git",
+      "is_template": false
+    },
+    {
+      "id": "kamino-klend-sdk",
+      "repo": "Kamino-Finance/klend-sdk",
+      "description": "Kamino Lend TypeScript SDK — compose on-chain transactions for deposits, borrows, repayments, withdrawals, and yield strategies",
+      "category": "defi",
+      "keywords": [
+        "kamino",
+        "lending",
+        "borrow",
+        "earn",
+        "sdk",
+        "defi",
+        "yield"
+      ],
+      "clone_command": "git clone https://github.com/Kamino-Finance/klend-sdk.git",
+      "is_template": false
+    },
+    {
+      "id": "loopscale-client",
+      "repo": "palindrome-eng/loopscale-client",
+      "description": "Rust, CPI, and JS clients for Loopscale — modular order book-based lending protocol on Solana with fixed-rate borrowing and Loops leverage",
+      "category": "defi",
+      "keywords": [
+        "loopscale",
+        "lending",
+        "borrow",
+        "fixed-rate",
+        "leverage",
+        "loops",
+        "orderbook",
+        "defi"
+      ],
+      "clone_command": "git clone https://github.com/palindrome-eng/loopscale-client.git",
+      "is_template": false
+    },
+    {
+      "id": "quasar",
+      "repo": "blueshift-gg/quasar",
+      "description": "Quasar — zero-copy Solana program framework for blazing fast SVM programs with auto-generated TS/Rust clients, CU profiler, and QuasarSVM test harness",
+      "category": "framework",
+      "keywords": [
+        "program",
+        "framework",
+        "zero-copy",
+        "quasar",
+        "svm",
+        "performance",
+        "on-chain",
+        "blueshift"
+      ],
+      "clone_command": "git clone https://github.com/blueshift-gg/quasar.git",
+      "is_template": false
+    },
+    {
+      "id": "litesvm",
+      "repo": "LiteSVM/litesvm",
+      "description": "Fast SVM program test harness — the recommended unit testing tool for Solana programs with Rust and TypeScript bindings",
+      "category": "tooling",
+      "keywords": [
+        "test",
+        "svm",
+        "unit-test",
+        "litesvm",
+        "fast",
+        "harness"
+      ],
+      "clone_command": "git clone https://github.com/LiteSVM/litesvm.git",
+      "is_template": false
+    },
+    {
+      "id": "mollusk",
+      "repo": "anza-xyz/mollusk",
+      "description": "SVM program test harness for isolated instruction-level testing — part of the official Solana testing pyramid",
+      "category": "tooling",
+      "keywords": [
+        "test",
+        "svm",
+        "instruction",
+        "mollusk",
+        "anza",
+        "isolated"
+      ],
+      "clone_command": "git clone https://github.com/anza-xyz/mollusk.git",
+      "is_template": false
+    },
+    {
+      "id": "codama",
+      "repo": "codama-idl/codama",
+      "description": "Generate type-safe clients, CLIs, and documentation from Solana program IDLs — multi-language code generation",
+      "category": "tooling",
+      "keywords": [
+        "idl",
+        "codegen",
+        "client",
+        "codama",
+        "typescript",
+        "rust",
+        "cli"
+      ],
+      "clone_command": "git clone https://github.com/codama-idl/codama.git",
+      "is_template": false
+    },
+    {
+      "id": "yellowstone-grpc",
+      "repo": "rpcpool/yellowstone-grpc",
+      "description": "Triton's Dragon's Mouth gRPC service — high-performance real-time Solana data streaming for indexers and trading bots",
+      "category": "infrastructure",
+      "keywords": [
+        "grpc",
+        "streaming",
+        "yellowstone",
+        "triton",
+        "real-time",
+        "indexer",
+        "data"
+      ],
+      "clone_command": "git clone https://github.com/rpcpool/yellowstone-grpc.git",
+      "is_template": false
+    },
+    {
+      "id": "carbon",
+      "repo": "sevenlabs-hq/carbon",
+      "description": "Rust indexing framework for Solana — simplifies building custom on-chain data indexers",
+      "category": "infrastructure",
+      "keywords": [
+        "indexer",
+        "rust",
+        "carbon",
+        "data",
+        "on-chain",
+        "framework"
+      ],
+      "clone_command": "git clone https://github.com/sevenlabs-hq/carbon.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-verifiable-build",
+      "repo": "solana-foundation/solana-verifiable-build",
+      "description": "CLI tool for deterministic builds and on-chain verification of deployed Solana programs",
+      "category": "tooling",
+      "keywords": [
+        "verifiable",
+        "build",
+        "deploy",
+        "security",
+        "verification",
+        "deterministic"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/solana-verifiable-build.git",
+      "is_template": false
+    },
+    {
+      "id": "kora",
+      "repo": "solana-foundation/kora",
+      "description": "Official Solana relayer for gasless and sponsored transactions — fee abstraction for end users",
+      "category": "infrastructure",
+      "keywords": [
+        "relayer",
+        "gasless",
+        "sponsor",
+        "fee",
+        "abstraction",
+        "onboarding"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/kora.git",
+      "is_template": false
+    },
+    {
+      "id": "jito-searcher-examples",
+      "repo": "jito-labs/searcher-examples",
+      "description": "Reference examples for Jito bundle searchers — MEV extraction, bundle submission, and tip management on Solana",
+      "category": "defi",
+      "keywords": [
+        "jito",
+        "mev",
+        "bundle",
+        "searcher",
+        "tips",
+        "trading"
+      ],
+      "clone_command": "git clone https://github.com/jito-labs/searcher-examples.git",
+      "is_template": true
+    },
+    {
+      "id": "jito-ts",
+      "repo": "jito-labs/jito-ts",
+      "description": "Jito TypeScript SDK for bundle submission and tip management on Solana",
+      "category": "defi",
+      "keywords": [
+        "jito",
+        "mev",
+        "bundle",
+        "typescript",
+        "sdk",
+        "tips"
+      ],
+      "clone_command": "git clone https://github.com/jito-labs/jito-ts.git",
+      "is_template": false
+    },
+    {
+      "id": "jito-restaking",
+      "repo": "jito-foundation/restaking",
+      "description": "Jito restaking protocol — stake SOL to secure additional services and earn extra yield",
+      "category": "defi",
+      "keywords": [
+        "jito",
+        "restaking",
+        "staking",
+        "yield",
+        "defi",
+        "security"
+      ],
+      "clone_command": "git clone https://github.com/jito-foundation/restaking.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-defi-grpc-examples",
+      "repo": "Shyft-to/solana-defi",
+      "description": "Yellowstone gRPC parsing examples for Pump, Meteora, Raydium, and more — account and transaction parsing for DeFi indexers",
+      "category": "example",
+      "keywords": [
+        "grpc",
+        "yellowstone",
+        "parser",
+        "pump",
+        "meteora",
+        "raydium",
+        "indexer"
+      ],
+      "clone_command": "git clone https://github.com/Shyft-to/solana-defi.git",
+      "is_template": true
+    },
+    {
+      "id": "meteora-dlmm-sdk",
+      "repo": "MeteoraAg/dlmm-sdk",
+      "description": "Meteora DLMM SDK — concentrated liquidity with dynamic fees, TypeScript and Rust clients for building on Meteora's liquidity infrastructure",
+      "category": "defi",
+      "keywords": [
+        "meteora",
+        "dlmm",
+        "amm",
+        "liquidity",
+        "concentrated",
+        "defi",
+        "sdk"
+      ],
+      "clone_command": "git clone https://github.com/MeteoraAg/dlmm-sdk.git",
+      "is_template": false
+    },
+    {
+      "id": "doppler",
+      "repo": "blueshift-gg/doppler",
+      "description": "Ultra-optimized oracle program for Solana — 21 CU per update, zero dependencies, no_std Rust",
+      "category": "infrastructure",
+      "keywords": [
+        "oracle",
+        "performance",
+        "blueshift",
+        "zero-copy",
+        "price-feed"
+      ],
+      "clone_command": "git clone https://github.com/blueshift-gg/doppler.git",
+      "is_template": false
+    },
+    {
+      "id": "sbpf",
+      "repo": "blueshift-gg/sbpf",
+      "description": "CLI to bootstrap, build, deploy, and debug sBPF assembly programs on Solana — includes disassembler and debugger",
+      "category": "tooling",
+      "keywords": [
+        "sbpf",
+        "assembly",
+        "bytecode",
+        "blueshift",
+        "optimization",
+        "debug"
+      ],
+      "clone_command": "git clone https://github.com/blueshift-gg/sbpf.git",
+      "is_template": false
+    },
+    {
+      "id": "awesome-sbpf",
+      "repo": "deanmlittle/awesome-sbpf",
+      "description": "Curated collection of sBPF assembly resources, tooling, documentation, and example programs for Solana",
+      "category": "example",
+      "keywords": [
+        "sbpf",
+        "assembly",
+        "awesome",
+        "resources",
+        "optimization",
+        "reference"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/awesome-sbpf.git",
+      "is_template": false
+    },
+    {
+      "id": "anchor-escrow-2024",
+      "repo": "deanmlittle/anchor-escrow-2024",
+      "description": "Canonical Anchor escrow program example — the most-referenced escrow tutorial in the Solana ecosystem",
+      "category": "example",
+      "keywords": [
+        "anchor",
+        "escrow",
+        "example",
+        "tutorial",
+        "program"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/anchor-escrow-2024.git",
+      "is_template": true
+    },
+    {
+      "id": "beethoven",
+      "repo": "blueshift-gg/beethoven",
+      "description": "Protocol-agnostic CPI routing — one deposit/swap/borrow instruction routes to Kamino, Jupiter, Marginfi, and more",
+      "category": "defi",
+      "keywords": [
+        "cpi",
+        "routing",
+        "composability",
+        "blueshift",
+        "defi",
+        "protocol-agnostic"
+      ],
+      "clone_command": "git clone https://github.com/blueshift-gg/beethoven.git",
+      "is_template": false
+    },
+    {
+      "id": "scilla",
+      "repo": "blueshift-gg/Scilla",
+      "description": "Interactive Solana CLI with prompted navigation — account inspection, cluster state, staking, and developer tools",
+      "category": "tooling",
+      "keywords": [
+        "cli",
+        "interactive",
+        "blueshift",
+        "developer",
+        "solana",
+        "tools"
+      ],
+      "clone_command": "git clone https://github.com/blueshift-gg/Scilla.git",
+      "is_template": false
+    },
+    {
+      "id": "svm-merkle-tree",
+      "repo": "deanmlittle/svm-merkle-tree",
+      "description": "SVM-optimized Merkle tree with syscalls, Bitcoin parity, multiple hash functions, truncated hashes, CLI and WASM bindings",
+      "category": "tooling",
+      "keywords": [
+        "merkle",
+        "tree",
+        "proof",
+        "airdrop",
+        "compression",
+        "hash"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/svm-merkle-tree.git",
+      "is_template": false
+    },
+    {
+      "id": "chadbuffer",
+      "repo": "deanmlittle/chadbuffer",
+      "description": "Parallel data upload to Solana with self-healing state and priority fees — 2.7kb program size",
+      "category": "tooling",
+      "keywords": [
+        "upload",
+        "data",
+        "parallel",
+        "buffer",
+        "on-chain"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/chadbuffer.git",
+      "is_template": false
+    },
+    {
+      "id": "sbpf-asm-abort",
+      "repo": "deanmlittle/sbpf-asm-abort",
+      "description": "352-byte emergency abort program — shuts down any upgradable Solana program in one transaction",
+      "category": "tooling",
+      "keywords": [
+        "abort",
+        "emergency",
+        "shutdown",
+        "security",
+        "sbpf",
+        "safety"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/sbpf-asm-abort.git",
+      "is_template": false
+    },
+    {
+      "id": "idlgen",
+      "repo": "deanmlittle/idlgen",
+      "description": "Generate CPI and introspection SDKs from Anchor IDL files — complements Codama for client generation",
+      "category": "tooling",
+      "keywords": [
+        "idl",
+        "codegen",
+        "cpi",
+        "anchor",
+        "sdk",
+        "introspection"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/idlgen.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-secp256k1",
+      "repo": "deanmlittle/solana-secp256k1",
+      "description": "200x CU reduction for secp256k1 operations on Solana — enables efficient Bitcoin/Ethereum signature verification on-chain",
+      "category": "infrastructure",
+      "keywords": [
+        "secp256k1",
+        "cryptography",
+        "bitcoin",
+        "ethereum",
+        "cross-chain",
+        "signature"
+      ],
+      "clone_command": "git clone https://github.com/deanmlittle/solana-secp256k1.git",
+      "is_template": false
+    },
+    {
+      "id": "quasar-svm",
+      "repo": "blueshift-gg/quasar-svm",
+      "description": "In-process SVM execution for Rust, Node.js, and Python — test Solana programs locally without RPC or validators",
+      "category": "tooling",
+      "keywords": [
+        "test",
+        "svm",
+        "local",
+        "quasar",
+        "blueshift",
+        "rust",
+        "typescript",
+        "python"
+      ],
+      "clone_command": "git clone https://github.com/blueshift-gg/quasar-svm.git",
+      "is_template": false
+    },
+    {
+      "id": "connectorkit",
+      "repo": "solana-foundation/connectorkit",
+      "description": "Production-ready headless Solana wallet connector — framework-agnostic, built on Wallet Standard",
+      "category": "infrastructure",
+      "keywords": [
+        "wallet",
+        "connector",
+        "headless",
+        "wallet-standard",
+        "foundation"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/connectorkit.git",
+      "is_template": false
+    },
+    {
+      "id": "mpp-sdk",
+      "repo": "solana-foundation/mpp-sdk",
+      "description": "Machine Payments Protocol SDK — Solana payment method for autonomous agent-to-agent and machine-to-machine payments",
+      "category": "infrastructure",
+      "keywords": [
+        "payments",
+        "mpp",
+        "machine",
+        "agent",
+        "foundation",
+        "protocol"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/mpp-sdk.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-keychain",
+      "repo": "solana-foundation/solana-keychain",
+      "description": "Framework-agnostic Solana transaction signing with multiple backends — unified trait interface, async-first design",
+      "category": "infrastructure",
+      "keywords": [
+        "signing",
+        "keychain",
+        "transaction",
+        "wallet",
+        "async",
+        "foundation"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/solana-keychain.git",
+      "is_template": false
+    },
+    {
+      "id": "solana-bootcamp-2026",
+      "repo": "solana-foundation/solana-bootcamp-2026",
+      "description": "Official Solana Bootcamp 2026 curriculum — developer training materials from the Solana Foundation",
+      "category": "example",
+      "keywords": [
+        "bootcamp",
+        "education",
+        "curriculum",
+        "training",
+        "foundation",
+        "2026"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/solana-bootcamp-2026.git",
+      "is_template": true
+    },
+    {
+      "id": "noir-examples",
+      "repo": "solana-foundation/noir-examples",
+      "description": "ZK proofs on Solana using Noir and Sunspot — examples for zero-knowledge program development",
+      "category": "example",
+      "keywords": [
+        "zk",
+        "noir",
+        "sunspot",
+        "zero-knowledge",
+        "proof",
+        "foundation"
+      ],
+      "clone_command": "git clone https://github.com/solana-foundation/noir-examples.git",
+      "is_template": true
+    }
+  ]
+}
