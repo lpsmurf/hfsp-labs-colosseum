@@ -30,7 +30,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin ?? '';
   if (ORIGINS.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Wallet-Pubkey,X-Wallet-Address');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -42,6 +42,9 @@ import paymentsRouter from './routes/payments.js';
 import agentsRouter from './routes/agents.js';
 import usageRouter from './routes/usage.js';
 import internalRouter from './routes/internal.js';
+import vaultRouter from './vault/vaultRouter.js';
+import spawnRouter from './agent/spawnHandler.js';
+import credentialBrokerRouter from './agent/credentialBrokerRouter.js';
 
 app.use('/api/auth', authRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
@@ -49,6 +52,9 @@ app.use('/api/payments', paymentsRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/internal', internalRouter);
+app.use('/vault', vaultRouter);
+app.use('/agent', spawnRouter);
+app.use('/internal/agent-credentials', credentialBrokerRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', version: '0.1.0', service: 'clawdrop-platform' });

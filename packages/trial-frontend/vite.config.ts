@@ -15,6 +15,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/platform/, '/api')
       },
+      '/vault': {
+        target: 'http://localhost:8788',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true

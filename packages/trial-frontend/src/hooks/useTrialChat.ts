@@ -83,6 +83,19 @@ function getDefaultEndpoint(): string {
   return env?.DEV ? 'http://localhost:8787/api/chat' : '/api/chat';
 }
 
+function getQuotaEndpoint(chatEndpoint: string): string {
+  if (typeof window === 'undefined') return '/api/quota';
+
+  try {
+    const url = new URL(chatEndpoint, window.location.origin);
+    url.pathname = url.pathname.replace(/\/chat$/, '/quota');
+    url.search = '';
+    return url.origin === window.location.origin ? url.pathname : url.toString();
+  } catch {
+    return '/api/quota';
+  }
+}
+
 function createId(prefix: string) {
   const random =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -198,7 +211,7 @@ function quotaFromPayload(payload: StreamRecord): TrialQuota | null {
   const limit = getNumber(quotaRecord, ['limit', 'messageLimit', 'messages_per_day']) ?? TRIAL_LIMIT;
   const used = getNumber(quotaRecord, ['used', 'messagesUsed', 'count']);
   const remaining = getNumber(quotaRecord, ['remaining', 'messagesRemaining']);
-  const resetsAt = getString(quotaRecord, ['resetsAt', 'reset_at', 'resetAt']);
+  const resetsAt = getString(quotaRecord, ['resetsAt', 'reset_at', 'resets_at', 'resetAt']);
 
   if (used === undefined && remaining === undefined) return null;
 
@@ -275,6 +288,7 @@ function historyForPayload(messages: TrialMessage[]) {
 
 export function useTrialChat(): UseTrialChatReturn {
   const endpoint = useMemo(getDefaultEndpoint, []);
+  const quotaEndpoint = useMemo(() => getQuotaEndpoint(endpoint), [endpoint]);
   const [sessionId] = useState(getOrCreateSessionId);
   const [messages, setMessages] = useState<TrialMessage[]>([]);
   const [quota, setQuota] = useState<TrialQuota>(getInitialQuota);
@@ -299,6 +313,30 @@ export function useTrialChat(): UseTrialChatReturn {
     persistQuota(nextQuota);
     if (nextQuota.remaining <= 0) setShouldShowPaywall(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncQuota() {
+      try {
+        const response = await fetch(quotaEndpoint, { headers: { Accept: 'application/json' } });
+        if (!response.ok) return;
+
+        const payload = await response.json() as unknown;
+        if (cancelled || !isRecord(payload)) return;
+
+        const nextQuota = quotaFromPayload(payload);
+        if (nextQuota) applyQuota(nextQuota);
+      } catch {
+        // Local quota keeps the trial usable if the quota endpoint is unavailable.
+      }
+    }
+
+    void syncQuota();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyQuota, quotaEndpoint]);
 
   const updateAssistant = useCallback((assistantId: string, updater: (message: TrialMessage) => TrialMessage) => {
     setMessages((current) =>

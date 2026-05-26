@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { VAULT_SCHEMA_SQL } from '../vault/vaultSchema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.SQLITE_PATH ?? path.join(__dirname, '../../data/clawdrop.sqlite');
@@ -96,6 +97,8 @@ function migrate(db: Database.Database): void {
       paired_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    ${VAULT_SCHEMA_SQL}
   `);
 
   // Backfill existing tables that may be missing new columns

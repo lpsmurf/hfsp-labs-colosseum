@@ -1,12 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from 'react-query';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import type { Adapter } from '@solana/wallet-adapter-base';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 import useTelegramApp from './hooks/useTelegramApp';
 import useAuth from './hooks/useAuth';
 import { ToastContainer, useToast } from './components/shared';
 import { MainLayout } from './layouts/MainLayout';
 import { Home } from './pages/Home';
 import { Deploy } from './pages/Deploy';
+import { DeployZK } from './pages/DeployZK';
 import { Agents } from './pages/Agents';
 import { Admin } from './pages/Admin';
 import { Try } from './pages/Try';
@@ -14,6 +19,17 @@ import { Try } from './pages/Try';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
 });
+
+const SOLANA_RPC_ENDPOINT = import.meta.env.VITE_SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com';
+const SolanaConnectionProvider = ConnectionProvider as unknown as ComponentType<{
+  children: ReactNode;
+  endpoint: string;
+}>;
+const SolanaWalletProvider = WalletProvider as unknown as ComponentType<{
+  children: ReactNode;
+  wallets: Adapter[];
+  autoConnect?: boolean;
+}>;
 
 const LoadingPage = () => (
   <div className="flex items-center justify-center min-h-screen" style={{ background: "#13121b" }}>
@@ -32,6 +48,7 @@ function TrialAppContent() {
       <Routes>
         <Route path="/try"     element={<Try />} />
         <Route path="/deploy"  element={<Deploy />} />
+        <Route path="/deploy/zk" element={<DeployZK />} />
         <Route path="/agents"  element={<Agents />} />
         <Route path="*"        element={<Navigate to="/try" replace />} />
       </Routes>
@@ -86,6 +103,7 @@ function AuthenticatedAppContent() {
           <Routes>
             <Route path="/"        element={<Home />}   />
             <Route path="/deploy"  element={<Deploy />} />
+            <Route path="/deploy/zk" element={<DeployZK />} />
             <Route path="/agents"  element={<Agents />} />
             <Route path="/admin"   element={<Admin />}  />
             <Route path="/try"     element={<Try />}    />
@@ -107,11 +125,20 @@ function AppContent() {
 }
 
 export default function App() {
+  const wallets = useMemo(
+    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
+    []
+  );
+
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <SolanaConnectionProvider endpoint={SOLANA_RPC_ENDPOINT}>
+        <SolanaWalletProvider wallets={wallets} autoConnect>
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </SolanaWalletProvider>
+      </SolanaConnectionProvider>
     </QueryClientProvider>
   );
 }

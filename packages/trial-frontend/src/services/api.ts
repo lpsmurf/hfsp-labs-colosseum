@@ -12,6 +12,7 @@ import type {
   PaymentQuote,
   SubscriptionTier,
 } from '../types/api';
+import type { WalletEncryptedBlob, VaultAuthHeaders } from '../hooks/useWalletEncryption';
 
 // ── Existing Trial API Client ───────────────────────────────────────────────
 
@@ -251,4 +252,37 @@ class PlatformApiClient {
 
 export const apiClient = new ApiClient();
 export const platformClient = new PlatformApiClient();
+
+class VaultApiClient {
+  async storeCredentials(
+    agentId: string,
+    encrypted: WalletEncryptedBlob,
+    authHeaders: VaultAuthHeaders
+  ): Promise<{ id: string }> {
+    const res = await axios.post<{ id: string }>(
+      '/vault/store',
+      {
+        agentId,
+        encryptedBlob: encrypted.encryptedBlob,
+        nonce: encrypted.nonce,
+        salt: encrypted.salt,
+      },
+      { headers: authHeaders }
+    );
+    return res.data;
+  }
+
+  async revokeCredentials(
+    agentId: string,
+    authHeaders: VaultAuthHeaders
+  ): Promise<{ deleted: boolean; container?: unknown; elapsedMs?: number }> {
+    const res = await axios.delete<{ deleted: boolean; container?: unknown; elapsedMs?: number }>(
+      `/vault/${encodeURIComponent(agentId)}`,
+      { headers: authHeaders }
+    );
+    return res.data;
+  }
+}
+
+export const vaultClient = new VaultApiClient();
 export default ApiClient;
