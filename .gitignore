@@ -101,3 +101,10 @@ scripts/session-closer/
 *.log
 .DS_Store
 .env*.local
+
+# Solana keypairs (NEVER commit)
+**/solana-keypair.json
+**/wallet-keypair.json
+**/*-keypair.json
+packages/oobe-bounty/data/*.db
+packages/oobe-bounty/wallet-pubkey.txt
