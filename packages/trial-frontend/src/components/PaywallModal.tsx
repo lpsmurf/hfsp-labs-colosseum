@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { platformClient } from '../services/api';
+import type { PaymentQuote } from '../types/api';
 
 type DeploymentState = 'idle' | 'connecting' | 'opening' | 'connected' | 'error';
 
@@ -29,14 +31,21 @@ function formatUsd(value: number | null | undefined) {
   return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} / SOL`;
 }
 
+function formatPlanPrice(quote: PaymentQuote | null) {
+  if (!quote) return '$29 / month';
+  return `${quote.tokens.SOL.amount} SOL / month`;
+}
+
 export function PaywallModal({ open, onClose, latestSolPrice }: PaywallModalProps) {
   const [state, setState] = useState<DeploymentState>('idle');
   const [error, setError] = useState('');
   const [wallet, setWallet] = useState('');
-  const monthlyUsd = useMemo(() => {
-    if (!latestSolPrice) return null;
-    return latestSolPrice * 0.5;
-  }, [latestSolPrice]);
+  const [quote, setQuote] = useState<PaymentQuote | null>(null);
+  const [quoteError, setQuoteError] = useState('');
+  const solPrice = useMemo(
+    () => quote?.tokens.SOL.price_usd ?? latestSolPrice ?? null,
+    [latestSolPrice, quote],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +68,26 @@ export function PaywallModal({ open, onClose, latestSolPrice }: PaywallModalProp
       setState('idle');
       setError('');
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    async function fetchQuote() {
+      try {
+        setQuoteError('');
+        const nextQuote = await platformClient.getPaymentQuote('starter');
+        if (!cancelled) setQuote(nextQuote);
+      } catch {
+        if (!cancelled) setQuoteError('Live checkout quote is unavailable.');
+      }
+    }
+
+    void fetchQuote();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   if (!open) return null;
@@ -88,6 +117,10 @@ export function PaywallModal({ open, onClose, latestSolPrice }: PaywallModalProp
       setError(message);
       setState('error');
     }
+  }
+
+  function continueToDeploy() {
+    window.location.href = '/deploy';
   }
 
   return (
@@ -122,21 +155,27 @@ export function PaywallModal({ open, onClose, latestSolPrice }: PaywallModalProp
         </div>
 
         <p className="mt-4 text-sm leading-6 text-slate-300">
-          Deploy a private Poly agent on Solana. 0.5 SOL/month.
+          Deploy a private Poly agent on Solana with a live wallet checkout.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
             <p className="text-xs text-slate-400">Live SOL price</p>
-            <p className="mt-1 text-sm font-semibold text-slate-100">{formatUsd(latestSolPrice)}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-100">{formatUsd(solPrice)}</p>
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs text-slate-400">Monthly estimate</p>
+            <p className="text-xs text-slate-400">Builder plan</p>
             <p className="mt-1 text-sm font-semibold text-slate-100">
-              {monthlyUsd ? `$${monthlyUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '0.5 SOL'}
+              {formatPlanPrice(quote)}
             </p>
           </div>
         </div>
+
+        {quoteError && (
+          <p className="mt-3 text-xs text-slate-400">
+            {quoteError} You can still continue to checkout.
+          </p>
+        )}
 
         <div className="mt-5 space-y-3">
           {['Private Telegram bot', 'All 5 Solana tools', '24/7 uptime'].map((feature) => (
@@ -155,18 +194,24 @@ export function PaywallModal({ open, onClose, latestSolPrice }: PaywallModalProp
 
         {state === 'connected' && (
           <p className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-100">
-            Phantom connected: {wallet.slice(0, 4)}...{wallet.slice(-4)}. Deployment checkout is ready for backend wiring.
+            Phantom connected: {wallet.slice(0, 4)}...{wallet.slice(-4)}. Continue to checkout to deploy your private Poly.
           </p>
         )}
 
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => void deployWithPhantom()}
+            onClick={() => state === 'connected' ? continueToDeploy() : void deployWithPhantom()}
             disabled={state === 'connecting'}
             className="min-h-12 rounded-lg bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 disabled:cursor-wait disabled:opacity-70"
           >
-            {state === 'connecting' ? 'Connecting Phantom...' : state === 'opening' ? 'Opening Phantom...' : 'Deploy with Phantom →'}
+            {state === 'connected'
+              ? 'Continue to deploy'
+              : state === 'connecting'
+                ? 'Connecting Phantom...'
+                : state === 'opening'
+                  ? 'Opening Phantom...'
+                  : 'Deploy with Phantom →'}
           </button>
           <button
             type="button"

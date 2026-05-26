@@ -61,14 +61,19 @@ export function checkAndIncrement(ip: string): QuotaResult {
   return { allowed: true, remaining: LIMIT - row.count - 1, resets_at };
 }
 
-export function getQuota(ip: string): { used: number; limit: number; resets_at: string } {
+export function getQuota(ip: string): { used: number; limit: number; remaining: number; resets_at: string } {
   const d = today();
   const row = db().prepare('SELECT count, day FROM quotas WHERE ip = ?').get(ip) as
     | { count: number; day: string }
     | undefined;
 
   const used = row && row.day === d ? row.count : 0;
-  return { used, limit: LIMIT, resets_at: `${d}T23:59:59Z` };
+  return {
+    used,
+    limit: LIMIT,
+    remaining: Math.max(LIMIT - used, 0),
+    resets_at: `${d}T23:59:59Z`,
+  };
 }
 
 export function saveEmail(ip: string, email: string): void {

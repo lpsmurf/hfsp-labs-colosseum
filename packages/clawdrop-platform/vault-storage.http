@@ -1,0 +1,27 @@
+@baseUrl = http://localhost:8788
+@wallet = 73NPCyP3mJ5VpGMxgSpe2jharrpwuMbwPviUfqRU5myF
+@signature = 9kEWGYeUookK6Aiy8mWJcUpaaWeaoa1BfC4FGbAn2uER/NVElMxseIKgT8xR7yrmbV/BimQn8CSEhY2IeH6vCQ==
+@agentId = t017-rest-client-agent
+
+### Store fake encrypted credentials
+POST {{baseUrl}}/vault/store
+Authorization: Bearer {{signature}}
+X-Wallet-Pubkey: {{wallet}}
+Content-Type: application/json
+
+{
+  "agentId": "{{agentId}}",
+  "encryptedBlob": "XfFTOqARUYKjUIC+mNFp6JCoDT99grwrRgZrPdMGnXExXzNWc16u+D7qP8z/8yrL",
+  "nonce": "1j+XwehgDIz2n87q",
+  "salt": "ZjeCPy6MefZhgqQ3Q0RdhUlQ9ig+tga2z6Taaeec+0U="
+}
+
+### Read encrypted credentials
+GET {{baseUrl}}/vault/{{agentId}}
+Authorization: Bearer {{signature}}
+X-Wallet-Pubkey: {{wallet}}
+
+### Delete encrypted credentials
+DELETE {{baseUrl}}/vault/{{agentId}}
+Authorization: Bearer {{signature}}
+X-Wallet-Pubkey: {{wallet}}

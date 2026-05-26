@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { platformClient } from '../services/api';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { platformClient, vaultClient } from '../services/api';
 import type { PlatformAgent } from '../types/api';
 import { QuickDeployModal } from '../components/QuickDeployModal';
+import { buildVaultAuthHeaders } from '../hooks/useWalletEncryption';
 
 function truncate(addr: string, n = 4) {
   return addr.length > n * 2 + 3 ? `${addr.slice(0, n)}…${addr.slice(-n)}` : addr;
@@ -33,7 +35,19 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function AgentCard({ agent, onStop, onDelete }: { agent: PlatformAgent; onStop(): void; onDelete(): void }) {
+function AgentCard({
+  agent,
+  onStop,
+  onDelete,
+  onRevoke,
+  isRevoking,
+}: {
+  agent: PlatformAgent;
+  onStop(): void;
+  onDelete(): void;
+  onRevoke(): void;
+  isRevoking: boolean;
+}) {
   return (
     <div className="glass-card rounded-[24px] p-6 flex flex-col gap-5 relative overflow-hidden group">
       {/* Subtle glow on hover */}
@@ -88,7 +102,7 @@ function AgentCard({ agent, onStop, onDelete }: { agent: PlatformAgent; onStop()
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-1">
+      <div className="flex flex-wrap gap-2 pt-1">
         {agent.status === 'active' ? (
           <button onClick={onStop}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] transition-colors hover:bg-white/10"
@@ -98,6 +112,13 @@ function AgentCard({ agent, onStop, onDelete }: { agent: PlatformAgent; onStop()
         ) : (
           <div className="flex-1" />
         )}
+        <button onClick={onRevoke}
+                disabled={isRevoking}
+                className="flex min-h-10 items-center gap-1.5 px-3 py-2 rounded-full text-[11px] transition-colors hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#ffb785', fontFamily: "'JetBrains Mono',monospace" }}>
+          <span className="ms text-[14px]">{isRevoking ? 'progress_activity' : 'lock_reset'}</span>
+          {isRevoking ? 'Revoking...' : 'Revoke & Stop Agent'}
+        </button>
         <button onClick={onDelete}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] transition-colors hover:bg-red-500/10"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,180,171,0.7)', fontFamily: "'JetBrains Mono',monospace" }}>
@@ -110,8 +131,11 @@ function AgentCard({ agent, onStop, onDelete }: { agent: PlatformAgent; onStop()
 
 export function Agents() {
   const qc = useQueryClient();
+  const { publicKey, signMessage } = useWallet();
   const [deployOpen, setDeployOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokeStatus, setRevokeStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { data, isLoading, error } = useQuery<PlatformAgent[], Error>(
     'platformAgents',
@@ -127,6 +151,31 @@ export function Agents() {
   const deleteMutation = useMutation(
     (id: string) => platformClient.stopAgent(id),
     { onSuccess: () => { setDeletingId(null); qc.invalidateQueries('platformAgents'); } }
+  );
+
+  const revokeMutation = useMutation(
+    async (id: string) => {
+      const authHeaders = await buildVaultAuthHeaders(publicKey, signMessage);
+      return vaultClient.revokeCredentials(id, authHeaders);
+    },
+    {
+      onSuccess: (result, id) => {
+        setRevokingId(null);
+        setRevokeStatus({
+          type: 'success',
+          message: result.deleted
+            ? `Credentials revoked and agent stopped for ${truncate(id, 6)}.`
+            : `No vault entry was found for ${truncate(id, 6)}.`,
+        });
+        qc.invalidateQueries('platformAgents');
+      },
+      onError: (error) => {
+        setRevokeStatus({
+          type: 'error',
+          message: getErrorMessage(error, 'Failed to revoke credentials.'),
+        });
+      },
+    }
   );
 
   const agents: PlatformAgent[] = data ?? [];
@@ -157,6 +206,30 @@ export function Agents() {
             Deploy Agent
           </button>
         </div>
+
+        {revokeStatus && (
+          <div
+            className="glass-card rounded-[18px] p-4 mb-6 flex items-start justify-between gap-3"
+            role={revokeStatus.type === 'error' ? 'alert' : 'status'}
+          >
+            <div className="flex items-start gap-3">
+              <span className="ms text-[22px]" style={{ color: revokeStatus.type === 'error' ? '#ffb4ab' : '#a2e7ff' }}>
+                {revokeStatus.type === 'error' ? 'error' : 'check_circle'}
+              </span>
+              <p className="text-[13px]" style={{ color: revokeStatus.type === 'error' ? '#ffb4ab' : '#c7c4d8', fontFamily: "'JetBrains Mono',monospace" }}>
+                {revokeStatus.message}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRevokeStatus(null)}
+              className="min-h-10 rounded-full px-3 text-[11px] transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              style={{ color: '#c7c4d8', fontFamily: "'JetBrains Mono',monospace" }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Loading */}
         {isLoading && (
@@ -189,6 +262,11 @@ export function Agents() {
                 agent={agent}
                 onStop={() => stopMutation.mutate(agent.id)}
                 onDelete={() => setDeletingId(agent.id)}
+                onRevoke={() => {
+                  setRevokeStatus(null);
+                  setRevokingId(agent.id);
+                }}
+                isRevoking={revokeMutation.isLoading && revokingId === agent.id}
               />
             ))}
 
@@ -229,7 +307,40 @@ export function Agents() {
         </div>
       )}
 
+      {/* Revoke confirm */}
+      {revokingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(7,7,15,0.8)', backdropFilter: 'blur(12px)' }}>
+          <div className="glass-card rounded-[24px] p-8 max-w-sm w-full text-center">
+            <span className="ms text-[48px] mb-4 block" style={{ color: '#ffb785' }}>lock_reset</span>
+            <h3 className="text-[20px] font-bold mb-2" style={{ color: '#e4e1ee' }}>Revoke credentials?</h3>
+            <p className="text-[14px] mb-6" style={{ color: '#c7c4d8' }}>
+              Your wallet will sign a vault request, then the credentials will be deleted and the agent stopped.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setRevokingId(null)}
+                      disabled={revokeMutation.isLoading}
+                      className="flex-1 py-3 rounded-full text-[13px] disabled:opacity-60"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#c7c4d8', fontFamily: "'JetBrains Mono',monospace" }}>
+                Cancel
+              </button>
+              <button onClick={() => { if (revokingId) revokeMutation.mutate(revokingId); }}
+                      disabled={revokeMutation.isLoading}
+                      className="flex-1 py-3 rounded-full font-bold text-[13px] hover:opacity-90 disabled:opacity-60"
+                      style={{ background: 'rgba(245,158,11,0.85)', color: '#130b00', fontFamily: "'JetBrains Mono',monospace" }}>
+                {revokeMutation.isLoading ? 'Revoking...' : 'Revoke'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <QuickDeployModal open={deployOpen} onClose={() => { setDeployOpen(false); qc.invalidateQueries('platformAgents'); }} />
     </div>
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  const apiError = error as { response?: { data?: { error?: string } } };
+  if (apiError.response?.data?.error) return apiError.response.data.error;
+  return error instanceof Error ? error.message : fallback;
 }
