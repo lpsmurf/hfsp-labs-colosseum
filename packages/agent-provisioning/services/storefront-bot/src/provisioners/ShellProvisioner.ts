@@ -38,7 +38,7 @@ export class ShellProvisioner extends BaseProvisioner {
 
   constructor(
     config: ProvisionerConfig,
-    vpsHost: string = '187.124.173.69',
+    vpsHost: string = process.env.TENANT_VPS_HOST ?? '192.168.178.72',
     vpsUser: string = 'root',
     tier: keyof typeof RESOURCE_LIMITS = DEFAULT_TIER
   ) {
