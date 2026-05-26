@@ -1,26 +1,54 @@
 {
-  "name": "@hfsp-labs/clawdrop",
+  "name": "clawdrop",
   "version": "1.0.0",
-  "description": "HFSP Labs - Clawdrop: Deploy AI agents on Solana in 60 seconds",
+  "description": "Deploy per-user autonomous Solana AI agents powered by SendAI Agent Kit. Free trial chatbot → paid agent running 24/7.",
   "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "main": "./packages/clawdrop-mcp/dist/api-server.js",
   "bin": {
     "clawdrop": "./packages/clawdrop-mcp/cli.cjs"
   },
+  "workspaces": [
+    "packages/agent-provisioning",
+    "packages/clawdrop-agent-runtime",
+    "packages/clawdrop-mcp",
+    "packages/clawdrop-mcp-server",
+    "packages/clawdrop-platform",
+    "packages/trial-api",
+    "packages/trial-frontend",
+    "packages/oobe-bounty"
+  ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
     "cli": "node packages/clawdrop-mcp/cli.cjs",
+    "dev": "docker-compose -f docker-compose.trial.yml up",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "metadata-service": "tsx scripts/session-closer/metadata-service.ts"
   },
   "keywords": [
     "solana",
     "ai-agent",
+    "solana-agent-kit",
+    "sendai",
     "mcp",
-    "deployment",
-    "hackathon",
-    "clawdrop"
+    "model-context-protocol",
+    "mastra",
+    "autonomous-agent",
+    "defi",
+    "telegram-bot",
+    "docker",
+    "typescript",
+    "web3",
+    "deployment"
   ],
-  "author": "HFSP Labs",
+  "author": "Clawdrop Team",
   "repository": {
     "type": "git",
     "url": "https://github.com/lpsmurf/hfsp-labs-colosseum.git"

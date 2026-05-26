@@ -1,166 +1,57 @@
 # Contributing to Clawdrop
 
-Thank you for your interest in contributing! This document outlines our guidelines and process.
+We welcome contributions! This document outlines our process.
 
-## Code of Conduct
+## Getting Started
 
-We are committed to providing a welcoming and inclusive community. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing.
+1. **Pick a task** — Look for issues labeled `good-first-issue` or `help-wanted`
+2. **Create a branch** — Use descriptive names: `feat/agent-wallet-auth`, `fix/mcp-connection-timeout`
+3. **Commit messages** — Use [conventional commits](https://www.conventionalcommits.org/):
+   - `feat:` New feature
+   - `fix:` Bug fix
+   - `docs:` Documentation
+   - `chore:` Build, deps, config
+   - `test:` Tests
+   - `refactor:` Code reorganization
 
----
+   Example: `feat: add wallet signature authentication to clawdrop-platform`
 
-## How to Contribute
+## PR Process
 
-### 1. Pick a Task
+1. **Before submitting** — Ensure:
+   - Code builds: `npm run build`
+   - Tests pass: `npm run test`
+   - Types check: `npm run typecheck`
+   - No linting errors: `npm run lint`
 
-**New to the project?**
-- Look for [good-first-issue](https://github.com/lpsmurf/hfsp-labs-colosseum/issues?q=label%3A%22good+first+issue%22) labels
-- Check [Help Wanted](https://github.com/lpsmurf/hfsp-labs-colosseum/issues?q=label%3A%22help+wanted%22)
+2. **Create a PR** with:
+   - Clear title following the commit convention
+   - Description of what changed and why
+   - Link to any related issues
+   - Screenshots (UI changes)
 
-**Want something specific?**
-- Create a [new issue](https://github.com/lpsmurf/hfsp-labs-colosseum/issues) describing the problem/feature
-- Wait for feedback from maintainers
-
-### 2. Create a Feature Branch
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-**Branch naming convention:**
-- `feature/` — New features
-- `fix/` — Bug fixes
-- `docs/` — Documentation
-- `refactor/` — Code refactoring
-- `test/` — Tests only
-- `chore/` — Maintenance
-
-### 3. Make Your Changes
-
-**Code guidelines:**
-- TypeScript strict mode required
-- No `any` types (unless justified in comments)
-- Follow existing code style
-- Add tests for new features
-- Update documentation
-
-**Commit message format:**
-```
-[AGENT] type: brief description
-
-Optional longer explanation.
-
-Fixes #123
-Relates to #456
-```
-
-**Agent prefixes (pick the closest match):**
-- `[CLAUDE]` — Architecture, orchestration, integration
-- `[CODEX]` — Code quality, audits, tests
-- `[GEMINI]` — Backend, APIs, data services
-- `[KIMI]` — DevOps, infrastructure, Docker
-- `[CONTRIBUTOR]` — External contributor
-
-**Commit types:**
-- `feat:` new feature
-- `fix:` bug fix
-- `docs:` documentation
-- `refactor:` code refactoring
-- `test:` adding/updating tests
-- `chore:` maintenance, dependencies
-
-### 4. Run Tests & Linting
-
-```bash
-npm test
-npm run lint
-npm run type-check
-```
-
-All checks must pass before submitting PR.
-
-### 5. Submit a Pull Request
-
-1. Push your branch: `git push origin feature/your-feature-name`
-2. Open a [Pull Request](https://github.com/lpsmurf/hfsp-labs-colosseum/pulls)
-3. Fill out the PR template
-4. Link to related issues: `Fixes #123`
-5. Wait for code review
-
-**PR checklist:**
-- [ ] Tests pass locally
-- [ ] Code follows style guide
-- [ ] Documentation updated
-- [ ] Commit messages follow convention
-- [ ] No breaking changes (or documented)
-
----
+3. **Review** — Maintainers will:
+   - Run automated checks
+   - Review code
+   - Suggest improvements
+   - Approve or request changes
 
 ## Code Ownership
 
-Certain files require code owner approval before merging. See [.github/CODEOWNERS](.github/CODEOWNERS).
-
-**Key owners:**
-- Agent Brain: Claude team
-- Telegram Bot: Codex team  
-- Web UI: Codex team
-- Infrastructure: Kimi team
-- Tests: Codex team
-
----
+See [.github/CODEOWNERS](.github/CODEOWNERS) for package ownership.
 
 ## Development Setup
 
-### Prerequisites
-- Node.js 18+
-- Docker & Docker Compose
-- Git
-
-### Local Setup
-
-```bash
-git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
-cd hfsp-labs-colosseum
-npm install
-
-# Start services
-npm run dev
-
-# Run tests
-npm test
-
-# Run linter
-npm run lint
-```
-
-For detailed setup, see [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md)
-
----
+See [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md)
 
 ## Questions?
 
-- **Setup help?** → [Troubleshooting Guide](docs/getting-started/troubleshooting.md)
-- **Architecture questions?** → [Architecture Docs](docs/ARCHITECTURE.md)
-- **API questions?** → [API Reference](docs/API.md)
-- **General questions?** → [Discussions](https://github.com/lpsmurf/hfsp-labs-colosseum/discussions)
+- Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design
+- Check [docs/API.md](docs/API.md) for API reference
+- Open a discussion in the repository
 
----
+## Code of Conduct
 
-## Review Process
+We follow the [Contributor Covenant](CODE_OF_CONDUCT.md). Be respectful and inclusive.
 
-1. Automated checks (tests, linting, type checking)
-2. Code review by at least one maintainer
-3. Code owner approval (if applicable)
-4. Merge & automatic deployment to staging
-5. Deploy to production (manual or automated based on branch)
-
----
-
-## Recognition
-
-Contributors will be recognized in:
-- Project README
-- Release notes
-- Contributors page
-
-Thank you for contributing! 🎉
-
+Thank you for contributing to Clawdrop!
