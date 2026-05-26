@@ -78,10 +78,10 @@ Use pair_agent when user provides a pairing code:
 - Pairing timeout: User can retry anytime with new code
 
 ## Quick Commands Reference
-Users can manage containers directly on Mac Mini (192.168.178.72):
-- Logs: ssh root@192.168.178.72 "docker logs hfsp_<agent-id>"
-- Stop: ssh root@192.168.178.72 "docker stop hfsp_<agent-id>"
-- Restart: ssh root@192.168.178.72 "docker restart hfsp_<agent-id>"
+Users can manage containers directly on Mac Mini (100.69.110.94):
+- Logs: ssh root@100.69.110.94 "docker logs hfsp_<agent-id>"
+- Stop: ssh root@100.69.110.94 "docker stop hfsp_<agent-id>"
+- Restart: ssh root@100.69.110.94 "docker restart hfsp_<agent-id>"
 
 ## Important Notes
 - All tiers include all bundles (solana, research, treasury)

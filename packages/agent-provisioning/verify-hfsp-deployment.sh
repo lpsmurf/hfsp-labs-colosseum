@@ -3,7 +3,7 @@ set -euo pipefail
 
 API_URL="http://localhost:3001"
 TEST_TOKEN="test-dev-key-12345"
-TENANT_VPS="root@192.168.178.72"
+TENANT_VPS="root@100.69.110.94"
 SSH_KEY="/home/clawd/.ssh/id_ed25519_hfsp_provisioner"
 
 echo "=============================================="

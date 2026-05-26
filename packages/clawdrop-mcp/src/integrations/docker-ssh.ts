@@ -25,7 +25,7 @@ const execAsync = promisify(exec);
  * 5. Claude connects via MCP stdio protocol
  */
 
-const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST || '192.168.178.72'; // Mac Mini (was Tenant VPS);
+const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST || '100.69.110.94'; // Mac Mini (was Tenant VPS);
 const TENANT_VPS_USER = process.env.TENANT_VPS_USER || 'root';
 const SSH_KEY = process.env.SSH_KEY_PATH || `${process.env.HOME}/.ssh/id_rsa`;
 const CLAWDROP_IMAGE = process.env.CLAWDROP_IMAGE || 'ghcr.io/clawdrop/clawdrop:latest';

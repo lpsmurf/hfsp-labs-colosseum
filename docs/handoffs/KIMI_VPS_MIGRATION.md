@@ -3,7 +3,7 @@
 **From:** Claude (orchestrator)  
 **Date:** 2026-05-26  
 **Priority:** HIGH — cancelling 3 VPS servers saves ~$85/mo  
-**Mac Mini:** 192.168.178.72 (Ethernet en0). Behind NAT — Tailscale or IPv6 tunnel required for piercalito reachability.
+**Mac Mini:** 100.69.110.94 (Ethernet en0). Behind NAT — Tailscale or IPv6 tunnel required for piercalito reachability.
 
 ---
 
@@ -128,7 +128,7 @@ mkdir -p ~/clawdrop/tenants ~/clawdrop/volumes
 Set up SSH access from piercalito → Mac Mini so the provisioner on piercalito can spawn containers here:
 ```bash
 # On piercalito, add Mac Mini to known hosts and copy provisioner key
-# NOTE: piercalito cannot reach 192.168.178.72 directly (NAT). Use Tailscale IP instead.
+# NOTE: piercalito cannot reach 100.69.110.94 directly (NAT). Use Tailscale IP instead.
 ssh-copy-id -i /root/.ssh/id_ed25519_hfsp_provisioner root@<TAILSCALE_IP_OF_MAC_MINI>
 ```
 
@@ -167,10 +167,10 @@ In `packages/clawdrop-platform/src/services/docker-deployer.ts` (or `packages/cl
 const docker = new Docker({ host: '187.124.173.69', port: 2376 });
 
 // Change to (Mac Mini):
-const docker = new Docker({ host: process.env.DOCKER_HOST_IP ?? '192.168.178.72', port: 2376 });
+const docker = new Docker({ host: process.env.DOCKER_HOST_IP ?? '100.69.110.94', port: 2376 });
 ```
 
-Add `DOCKER_HOST_IP=192.168.178.72` to `.env.platform` on piercalito.
+Add `DOCKER_HOST_IP=100.69.110.94` to `.env.platform` on piercalito.
 **If using Tailscale:** set `DOCKER_HOST_IP=<TAILSCALE_IP>` instead.
 
 ---

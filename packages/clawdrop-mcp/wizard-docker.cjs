@@ -350,7 +350,7 @@ async function deployAgent(config) {
 
   log('Calling HFSP provisioning API...');
   info(`  API: ${hfspUrl}`);
-  info(`  Tenant VPS: 192.168.178.72 (Mac Mini)`);
+  info(`  Tenant VPS: 100.69.110.94 (Mac Mini)`);
 
   const deployPayload = {
     deployment_id: `clawdrop-${config.agent_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
@@ -691,7 +691,7 @@ async function stepDeploy(config) {
   info(`  Tier: ${config.tier.name}`);
   info(`  Bundles: ${config.bundles.join(', ')}`);
   info(`  LLM: ${config.llm_provider}`);
-  info(`  Deploy target: Mac Mini (192.168.178.72)`);
+  info(`  Deploy target: Mac Mini (100.69.110.94)`);
   if (config.telegram_token) info(`  Telegram: enabled`);
   console.log();
 
@@ -742,7 +742,7 @@ async function waitForAgentReady(metadata, maxAttempts = 30) {
   console.log(); // New line after progress
   error('Agent container did not start within expected time.');
   info('You can check logs manually:');
-  info(`  ssh root@192.168.178.72 "docker logs hfsp_${metadata.agent_id}"`);
+  info(`  ssh root@100.69.110.94 "docker logs hfsp_${metadata.agent_id}"`);
   return false;
 }
 
@@ -754,15 +754,15 @@ async function stepShowStatus(metadata) {
   console.log(`  Status:     ${c.yellow}${metadata.status}${c.reset}`);
   console.log(`  Tier:       ${metadata.tier}`);
   console.log(`  Endpoint:   ${c.cyan}${metadata.endpoint}${c.reset}`);
-  console.log(`  Tenant VPS: 192.168.178.72 (Mac Mini)`);
+  console.log(`  Tenant VPS: 100.69.110.94 (Mac Mini)`);
   console.log(`  Created:    ${metadata.created_at}`);
   console.log();
 
   log('Commands:');
-  console.log(`  Logs:     ssh root@192.168.178.72 "docker logs hfsp_${metadata.agent_id}"`);
-  console.log(`  Stop:     ssh root@192.168.178.72 "docker stop hfsp_${metadata.agent_id}"`);
-  console.log(`  Restart:  ssh root@192.168.178.72 "docker restart hfsp_${metadata.agent_id}"`);
-  console.log(`  Remove:   ssh root@192.168.178.72 "docker rm -f hfsp_${metadata.agent_id}"`);
+  console.log(`  Logs:     ssh root@100.69.110.94 "docker logs hfsp_${metadata.agent_id}"`);
+  console.log(`  Stop:     ssh root@100.69.110.94 "docker stop hfsp_${metadata.agent_id}"`);
+  console.log(`  Restart:  ssh root@100.69.110.94 "docker restart hfsp_${metadata.agent_id}"`);
+  console.log(`  Remove:   ssh root@100.69.110.94 "docker rm -f hfsp_${metadata.agent_id}"`);
   console.log(`  Data:     ${metadata.data_dir}`);
   console.log();
 
