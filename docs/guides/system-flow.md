@@ -8,7 +8,7 @@
 
 ## 1. SYSTEM OVERVIEW
 
-Clawdrop provides **two interfaces** for deploying OpenClaw agents:
+Clawdrop provides **two interfaces** for deploying Clawdrop agents:
 
 | Interface | Target User | Protocol | Entry Point |
 |-----------|-------------|----------|-------------|

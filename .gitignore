@@ -76,3 +76,28 @@ venv/
 .internal/sessions/*.tmp
 .internal/**/*.tmp
 *.sqlite
+
+# Internal team coordination (do not track)
+SESSIONS/
+BOUNTY-PREP-KIT.md
+.internal/
+.claude/
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/bounty-vault.db
+
+# Internal docs (should be in CLAUDE.md, not in repo)
+docs/hackathons/
+docs/archive/
+docs/milestones/
+docs/guides/IDE_ORCHESTRATION_GUIDE.md
+docs/guides/MULTI_LLM_WORKFLOW.md
+docs/guides/session-closer-setup.md
+scripts/erase-tenant-containers.sh
+scripts/session-closer/
+
+# Runtime artifacts
+*.log
+.DS_Store
+.env*.local
