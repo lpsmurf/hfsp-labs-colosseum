@@ -60,6 +60,9 @@ export interface TelegramWebApp {
   readTextFromClipboard(callback?: (text?: string) => void): void;
   requestWriteAccess(callback?: (allowed: boolean) => void): void;
   requestPhoneNumber(callback?: (allowed: boolean) => void): void;
+  setHeaderColor?(color: string): void;
+  setBackgroundColor?(color: string): void;
+  isHeadless?: boolean;
   HapticFeedback: {
     impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
     notificationOccurred(type: 'error' | 'success' | 'warning'): void;

@@ -14,6 +14,12 @@ export function sanitizeSpawnRequestLogs(req: Request, res: Response, next: Next
   next();
 }
 
+// AUDIT: CRITICAL — This sanitizer only covers Express request bodies. Docker container
+// stdout/stderr is NOT sanitized here. The dockerService.ts mitigates this by setting
+// LogConfig: { Type: 'none' }, but if logging is ever re-enabled, credential leakage
+// to Docker logs is possible. Consider adding a log driver that pipes through a
+// credential-stripping filter or ensuring LogConfig.type stays 'none' permanently.
+
 export function sanitizeForLogs(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeForLogs(item));

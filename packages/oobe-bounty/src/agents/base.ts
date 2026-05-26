@@ -33,7 +33,14 @@ export function startAgentLoop(options: AgentLoopOptions): RunningAgent {
 
   void tick();
   if (!options.once) {
-    timer = setInterval(() => void tick(), options.intervalMs);
+    timer = setInterval(() => {
+      tick().catch((error: unknown) => {
+        logAuditEvent(options.db, options.agentId, 'agent_tick_failed', {
+          service: options.service,
+          error: sanitizeError(error),
+        });
+      });
+    }, options.intervalMs);
   }
 
   return {

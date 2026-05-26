@@ -32,6 +32,7 @@ export async function spawnContainer(
   const env = buildBootstrapEnv(normalizedAgentId, normalizedSkillName, lease);
   const cmd = parseCommand(process.env.ZK_AGENT_COMMAND);
 
+  let container: Docker.Container | undefined;
   try {
     await removeExistingContainer(containerName);
 
@@ -51,12 +52,15 @@ export async function spawnContainer(
       },
     };
 
-    const container = await docker.createContainer(createOptions) as Docker.Container;
+    container = await docker.createContainer(createOptions) as Docker.Container;
 
     await container.start();
     return container.id;
   } catch (error) {
     revokeCredentialLease(lease.token);
+    if (container) {
+      await container.remove({ force: true }).catch(() => {});
+    }
     throw error;
   }
 }
@@ -67,6 +71,11 @@ export function buildAgentEndpoint(agentId: string): string {
   return `https://agent-${subdomain}.${host}`;
 }
 
+// AUDIT: HIGH — Volume leak on revoke. stopContainerForAgent only stops the container;
+// it does not remove it or prune orphaned named volumes. On agent revocation, the
+// container and its volumes may be left behind. Consider adding removeContainerForAgent()
+// that inspects the container, retrieves its Mounts, removes the container, then prunes
+// the named volumes that are no longer referenced.
 export async function stopContainerForAgent(
   agentId: string,
   containerId?: string | null,

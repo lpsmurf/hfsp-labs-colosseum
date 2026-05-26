@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// AUDIT: LOW — No code splitting or dynamic imports configured. Wallet adapter
+// libraries can add ~300KB+ to the bundle. Consider adding manualChunks to split
+// vendors (e.g., @solana/wallet-adapter-base, @solana/web3.js) and using dynamic
+// import() for heavy pages like DeployZK.
 export default defineConfig({
   plugins: [react()],
   server: {

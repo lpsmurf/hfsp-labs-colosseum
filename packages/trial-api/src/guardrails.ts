@@ -54,13 +54,18 @@ const SANITIZER_RULES: SanitizerRule[] = [
 
 const SAFE_FALLBACK = "I found the information but can't display it safely. Please check your wallet directly on Solscan.";
 
-export function sanitizeOutput(text: string): string {
-  if (!text.trim()) return SAFE_FALLBACK;
-
+export function sanitizeChunk(text: string): string {
   let out = text;
   for (const rule of SANITIZER_RULES) {
     out = out.replace(rule.pattern, rule.replacement);
   }
+  return out;
+}
+
+export function sanitizeOutput(text: string): string {
+  if (!text.trim()) return SAFE_FALLBACK;
+
+  const out = sanitizeChunk(text);
 
   // If sanitization stripped almost everything, return fallback
   const remaining = out.replace(/\[REDACTED[^\]]*\]|\[LINK_REMOVED\]/g, '').trim();
