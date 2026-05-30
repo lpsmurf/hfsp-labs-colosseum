@@ -30,9 +30,10 @@ function ensureSchema() {
   if (!colNames.includes('telegram_message_id')) {
     db.exec('ALTER TABLE trading_signals ADD COLUMN telegram_message_id TEXT');
   }
-  if (!colNames.includes('post_error')) {
-    db.exec('ALTER TABLE trading_signals ADD COLUMN post_error TEXT');
-  }
+  if (!colNames.includes('post_error'))       db.exec('ALTER TABLE trading_signals ADD COLUMN post_error TEXT');
+  if (!colNames.includes('symbol'))           db.exec(`ALTER TABLE trading_signals ADD COLUMN symbol TEXT NOT NULL DEFAULT 'SOL'`);
+  if (!colNames.includes('outcome_correct'))  db.exec('ALTER TABLE trading_signals ADD COLUMN outcome_correct INTEGER');
+  if (!colNames.includes('trending_data'))    db.exec('ALTER TABLE trading_signals ADD COLUMN trending_data TEXT');
 }
 
 export function getUnpostedSignals(platform: 'twitter' | 'telegram'): TradingSignal[] {
@@ -111,7 +112,9 @@ export function getSignalById(id: string): TradingSignal | null {
 function normalizeSignal(row: Record<string, unknown>): TradingSignal {
   return {
     ...row as unknown as TradingSignal,
+    symbol: (row.symbol as string) || 'SOL',
     outcome_recorded: Boolean(row.outcome_recorded),
+    outcome_correct: row.outcome_correct == null ? null : Boolean(row.outcome_correct),
     posted_to_twitter: Boolean(row.posted_to_twitter),
     posted_to_telegram: Boolean(row.posted_to_telegram),
   };

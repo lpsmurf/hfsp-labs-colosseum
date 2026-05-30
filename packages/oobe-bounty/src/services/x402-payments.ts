@@ -25,6 +25,11 @@ export function buildSignerFromPrivateKey(privateKey: string): Keypair {
     );
   }
 
+  // Base64 detection: contains +, /, or = characters (not valid base58)
+  if (normalized.includes('+') || normalized.includes('/') || normalized.endsWith('=')) {
+    return Keypair.fromSecretKey(Buffer.from(normalized, 'base64'));
+  }
+
   return Keypair.fromSecretKey(decodeBase58(normalized));
 }
 

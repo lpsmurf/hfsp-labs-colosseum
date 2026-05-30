@@ -1,0 +1,23 @@
+# Mac Mini overrides for docker-compose.trial.yml
+# - Colima Docker socket differs from Linux /var/run/docker.sock
+# - Bind-mount ./data so databases persist in the repo data/ folder (easy backup)
+# - SQLITE_PATH corrected to match the migrated filename (openclaw.sqlite)
+version: '3.9'
+
+services:
+  clawdrop-platform:
+    volumes:
+      - ./data:/app/data
+      - /Users/luisploennig/.colima/default/docker.sock:/var/run/docker.sock
+    environment:
+      SQLITE_PATH: /app/data/openclaw.sqlite
+
+  trial-api:
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  trial-data:
+    driver: local
+  platform-data:
+    driver: local

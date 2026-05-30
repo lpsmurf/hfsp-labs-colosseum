@@ -9,13 +9,42 @@ const packageRoot = path.resolve(__dirname, '..');
 
 export const AGENT_BASE_URL = process.env.AGENT_BASE_URL ?? 'https://agents.clawdrop.live';
 export const ACE_BASE_URL = process.env.ACEDATA_BASE_URL ?? 'https://api.acedata.cloud';
+export const TRACKED_SYMBOLS = (process.env.TRACKED_SYMBOLS ?? 'SOL,BTC,ETH').split(',').map(s => s.trim().toUpperCase());
+export const TRENDING_INTERVAL_MS = 12 * 60 * 60 * 1000;
+export const OUTCOME_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+export const OUTCOME_WINDOW_MS = 4 * 60 * 60 * 1000;
 
+// Capability IDs must follow protocol:action format for SAP registration
 export const AGENT_DEFINITIONS: AgentDefinition[] = [
+  {
+    id: 'news-digest-agent',
+    name: 'Clawdrop NewsDigest',
+    service: 'search',
+    capabilities: ['clawdrop:daily-news', 'clawdrop:crypto-digest', 'clawdrop:prediction-news'],
+    endpoint: `${AGENT_BASE_URL}/news-digest`,
+    symbol: 'NEWS',
+  },
+  {
+    id: 'prediction-markets-agent',
+    name: 'Clawdrop PredictionBot',
+    service: 'search',
+    capabilities: ['clawdrop:prediction-markets', 'clawdrop:paper-trading', 'clawdrop:polymarket'],
+    endpoint: `${AGENT_BASE_URL}/predictions`,
+    symbol: 'PRED',
+  },
+  {
+    id: 'trending-agent',
+    name: 'Clawdrop TrendingBot',
+    service: 'search',
+    capabilities: ['clawdrop:trending-tokens', 'clawdrop:market-digest'],
+    endpoint: `${AGENT_BASE_URL}/trending`,
+    symbol: 'MARKET',
+  },
   {
     id: 'price-monitor',
     name: 'Clawdrop NewsBot',
     service: 'search',
-    capabilities: ['news-search', 'headline-extraction', 'solana-intel'],
+    capabilities: ['clawdrop:news-search', 'clawdrop:headline-extraction'],
     endpoint: `${AGENT_BASE_URL}/news-monitor`,
     symbol: 'SOL',
   },
@@ -23,7 +52,7 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     id: 'portfolio-analyzer',
     name: 'Clawdrop AnalystBot',
     service: 'chat',
-    capabilities: ['market-analysis', 'ai-signals', 'coingecko-feeds'],
+    capabilities: ['clawdrop:ai-signals', 'clawdrop:market-analysis', 'clawdrop:rsi-momentum'],
     endpoint: `${AGENT_BASE_URL}/analyst`,
     symbol: 'SOL',
   },
@@ -31,7 +60,7 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     id: 'sentiment-monitor',
     name: 'Clawdrop ContentBot',
     service: 'images',
-    capabilities: ['image-generation', 'signal-cards', 'news-visuals'],
+    capabilities: ['clawdrop:signal-cards', 'clawdrop:news-visuals'],
     endpoint: `${AGENT_BASE_URL}/content`,
     symbol: 'SOL',
   },

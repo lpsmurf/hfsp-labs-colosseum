@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
 
-export type AgentId = 'price-monitor' | 'portfolio-analyzer' | 'sentiment-monitor';
+export type AgentId = 'price-monitor' | 'portfolio-analyzer' | 'sentiment-monitor' | 'trending-agent' | 'prediction-markets-agent' | 'news-digest-agent';
 export type AceService = 'search' | 'chat' | 'images';
 export type SignalAction = 'BUY' | 'SELL' | 'HOLD';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -32,6 +32,7 @@ export interface TradingSignal {
   agentId: AgentId;
   service: AceService;
   action: SignalAction;
+  symbol: string;
   target_price: number;
   confidence: number;
   reason: string;
@@ -40,6 +41,16 @@ export interface TradingSignal {
   timestamp: string;
   image_url?: string | null;
   headlines?: string[] | null;
+  trending_data?: TrendingToken[] | null;
+}
+
+export interface TrendingToken {
+  rank: number;
+  name: string;
+  symbol: string;
+  change24h: number;
+  price: number;
+  coingeckoId: string;
 }
 
 export interface PaymentRequest {

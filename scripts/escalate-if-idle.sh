@@ -22,12 +22,11 @@ if [ "$PR_STATE" != "MERGED" ]; then
 fi
 
 if [ "$NGINX_UP" != "yes" ]; then
-    echo "❌ Gemini: Nginx not responding"
-    echo "   Action: Run deployment commands:"
-    echo "     ssh root@72.62.239.63"
-    echo "     cd /etc/nginx/conf.d"
-    echo "     curl -o trial.conf https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/claude/integrate-trial-backend/config/nginx/conf.d/trial.conf"
-    echo "     nginx -s reload"
+    echo "❌ Backend: API health check not responding"
+    echo "   Action: Check Mac Mini services:"
+    echo "     pm2 list"
+    echo "     cloudflared tunnel list"
+    echo "     # Verify clawdrop-live tunnel is running and DNS is routed"
 fi
 
 echo ""
