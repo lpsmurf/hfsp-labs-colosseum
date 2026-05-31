@@ -192,20 +192,35 @@ function formatMessage(signal: TradingSignal): string {
     return formatPredictionMessage(signal);
   }
 
-  // NewsBot signals (price-monitor) — format as news, no price/confidence/risk
-  if (signal.agent_id === 'price-monitor' || signal.service === 'search') {
-    const raw = signal.reason.replace(/^.*headlines:\s*/i, '');
-    const headlines = raw.split('|').map(h => h.trim()).filter(Boolean);
-    if (headlines.length === 0) return '';  // caller skips empty strings
-    const rows = headlines.slice(0, 4).map((h, i) => `${i + 1}. ${h}`);
-    return [
-      `📰 **${signal.symbol} Market News**`,
-      ``,
-      ...rows,
-      ``,
-      `🕐 ${new Date(signal.created_at).toUTCString()}`,
-    ].join('\n');
+  // Combined crypto news digest (twice daily) — one message for all coins
+  if (signal.symbol === 'CRYPTO_NEWS') {
+    try {
+      const data = JSON.parse(signal.reason) as {
+        type: string; date: string;
+        coins: Record<string, Array<{ title: string; url: string | null; source: string | null }>>;
+      };
+      const sections = Object.entries(data.coins ?? {})
+        .filter(([, items]) => items.length > 0)
+        .map(([coin, items]) => {
+          const rows = items.slice(0, 4).map((item, i) => {
+            const src = item.source ? ` (${item.source})` : '';
+            const link = item.url ? `\n   🔗 ${item.url}` : '';
+            return `${i + 1}. ${item.title}${src}${link}`;
+          });
+          return [`📊 **${coin}/USD**`, ...rows].join('\n');
+        });
+      return [
+        `📰 **CRYPTO NEWS — ${data.date}**`,
+        ``,
+        ...sections.join('\n\n').split('\n'),
+        ``,
+        `🕐 ${new Date(signal.created_at).toUTCString()}`,
+      ].join('\n');
+    } catch { return ''; }
   }
+
+  // Individual NewsBot signals (price-monitor) — skip in Telegram, only used by AnalystBot
+  if (signal.agent_id === 'price-monitor') return '';
 
   // AnalystBot / ContentBot — full signal with price
   const confidencePct = Math.round((signal.confidence || 0) * 100);

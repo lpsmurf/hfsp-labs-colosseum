@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
 
-export type AgentId = 'price-monitor' | 'portfolio-analyzer' | 'sentiment-monitor' | 'trending-agent' | 'prediction-markets-agent' | 'news-digest-agent';
+export type AgentId = 'price-monitor' | 'portfolio-analyzer' | 'sentiment-monitor' | 'trending-agent' | 'prediction-markets-agent' | 'news-digest-agent' | 'crypto-news-digest';
 export type AceService = 'search' | 'chat' | 'images';
 export type SignalAction = 'BUY' | 'SELL' | 'HOLD';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
