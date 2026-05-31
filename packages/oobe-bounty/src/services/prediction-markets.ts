@@ -21,8 +21,8 @@ const KALSHI_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 export async function fetchPolymarketScreened(
   minProbability = 0.92,
   maxProbability = 0.98,
-  maxHoursLeft = 168, // default 7 days — broad search window
-  minVolume = 5_000,
+  maxHoursLeft = 168,
+  minVolume = 1_000,  // lowered — sports/esports markets have lower total volume
 ): Promise<PredictionMarket[]> {
   const now = Date.now();
   const windowEnd = new Date(now + maxHoursLeft * 3_600_000).toISOString();
@@ -41,6 +41,23 @@ export async function fetchPolymarketScreened(
     if (!Array.isArray(page) || page.length === 0) break;
     allMarkets.push(...page);
     if (page.length < 100) break;
+  }
+
+  // Also fetch breaking/trending markets sorted by 1-day price change (catches live sports/news)
+  for (const sort of ['oneDayPriceChange', 'volume24hr']) {
+    const res = await fetch(
+      `${POLYMARKET_BASE}/markets?closed=false&limit=200&order=${sort}&descending=true`,
+      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
+    ).catch(() => null);
+    if (!res?.ok) continue;
+    const page = (await res.json()) as PolymarketRaw[];
+    if (!Array.isArray(page)) continue;
+    const inWindow = page.filter(m => {
+      if (!m.endDate) return false;
+      const h = (new Date(m.endDate).getTime() - now) / 3_600_000;
+      return h > 0 && h <= maxHoursLeft;
+    });
+    allMarkets.push(...inWindow);
   }
 
   // Also fetch standard active listings (non-restricted markets, different sort)
