@@ -306,6 +306,16 @@ async function processBatch(): Promise<void> {
 
   for (const signal of signals) {
     try {
+      // Skip prediction market signals with 99-100% probability — not useful
+      if (signal.symbol === 'PRED') {
+        try {
+          const data = JSON.parse(signal.reason) as { probability?: number };
+          if (data.probability != null && data.probability > 0.98) {
+            markSignalPosted(signal.id, 'telegram', 'skipped-100pct');
+            continue;
+          }
+        } catch { /* ignore parse errors */ }
+      }
       const messageId = await sendSignal(signal);
       if (messageId) {
         markSignalPosted(signal.id, 'telegram', messageId);
