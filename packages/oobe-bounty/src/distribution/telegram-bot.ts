@@ -35,17 +35,220 @@ function getChannelId(): string {
   return id;
 }
 
-function formatMessage(signal: TradingSignal): string {
-  const confidencePct = Math.round((signal.confidence || 0) * 100);
+function getAccuracyLine(db?: import('better-sqlite3').Database): string {
+  if (!db) return '';
+  try {
+    const row = db.prepare(`
+      SELECT
+        SUM(CASE WHEN outcome_correct = 1 THEN 1 ELSE 0 END) as correct,
+        COUNT(*) as total
+      FROM trading_signals WHERE outcome_recorded = 1
+    `).get() as { correct: number; total: number };
+    if (!row || row.total < 3) return '';
+    const pct = Math.round((row.correct / row.total) * 100);
+    return `\n🎯 Agent accuracy: ${pct}% (${row.correct}/${row.total} calls)`;
+  } catch { return ''; }
+}
+
+function formatTrendingMessage(signal: TradingSignal): string {
+  let tokens: Array<{ rank: number; symbol: string; name: string; change24h: number; price: number }> = [];
+  try { tokens = JSON.parse(signal.trending_data ?? '[]') as typeof tokens; } catch { /* empty */ }
+
+  const rows = tokens.slice(0, 10).map(t => {
+    const emoji = t.change24h >= 5 ? '🚀' : t.change24h >= 0 ? '🟢' : t.change24h >= -5 ? '🔴' : '💥';
+    const dir = t.change24h >= 0 ? '+' : '';
+    const price = t.price > 0 ? ` @ $${t.price < 0.01 ? t.price.toFixed(6) : t.price.toFixed(2)}` : '';
+    const insight = (t as typeof t & { insight?: string }).insight;
+    const insightLine = insight ? `\n   _${insight}_` : '';
+    // No cashtags or hashtags
+    return `${t.rank}. ${emoji} ${t.symbol} — ${dir}${t.change24h.toFixed(1)}%${price}${insightLine}`;
+  });
+
   return [
-    `🎯 **SIGNAL: ${signal.action}**`,
-    `📍 Target: $${signal.target_price.toFixed(2)}`,
-    `📊 Confidence: ${confidencePct}%`,
-    `💡 Reason: ${signal.reason}`,
-    `⚠️ Risk: ${signal.risk_level}`,
+    `🔥 **TOP 10 TRENDING TOKENS RIGHT NOW**`,
     ``,
-    `Time: ${signal.created_at}`,
+    ...rows,
+    ``,
+    `🕐 ${new Date(signal.created_at).toUTCString()}`,
   ].join('\n');
+}
+
+let _db: import('better-sqlite3').Database | undefined;
+export function setDb(db: import('better-sqlite3').Database): void { _db = db; }
+
+function formatPredictionMessage(signal: TradingSignal): string {
+  let data: PredMarketData | null = null;
+  try { data = JSON.parse(signal.reason) as PredMarketData; } catch { /* fallback */ }
+  if (!data) return signal.reason;
+
+  const probPct = Math.round(data.probability * 100);
+  const volStr = data.volume >= 1_000_000
+    ? `$${(data.volume / 1_000_000).toFixed(1)}M`
+    : `$${(data.volume / 1000).toFixed(0)}K`;
+  const sourceLabel = data.source === 'kalshi' ? 'Kalshi' : 'Polymarket';
+  const total = Math.round(100 / data.probability);
+  const profit = total - 100;
+  const winnings = `💰 Bet $100 → get back $${total} (+$${profit} profit)`;
+
+  const urgentHeader = data.urgent
+    ? `🚨 **CLOSING IN ${data.hoursLeft}h — ACT NOW**`
+    : `🎰 **NEAR-CERTAIN BET — ${data.hoursLeft}h left**`;
+
+  const llmLine = data.llmScore
+    ? `\n🤖 AI score: ${data.llmScore}/10 — _${data.llmReasoning ?? ''}_`
+    : '';
+
+  return [
+    urgentHeader,
+    ``,
+    `"${data.question}"`,
+    `→ **${data.outcome}** at ${probPct}% probability`,
+    ``,
+    winnings,
+    `Volume: ${volStr} | Source: ${sourceLabel}${llmLine}`,
+    `🔗 ${data.url}`,
+    ``,
+    `🕐 ${new Date(signal.created_at).toUTCString()}`,
+  ].join('\n');
+}
+
+function formatBetResult(signal: TradingSignal): string {
+  let data: BetResultData | null = null;
+  try { data = JSON.parse(signal.reason) as BetResultData; } catch { return signal.reason; }
+  if (!data) return signal.reason;
+
+  const profitStr = data.profit >= 0 ? `+$${data.profit.toFixed(2)}` : `-$${Math.abs(data.profit).toFixed(2)}`;
+  const statusLine = data.won
+    ? `✅ **BET WON — ${profitStr}**`
+    : `❌ **BET LOST — -$${data.stake.toFixed(2)}**`;
+  const s = data.stats;
+  const runningStr = s.netProfit >= 0 ? `+$${s.netProfit.toFixed(2)}` : `-$${Math.abs(s.netProfit).toFixed(2)}`;
+
+  return [
+    statusLine,
+    ``,
+    `"${data.question}"`,
+    `Predicted: **${data.predictedOutcome}** → Actual: **${data.actualOutcome}**`,
+    `Entry probability: ${Math.round(data.probability * 100)}%`,
+    ``,
+    `📊 3-Day Paper P&L: ${runningStr}`,
+    `${s.won}W / ${s.lost}L | Win rate: ${s.winRate}%`,
+    `Total bets: ${s.totalBets}`,
+  ].join('\n');
+}
+
+function formatStopLoss(signal: TradingSignal): string {
+  let data: StopLossData | null = null;
+  try { data = JSON.parse(signal.reason) as StopLossData; } catch { return signal.reason; }
+  if (!data) return signal.reason;
+  return [
+    `🛑 **STOP-LOSS TRIGGERED**`,
+    ``,
+    `"${data.question}"`,
+    `Predicted: **${data.predictedOutcome}**`,
+    `Entry: ${Math.round(data.entryProbability * 100)}% → Now: ${Math.round(data.currentProbability * 100)}% (dropped ${data.drop}pp)`,
+    ``,
+    `$10 paper bet voided — exit before further loss`,
+    `3-Day P&L so far: ${data.runningPnL}`,
+  ].join('\n');
+}
+
+function formatNewsDigest(signal: TradingSignal): string {
+  let data: { type: string; date: string; items: Array<{ title: string; source: string; url: string }> } | null = null;
+  try { data = JSON.parse(signal.reason) as typeof data; } catch { return signal.reason; }
+  if (!data) return signal.reason;
+
+  const rows = (data.items ?? []).slice(0, 10).map((item, i) =>
+    `${i + 1}. *${item.title}*${item.source ? ` — ${item.source}` : ''}`
+  );
+
+  return [
+    `📰 *CRYPTO MORNING DIGEST*`,
+    `_${data.date}_`,
+    ``,
+    ...rows,
+  ].join('\n');
+}
+
+function formatMessage(signal: TradingSignal): string {
+  if (signal.symbol === 'NEWS') {
+    return formatNewsDigest(signal);
+  }
+  if (signal.symbol === 'MARKET' && signal.trending_data) {
+    return formatTrendingMessage(signal);
+  }
+  if (signal.symbol === 'PRED_RESULT') {
+    return formatBetResult(signal);
+  }
+  if (signal.symbol === 'PRED_STOPLOSS') {
+    return formatStopLoss(signal);
+  }
+  if (signal.symbol === 'PRED') {
+    return formatPredictionMessage(signal);
+  }
+
+  // NewsBot signals (price-monitor) have no price — show as news update
+  if (signal.agentId === 'price-monitor') {
+    const headlines = signal.reason.replace(/^.*headlines:\s*/i, '').split('|').map(h => h.trim()).filter(Boolean);
+    if (headlines.length === 0) return '';  // skip empty news signals
+    const rows = headlines.slice(0, 4).map((h, i) => `${i + 1}. ${h}`);
+    return [
+      `📰 **${signal.symbol}/USD — Market News**`,
+      ``,
+      ...rows,
+      ``,
+      `🕐 ${new Date(signal.created_at).toUTCString()}`,
+    ].join('\n');
+  }
+
+  // AnalystBot / ContentBot — full signal with price
+  const confidencePct = Math.round((signal.confidence || 0) * 100);
+  const pair = `${signal.symbol || 'SOL'}/USD`;
+  const currentPrice = signal.actual_price > 0 ? `\n💰 Current: $${signal.actual_price.toFixed(2)}` : '';
+  const targetLine = signal.target_price > 0 ? `📍 Target: $${signal.target_price.toFixed(2)}${currentPrice}\n` : '';
+  const accuracy = getAccuracyLine(_db);
+  return [
+    `🎯 **${pair} — ${signal.action}**`,
+    `${targetLine}📊 Confidence: ${confidencePct}%`,
+    `💡 ${signal.reason}`,
+    `⚠️ Risk: ${signal.risk_level}${accuracy}`,
+    ``,
+    `🕐 ${new Date(signal.created_at).toUTCString()}`,
+  ].join('\n');
+}
+
+interface StopLossData {
+  type: 'stop_loss'; question: string; predictedOutcome: string;
+  entryProbability: number; currentProbability: number; drop: number;
+  stake: number; marketUrl: string; runningPnL: string;
+}
+
+interface BetResultData {
+  type: 'paper_bet_result';
+  won: boolean;
+  question: string;
+  predictedOutcome: string;
+  actualOutcome: string;
+  stake: number;
+  payout: number;
+  profit: number;
+  probability: number;
+  marketUrl: string;
+  stats: { totalBets: number; won: number; lost: number; winRate: number; netProfit: number; profitStr: string };
+}
+
+interface PredMarketData {
+  marketId: string;
+  question: string;
+  outcome: string;
+  probability: number;
+  hoursLeft: number;
+  volume: number;
+  url: string;
+  source: string;
+  urgent: boolean;
+  llmScore?: number;
+  llmReasoning?: string;
 }
 
 async function sendSignal(signal: TradingSignal): Promise<string | null> {
@@ -77,7 +280,7 @@ async function sendSignal(signal: TradingSignal): Promise<string | null> {
     // If markdown parse fails, retry without markdown
     if (err?.response?.error_code === 400 && err?.response?.description?.includes('parse')) {
       console.warn(`[Telegram] Markdown parse failed for ${signal.id}, retrying plain text`);
-      const plainText = formatMessage(signal).replace(/\*\*/g, '');
+      const plainText = formatMessage(signal).replace(/[*_`[\]()~>#+=|{}.!\\-]/g, '');
       const result = await tg.telegram.sendMessage(channelId, plainText);
       return String(result.message_id);
     }

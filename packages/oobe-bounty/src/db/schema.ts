@@ -89,11 +89,36 @@ export async function migrateDatabase(db: Database): Promise<void> {
       ON audit_log(agent_id, action);
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS paper_bets (
+      id                  TEXT PRIMARY KEY,
+      market_id           TEXT NOT NULL UNIQUE,
+      source              TEXT NOT NULL,
+      question            TEXT NOT NULL,
+      predicted_outcome   TEXT NOT NULL,
+      entry_probability   REAL NOT NULL,
+      stake               REAL NOT NULL DEFAULT 10,
+      potential_payout    REAL NOT NULL,
+      potential_profit    REAL NOT NULL,
+      end_date            TEXT NOT NULL,
+      hours_at_bet        REAL NOT NULL,
+      market_url          TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'open'
+        CHECK (status IN ('open', 'won', 'lost', 'void')),
+      actual_outcome      TEXT,
+      actual_payout       REAL DEFAULT 0,
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      resolved_at         TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_paper_bets_status   ON paper_bets(status);
+    CREATE INDEX IF NOT EXISTS idx_paper_bets_end_date ON paper_bets(end_date);
+  `);
+
   const columns = db.pragma(`table_info(trading_signals)`) as Array<{ name: string }>;
-  if (!columns.find((c) => c.name === 'image_url')) {
-    db.exec(`ALTER TABLE trading_signals ADD COLUMN image_url TEXT`);
-  }
-  if (!columns.find((c) => c.name === 'headlines')) {
-    db.exec(`ALTER TABLE trading_signals ADD COLUMN headlines TEXT`);
-  }
+  const has = (name: string) => !!columns.find((c) => c.name === name);
+  if (!has('image_url'))       db.exec(`ALTER TABLE trading_signals ADD COLUMN image_url TEXT`);
+  if (!has('headlines'))       db.exec(`ALTER TABLE trading_signals ADD COLUMN headlines TEXT`);
+  if (!has('symbol'))          db.exec(`ALTER TABLE trading_signals ADD COLUMN symbol TEXT NOT NULL DEFAULT 'SOL'`);
+  if (!has('outcome_correct')) db.exec(`ALTER TABLE trading_signals ADD COLUMN outcome_correct INTEGER`);
+  if (!has('trending_data'))   db.exec(`ALTER TABLE trading_signals ADD COLUMN trending_data TEXT`);
 }

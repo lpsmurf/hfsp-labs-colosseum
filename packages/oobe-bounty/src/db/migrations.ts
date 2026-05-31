@@ -50,15 +50,16 @@ export function insertSignal(db: Database, signal: TradingSignal): string {
   const id = randomUUID();
   db.prepare(`
     INSERT INTO trading_signals (
-      id, agent_id, service, action, target_price, confidence, reason,
-      risk_level, actual_price, outcome_recorded, created_at, image_url, headlines
+      id, agent_id, service, action, symbol, target_price, confidence, reason,
+      risk_level, actual_price, outcome_recorded, created_at, image_url, headlines, trending_data
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
   `).run(
     id,
     signal.agentId,
     signal.service,
     signal.action,
+    signal.symbol ?? 'SOL',
     signal.target_price,
     signal.confidence,
     signal.reason,
@@ -67,15 +68,37 @@ export function insertSignal(db: Database, signal: TradingSignal): string {
     signal.timestamp,
     signal.image_url ?? null,
     signal.headlines ? JSON.stringify(signal.headlines) : null,
+    signal.trending_data ? JSON.stringify(signal.trending_data) : null,
   );
 
   db.prepare(`
-    UPDATE agents
-    SET last_signal_time = ?, updated_at = datetime('now')
-    WHERE id = ?
+    UPDATE agents SET last_signal_time = ?, updated_at = datetime('now') WHERE id = ?
   `).run(signal.timestamp, signal.agentId);
 
   return id;
+}
+
+export function updateSignalOutcome(db: Database, id: string, correct: boolean): void {
+  db.prepare(`
+    UPDATE trading_signals
+    SET outcome_correct = ?, outcome_recorded = 1, outcome_at = datetime('now')
+    WHERE id = ?
+  `).run(correct ? 1 : 0, id);
+}
+
+export function getAgentAccuracy(db: Database, agentId?: string): { correct: number; total: number; pct: number } {
+  const row = agentId
+    ? db.prepare(`
+        SELECT SUM(CASE WHEN outcome_correct = 1 THEN 1 ELSE 0 END) as correct, COUNT(*) as total
+        FROM trading_signals WHERE outcome_recorded = 1 AND agent_id = ?
+      `).get(agentId) as { correct: number; total: number }
+    : db.prepare(`
+        SELECT SUM(CASE WHEN outcome_correct = 1 THEN 1 ELSE 0 END) as correct, COUNT(*) as total
+        FROM trading_signals WHERE outcome_recorded = 1
+      `).get() as { correct: number; total: number };
+  const correct = row?.correct ?? 0;
+  const total = row?.total ?? 0;
+  return { correct, total, pct: total > 0 ? Math.round((correct / total) * 100) : 0 };
 }
 
 export function logAuditEvent(

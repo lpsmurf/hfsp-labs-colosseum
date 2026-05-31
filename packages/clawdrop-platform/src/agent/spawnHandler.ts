@@ -111,6 +111,10 @@ function authenticateSpawnSignature(req: Request, res: Response, next: NextFunct
 }
 
 export function buildSpawnAuthMessage(vaultEntry: Pick<VaultEntry, 'id' | 'agentId' | 'userPubkey' | 'updatedAt'>): string {
+  // AUDIT: HIGH — updatedAt provides some freshness, but if the vault entry is not
+  // modified between spawn attempts, the same signature can be replayed. Consider adding
+  // a server-generated nonce to the auth flow (issue nonce endpoint → client signs
+  // nonce + vaultEntry.id + timestamp → server verifies and consumes nonce).
   return [
     'Clawdrop agent spawn authentication - v1',
     `Vault: ${vaultEntry.id}`,

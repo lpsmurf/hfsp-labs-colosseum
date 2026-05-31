@@ -9,10 +9,14 @@ echo "==================================="
 echo ""
 
 # Configuration
+# Mac Mini local deployment: DEPLOY_HOST=localhost (default)
+# Mac Mini Tailscale: DEPLOY_HOST=100.69.110.94 DEPLOY_USER=luisploennig
+# Legacy VPS: DEPLOY_HOST=72.62.239.63 (piercalito — CANCELLED May 2026)
 DEPLOY_HOST="${DEPLOY_HOST:-localhost}"
-DEPLOY_USER="${DEPLOY_USER:-clawd}"
+DEPLOY_USER="${DEPLOY_USER:-luisploennig}"
 REPO_URL="https://github.com/lpsmurf/hfsp-labs-colosseum.git"
-INSTALL_DIR="/opt/hfsp-labs"
+# Mac Mini uses the repo dir; legacy VPS used /opt/hfsp-labs
+INSTALL_DIR="${INSTALL_DIR:-/Users/luisploennig/Colosseum/hfsp-labs-colosseum}"
 
 echo "📋 Deployment Configuration:"
 echo "  Host: $DEPLOY_HOST"
@@ -82,13 +86,17 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # Start/restart services
-pm2 start ecosystem.config.json --env production || pm2 restart ecosystem.config.json
+# Mac Mini: use mac-mini-ecosystem.config.json; legacy VPS used ecosystem.config.json
+PM2_CONFIG="${PM2_CONFIG:-mac-mini-ecosystem.config.json}"
+if [ ! -f "$PM2_CONFIG" ]; then PM2_CONFIG="ecosystem.config.json"; fi
+pm2 start "$PM2_CONFIG" --env production || pm2 restart "$PM2_CONFIG"
 echo "✅ Services started with pm2"
 
 # Step 6: Save pm2 config
 echo "💾 Step 6: Saving pm2 configuration..."
 pm2 save
-pm2 startup systemd 2>/dev/null || true
+# macOS: use launchd. Linux: use systemd. pm2 startup detects automatically.
+pm2 startup 2>/dev/null || true
 echo "✅ pm2 config saved"
 
 # Step 7: Setup SSL (if not already done)

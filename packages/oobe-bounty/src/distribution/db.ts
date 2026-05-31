@@ -21,7 +21,7 @@ function ensureSchema() {
   if (!db) return;
 
   // Add missing columns if they don't exist (idempotent)
-  const columns = db.prepare("PRAGMA table_info(trading_signals)").all() as any[];
+  const columns = db.prepare("PRAGMA table_info(trading_signals)").all() as Array<{ name: string }>;
   const colNames = columns.map((c) => c.name);
 
   if (!colNames.includes('twitter_post_id')) {
@@ -30,9 +30,10 @@ function ensureSchema() {
   if (!colNames.includes('telegram_message_id')) {
     db.exec('ALTER TABLE trading_signals ADD COLUMN telegram_message_id TEXT');
   }
-  if (!colNames.includes('post_error')) {
-    db.exec('ALTER TABLE trading_signals ADD COLUMN post_error TEXT');
-  }
+  if (!colNames.includes('post_error'))       db.exec('ALTER TABLE trading_signals ADD COLUMN post_error TEXT');
+  if (!colNames.includes('symbol'))           db.exec(`ALTER TABLE trading_signals ADD COLUMN symbol TEXT NOT NULL DEFAULT 'SOL'`);
+  if (!colNames.includes('outcome_correct'))  db.exec('ALTER TABLE trading_signals ADD COLUMN outcome_correct INTEGER');
+  if (!colNames.includes('trending_data'))    db.exec('ALTER TABLE trading_signals ADD COLUMN trending_data TEXT');
 }
 
 export function getUnpostedSignals(platform: 'twitter' | 'telegram'): TradingSignal[] {
@@ -41,7 +42,7 @@ export function getUnpostedSignals(platform: 'twitter' | 'telegram'): TradingSig
   const stmt = db.prepare(
     `SELECT * FROM trading_signals WHERE ${column} = 0 ORDER BY created_at ASC`
   );
-  const rows = stmt.all() as any[];
+  const rows = stmt.all() as Array<Record<string, unknown>>;
   return rows.map(normalizeSignal);
 }
 
@@ -67,13 +68,13 @@ export function markSignalError(id: string, error: string): void {
 
 export function getSignalCount(): { total: number; twitter: number; telegram: number } {
   const db = getDb();
-  const total = (db.prepare('SELECT COUNT(*) as c FROM trading_signals').get() as any).c;
+  const total = (db.prepare('SELECT COUNT(*) as c FROM trading_signals').get() as { c: number } | undefined)?.c ?? 0;
   const twitter = (
-    db.prepare('SELECT COUNT(*) as c FROM trading_signals WHERE posted_to_twitter = 1').get() as any
-  ).c;
+    db.prepare('SELECT COUNT(*) as c FROM trading_signals WHERE posted_to_twitter = 1').get() as { c: number } | undefined
+  )?.c ?? 0;
   const telegram = (
-    db.prepare('SELECT COUNT(*) as c FROM trading_signals WHERE posted_to_telegram = 1').get() as any
-  ).c;
+    db.prepare('SELECT COUNT(*) as c FROM trading_signals WHERE posted_to_telegram = 1').get() as { c: number } | undefined
+  )?.c ?? 0;
   return { total, twitter, telegram };
 }
 
@@ -104,14 +105,16 @@ export function insertMockSignal(signal: Partial<TradingSignal>): TradingSignal 
 
 export function getSignalById(id: string): TradingSignal | null {
   const db = getDb();
-  const row = db.prepare('SELECT * FROM trading_signals WHERE id = ?').get(id) as any;
+  const row = db.prepare('SELECT * FROM trading_signals WHERE id = ?').get(id) as Record<string, unknown> | undefined;
   return row ? normalizeSignal(row) : null;
 }
 
-function normalizeSignal(row: any): TradingSignal {
+function normalizeSignal(row: Record<string, unknown>): TradingSignal {
   return {
-    ...row,
+    ...row as unknown as TradingSignal,
+    symbol: (row.symbol as string) || 'SOL',
     outcome_recorded: Boolean(row.outcome_recorded),
+    outcome_correct: row.outcome_correct == null ? null : Boolean(row.outcome_correct),
     posted_to_twitter: Boolean(row.posted_to_twitter),
     posted_to_telegram: Boolean(row.posted_to_telegram),
   };

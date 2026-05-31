@@ -24,7 +24,7 @@ export function injectTelegramMock() {
     secondary_bg_color: '#292929',
   };
 
-  (window as any).Telegram = {
+  window.Telegram = {
     WebApp: {
       initData: 'mock_init_data',
       initDataUnsafe: {

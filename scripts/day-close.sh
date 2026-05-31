@@ -269,10 +269,10 @@ fi
 
 if [ "$API_LIVE" = "no" ]; then
   task "gemini" \
-    "URGENT: nginx config for /try + /api routes (SSH root@72.62.239.63)" \
+    "URGENT: verify Mac Mini services are running (pm2 list) and Cloudflare Tunnel is active" \
     "Test after: curl https://clawdrop.live/api/health must return 200" \
     "Update landing hero: CTA button → 'Try Poly free →' linking to /try" \
-    "Add X-Real-IP header in nginx so rate limiter works correctly"
+    "Check cloudflared tunnel logs: cloudflared tunnel --loglevel debug run clawdrop-live"
 else
   task "gemini" \
     "Write 60-second demo video script (word-for-word voiceover + screen beats)" \

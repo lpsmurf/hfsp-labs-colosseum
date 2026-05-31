@@ -3,8 +3,8 @@ import express from 'express';
 import { z } from 'zod';
 import { poly } from './poly-agent.js';
 import { checkAndIncrement, getQuota, saveEmail } from './rate-limit.js';
-import { isBudgetExhausted, getBudgetRemaining, recordSpend, estimateCost } from './budget-guard.js';
-import { checkInput, sanitizeOutput } from './guardrails.js';
+import { isBudgetExhausted, getBudgetRemaining, recordSpend, estimateCost, tryRecordSpend } from './budget-guard.js';
+import { checkInput, sanitizeOutput, sanitizeChunk } from './guardrails.js';
 
 const EnvSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1),
@@ -70,7 +70,8 @@ app.post('/api/chat', async (req, res) => {
 
   const ip = clientIp(req);
 
-  if (isBudgetExhausted()) {
+  const budgetCheck = tryRecordSpend(0);
+  if (!budgetCheck.success) {
     const midnight = new Date();
     midnight.setUTCHours(24, 0, 0, 0);
     return res.status(429).json({ error: 'Daily budget exhausted' });
@@ -146,7 +147,8 @@ app.post('/api/chat', async (req, res) => {
       count++;
       if (count === 1 || count % 10 === 0) console.log(`[chunk] #${count}`);
       text += chunk;
-      send('delta', { text: chunk });
+      // Guardrails: sanitize each chunk before streaming to client
+      send('delta', { text: sanitizeChunk(chunk) });
       result = await iterator.next();
     }
 
@@ -162,8 +164,18 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const usage = await stream.usage;
-    if (usage) recordSpend(estimateCost(usage.promptTokens ?? 0, usage.completionTokens ?? 0));
+    if (usage) {
+      const cost = estimateCost(usage.promptTokens ?? 0, usage.completionTokens ?? 0);
+      const spendResult = tryRecordSpend(cost);
+      if (!spendResult.success) {
+        send('error', { message: 'Daily budget exhausted during this request.' });
+        if (!res.writableEnded) res.end();
+        return;
+      }
+    }
 
+    // Full-text sanitization already applied per-chunk above;
+    // final pass catches any patterns that only emerge across chunk boundaries.
     const finalText = sanitizeOutput(text);
     send('done', { remaining: quota.remaining, finalText });
     if (!res.writableEnded) res.end();

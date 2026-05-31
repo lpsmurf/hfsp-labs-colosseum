@@ -159,6 +159,10 @@ function authenticateVaultSignature(req: Request, res: Response, next: NextFunct
 }
 
 export function buildVaultAuthMessage(userPubkey: string): string {
+  // AUDIT: CRITICAL — No nonce or timestamp in auth message. Same signature is replayable
+  // indefinitely across all requests. Fix: add a server-generated nonce to the message
+  // and require the client to sign `nonce + pubkey + timestamp`. The nonce must be
+  // single-use and stored server-side (e.g., in Redis or a nonce table) until expiry.
   return `Clawdrop vault API authentication - v1: ${userPubkey.trim()}`;
 }
 

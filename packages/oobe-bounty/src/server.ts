@@ -8,6 +8,13 @@ import { buildSignerFromPrivateKey } from './services/x402-payments.js';
 import { startPriceMonitorAgent } from './agents/price-monitor.js';
 import { startPortfolioAnalyzerAgent } from './agents/portfolio-analyzer.js';
 import { startSentimentMonitorAgent } from './agents/sentiment-monitor.js';
+import { startTrendingAgent } from './agents/trending-agent.js';
+import { startOutcomeChecker } from './agents/outcome-checker.js';
+import { startPredictionMarketsAgent } from './agents/prediction-markets-agent.js';
+import { startNewsDigestAgent } from './agents/news-digest-agent.js';
+import { startPaperBetMonitor } from './agents/paper-bet-monitor.js';
+import { getAllBets, getPnL } from './services/paper-trading.js';
+import { TRACKED_SYMBOLS } from './config.js';
 import type { AgentId, RunningAgent } from './types.js';
 
 const startedAt = Date.now();
@@ -109,9 +116,9 @@ export function buildApp(db: Database): express.Express {
   app.get('/api/signals', (req: Request, res: Response) => {
     const hours = parseHours(req.query.hours);
     const rows = db.prepare(`
-      SELECT id, agent_id, service, action, target_price, confidence, reason,
-             risk_level, actual_price, outcome_recorded, created_at, outcome_at,
-             posted_to_twitter, posted_to_telegram
+      SELECT id, agent_id, service, action, symbol, target_price, confidence, reason,
+             risk_level, actual_price, outcome_recorded, outcome_correct, created_at, outcome_at,
+             posted_to_twitter, posted_to_telegram, trending_data
       FROM trading_signals
       WHERE created_at >= datetime('now', ?)
       ORDER BY created_at DESC
@@ -160,6 +167,13 @@ export function buildApp(db: Database): express.Express {
         confirmedAt: row.confirmed_at,
       })),
     });
+  });
+
+  app.get('/api/paper-bets', (req: Request, res: Response) => {
+    const days = Math.min(30, Math.max(1, parseInt(String(req.query.days ?? '3'), 10)));
+    const bets = getAllBets(db, days);
+    const pnl  = getPnL(db, days);
+    res.json({ pnl, bets });
   });
 
   app.get('/api/proof', (_req: Request, res: Response) => {
@@ -219,15 +233,38 @@ export function buildApp(db: Database): express.Express {
 
 function startAllAgents(db: Database, intervalMs: number): void {
   const context = { db, intervalMs };
-  const agents = [
-    startPriceMonitorAgent(context),
-    startPortfolioAnalyzerAgent(context),
-    startSentimentMonitorAgent(context),
-  ];
-  for (const agent of agents) {
-    runningAgents.set(agent.agentId, agent);
+
+  // Start signal agents staggered (10s apart) to avoid CoinGecko rate limits
+  for (let i = 0; i < TRACKED_SYMBOLS.length; i++) {
+    const symbol = TRACKED_SYMBOLS[i];
+    const delayMs = i * 10_000;
+    setTimeout(() => {
+      const symbolContext = { ...context, symbol };
+      startPriceMonitorAgent(symbolContext);
+      startPortfolioAnalyzerAgent(symbolContext);
+      startSentimentMonitorAgent(symbolContext);
+    }, delayMs);
   }
+
+  // Trending agent — posts top 10 trending twice a day
+  const trending = startTrendingAgent(db);
+  runningAgents.set(trending.agentId, trending);
+
+  // Prediction markets — screens Polymarket + Kalshi, places $10 paper bets
+  const predictions = startPredictionMarketsAgent(db);
+  runningAgents.set(predictions.agentId, predictions);
+
+  // Paper bet monitor — checks resolutions every 30 min, posts results
+  startPaperBetMonitor(db);
+
+  // News digest — top 10 crypto/SOL/prediction markets news at 9am NY every day
+  startNewsDigestAgent(db);
+
+  // Outcome checker — measures signal accuracy every 30 min
+  startOutcomeChecker(db);
+
   logAuditEvent(db, null, 'agents_started', {
+    symbols: TRACKED_SYMBOLS,
     agentIds: AGENT_DEFINITIONS.map((agent) => agent.id),
     intervalMs,
   });

@@ -1,12 +1,13 @@
 /**
- * Vercel serverless proxy → piercalito VPS backend
- * All /api/v1/* requests are forwarded to the backend VPS.
- * Set VPS_HOST env var in Vercel project settings (default: 72.62.239.63)
+ * Vercel serverless proxy → backend (now Mac Mini via Cloudflare Tunnel)
+ * All /api/v1/* requests are forwarded to the backend.
+ * Set VPS_HOST env var in Vercel project settings (default: localhost for Mac Mini)
+ * For remote access set VPS_HOST=clawdrop.live (Cloudflare Tunnel endpoint)
  */
 import https from 'https';
 
-const VPS_HOST = process.env.VPS_HOST || '72.62.239.63';
-const BACKEND_HOSTNAME = process.env.BACKEND_HOSTNAME || 'app.hfsp.cloud';
+const VPS_HOST = process.env.VPS_HOST || 'localhost';
+const BACKEND_HOSTNAME = process.env.BACKEND_HOSTNAME || 'clawdrop.live';
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 

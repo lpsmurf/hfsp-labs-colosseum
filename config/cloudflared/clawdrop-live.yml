@@ -1,0 +1,54 @@
+# Cloudflare Tunnel config for clawdrop.live
+# Location on Mac Mini: ~/.cloudflared/config.yml
+# After running: cloudflared tunnel create clawdrop-live
+# Replace TUNNEL_UUID with the UUID from that command output.
+#
+# DNS routing (run once after tunnel is created):
+#   cloudflared tunnel route dns clawdrop-live clawdrop.live
+#   cloudflared tunnel route dns clawdrop-live www.clawdrop.live
+#
+# Start tunnel:
+#   cloudflared tunnel run clawdrop-live
+#
+# Install as launchd service (macOS):
+#   cloudflared service install
+
+tunnel: TUNNEL_UUID
+credentials-file: /Users/luisploennig/.cloudflared/TUNNEL_UUID.json
+
+ingress:
+  # Platform API — must come before /api/ generic rule
+  - hostname: clawdrop.live
+    path: /api/platform/.*
+    service: http://localhost:8788
+
+  # Trial API — SSE streaming chat endpoint
+  - hostname: clawdrop.live
+    path: /api/chat
+    service: http://localhost:8787
+
+  # Trial API — health, quota, and other /api/ routes
+  - hostname: clawdrop.live
+    path: /api/.*
+    service: http://localhost:8787
+
+  # Trial chatbot frontend
+  - hostname: clawdrop.live
+    path: /try.*
+    service: http://localhost:3000
+
+  # Dashboard (same frontend, different route)
+  - hostname: clawdrop.live
+    path: /dashboard.*
+    service: http://localhost:3000
+
+  # www redirect → apex
+  - hostname: www.clawdrop.live
+    service: http://localhost:3000
+
+  # Catch-all: landing page (served from trial-frontend or static)
+  - hostname: clawdrop.live
+    service: http://localhost:3000
+
+  # Required catch-all 404 at end of ingress rules
+  - service: http_status:404
