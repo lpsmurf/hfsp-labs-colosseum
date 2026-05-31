@@ -3,12 +3,13 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --production=false
+RUN npm install
 
 COPY tsconfig.json ./
 COPY src/ src/
 
 RUN npm run build
+RUN cp -r src/data dist/data
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM node:20-alpine
@@ -16,7 +17,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 COPY --from=0 /app/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY --from=0 /app/dist ./dist
 

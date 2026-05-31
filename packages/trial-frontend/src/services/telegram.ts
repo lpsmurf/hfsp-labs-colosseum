@@ -50,7 +50,7 @@ class TelegramAppService {
     const app = this.getApp();
     // Try to get from initData property first (v6.0+)
     if ('initData' in app) {
-      return (app as any).initData;
+      return app.initData;
     }
     // Fallback to constructing from initDataUnsafe
     return this.constructInitData();
@@ -137,10 +137,10 @@ class TelegramAppService {
 
     switch (type) {
       case 'impactOccurred':
-        haptic.impactOccurred((style as any) || 'light');
+        haptic.impactOccurred(style || 'light');
         break;
       case 'notificationOccurred':
-        haptic.notificationOccurred((style as any) || 'default');
+        haptic.notificationOccurred(style || 'default');
         break;
       case 'selectionChanged':
         haptic.selectionChanged();
@@ -173,14 +173,14 @@ class TelegramAppService {
    * Set the header color
    */
   setHeaderColor(color: string): void {
-    (this.getApp() as any).setHeaderColor?.(color);
+    this.getApp().setHeaderColor?.(color);
   }
 
   /**
    * Set the background color
    */
   setBackgroundColor(color: string): void {
-    (this.getApp() as any).setBackgroundColor?.(color);
+    this.getApp().setBackgroundColor?.(color);
   }
 
   /**
@@ -222,7 +222,7 @@ class TelegramAppService {
    * Check if running in headless mode
    */
   isHeadless(): boolean {
-    return Boolean((this.getApp() as any).isHeadless);
+    return Boolean(this.getApp().isHeadless);
   }
 }
 

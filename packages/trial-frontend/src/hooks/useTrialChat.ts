@@ -491,6 +491,9 @@ export function useTrialChat(): UseTrialChatReturn {
   const sendMessage = useCallback(
     async (rawMessage: string) => {
       const prompt = rawMessage.trim();
+      // AUDIT: MEDIUM — Chat state race: `isStreaming` is React state, so two rapid
+      // clicks can both read `isStreaming === false` before either sets it true.
+      // Fix: add a `sendingRef` (useRef) that is checked and set atomically here.
       if (!prompt || isStreaming) return;
 
       if (quota.remaining <= 0) {

@@ -127,7 +127,7 @@ function unprotectTenantRowTokens(row: any): any {
 }
 
 // Tenant VPS provisioning (private-only)
-const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '187.124.173.69';
+const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '100.69.110.94';
 const TENANT_VPS_USER = process.env.TENANT_VPS_USER ?? 'root';
 const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '/home/clawd/.ssh/id_ed25519_hfsp_provisioner';
 const TENANT_VPS_BASEDIR = process.env.TENANT_VPS_BASEDIR ?? '/opt/hfsp/tenants';

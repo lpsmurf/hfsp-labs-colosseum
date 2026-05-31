@@ -17,6 +17,14 @@ const PROVIDERS: { id: Provider; label: string; placeholder: string; hint: strin
   { id: 'openrouter',  label: 'OpenRouter',  placeholder: 'sk-or-...',   hint: '200+ models' },
 ];
 
+function getApiErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const e = error as { response?: { data?: { error?: string } }; message?: string };
+    return e.response?.data?.error ?? e.message ?? 'Failed to create agent';
+  }
+  return 'Failed to create agent';
+}
+
 const MODELS: Record<Provider, { label: string; value: string }[]> = {
   anthropic: [
     { label: 'Claude 3.5 Sonnet',  value: 'claude-3-5-sonnet-20241022' },
@@ -189,7 +197,7 @@ export function SetupPage() {
           {/* Error */}
           {Boolean(createAgentMutation.error) && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-700 dark:text-red-300 text-sm">
-              {(createAgentMutation.error as any)?.response?.data?.error ?? 'Failed to create agent'}
+              {getApiErrorMessage(createAgentMutation.error)}
             </div>
           )}
 

@@ -25,11 +25,21 @@ export function buildSignerFromPrivateKey(privateKey: string): Keypair {
     );
   }
 
+  // Base64 detection: contains +, /, or = characters (not valid base58)
+  if (normalized.includes('+') || normalized.includes('/') || normalized.endsWith('=')) {
+    return Keypair.fromSecretKey(Buffer.from(normalized, 'base64'));
+  }
+
   return Keypair.fromSecretKey(decodeBase58(normalized));
 }
 
 // Called by base.ts after each SDK call to record that x402 payment occurred.
 // The SDK already settled the on-chain USDC payment; we log for the bounty audit trail.
+// AUDIT: HIGH — recordX402Payment records the payment hash but does not verify
+// on-chain finality (e.g., confirmation status, slot depth, or fork safety). If the
+// SDK submits a transaction that is later dropped or reverted, the audit trail will
+// show a false confirmed status. Fix: poll the Solana RPC for the transaction status
+// and only mark confirmed after reaching a safe confirmation threshold (e.g., 32 slots).
 export function recordX402Payment(
   agentId: AgentId,
   service: AceService,

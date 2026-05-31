@@ -41,8 +41,11 @@ Thumbs.db
 *.sqlite-shm
 *.sqlite-wal
 
-# Platform env (production values should never be committed)
+# Env files with production secrets — never commit
 .env.platform
+.env.trial
+.env.mcp-server
+data/*.sqlite
 
 # Logs
 logs/

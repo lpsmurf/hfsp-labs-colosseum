@@ -49,6 +49,38 @@ export function isBudgetExhausted(): boolean {
   return row ? row.total_usd >= DAILY_CAP : false;
 }
 
+export function checkAndRecordSpend(usd: number): { allowed: boolean; remaining: number } {
+  const d = today();
+  const tx = db().transaction(() => {
+    const row = db().prepare('SELECT total_usd FROM spend WHERE day = ?').get(d) as
+      | { total_usd: number }
+      | undefined;
+    const current = row?.total_usd ?? 0;
+    if (current >= DAILY_CAP) {
+      return { allowed: false, remaining: 0 };
+    }
+    db().prepare('INSERT INTO spend (day, total_usd) VALUES (?, ?) ON CONFLICT(day) DO UPDATE SET total_usd = total_usd + ?').run(d, usd, usd);
+    return { allowed: true, remaining: Math.max(0, DAILY_CAP - current - usd) };
+  });
+  return tx() as { allowed: boolean; remaining: number };
+}
+
+export function tryRecordSpend(usd: number): { success: boolean; remaining: number } {
+  const d = today();
+  const tx = db().transaction(() => {
+    const row = db().prepare('SELECT total_usd FROM spend WHERE day = ?').get(d) as
+      | { total_usd: number }
+      | undefined;
+    const current = row?.total_usd ?? 0;
+    if (current + usd > DAILY_CAP) {
+      return { success: false, remaining: Math.max(0, DAILY_CAP - current) };
+    }
+    db().prepare('INSERT INTO spend (day, total_usd) VALUES (?, ?) ON CONFLICT(day) DO UPDATE SET total_usd = total_usd + ?').run(d, usd, usd);
+    return { success: true, remaining: DAILY_CAP - current - usd };
+  });
+  return tx() as { success: boolean; remaining: number };
+}
+
 export function getBudgetRemaining(): number {
   const d = today();
   const row = db().prepare('SELECT total_usd FROM spend WHERE day = ?').get(d) as

@@ -139,6 +139,11 @@ export async function verifyPayment(
     }
 
     try {
+      // AUDIT: MEDIUM — `as any` casts hide a version mismatch between @solana/pay
+      // (expects web3.js v2 Rpc<GetTransactionApi>) and the project's web3.js v1.x
+      // Connection type. Runtime behavior is currently identical, but upgrading either
+      // package could silently break validation. Add an integration test for payment
+      // verification and pin both @solana/pay and @solana/web3.js versions.
       // Cast to any due to @solana/pay expecting Rpc<GetTransactionApi> from web3.js v2
       // while we use Connection from v1.x — the runtime behavior is identical
       await validateTransfer(

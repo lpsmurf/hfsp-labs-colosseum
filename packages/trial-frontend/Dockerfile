@@ -6,14 +6,13 @@ ARG VITE_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --production=false
+RUN npm install
 
 COPY tsconfig.json tsconfig.node.json ./
 COPY vite.config.ts ./
 COPY postcss.config.js ./
 COPY tailwind.config.js ./
 COPY index.html ./
-COPY public ./public
 COPY src ./src
 
 RUN echo "VITE_PLATFORM_WALLET=${VITE_PLATFORM_WALLET}" > .env && \

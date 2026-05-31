@@ -7,12 +7,14 @@ export interface TradingSignal {
   agent_id: string;
   service: string;
   action: string;
+  symbol: string;
   target_price: number;
   confidence: number;
   reason: string;
   risk_level: string;
   actual_price: number;
   outcome_recorded: boolean;
+  outcome_correct: boolean | null;
   created_at: string;
   outcome_at: string | null;
   posted_to_twitter: boolean;
@@ -20,6 +22,7 @@ export interface TradingSignal {
   twitter_post_id: string | null;
   telegram_message_id: string | null;
   post_error: string | null;
+  trending_data: string | null;
 }
 
 export interface TwitterMetrics {

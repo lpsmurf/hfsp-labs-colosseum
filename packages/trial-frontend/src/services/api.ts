@@ -253,6 +253,11 @@ class PlatformApiClient {
 export const apiClient = new ApiClient();
 export const platformClient = new PlatformApiClient();
 
+// AUDIT: MEDIUM — API response types are asserted without runtime validation. All
+// axios responses here use TypeScript generics for typing but never validate the shape
+// at runtime. If the server returns malformed JSON (e.g., due to a proxy or partial
+// response), the frontend may crash downstream. Consider adding Zod schemas and
+// parsing responses before returning them.
 class VaultApiClient {
   async storeCredentials(
     agentId: string,

@@ -40,6 +40,10 @@ export interface QuotaResult {
   resets_at: string;
 }
 
+// AUDIT: HIGH — Rate limiting is scoped by IP address only. A client can bypass the
+// limit by rotating IPs (VPN, proxy pool, Tor). Consider adding wallet-signature-based
+// rate limiting for authenticated endpoints, or at least a secondary per-session limit
+// using the sessionId from the trial chat.
 export function checkAndIncrement(ip: string): QuotaResult {
   const d = today();
   const resets_at = `${d}T23:59:59Z`;

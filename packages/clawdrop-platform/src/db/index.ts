@@ -114,4 +114,11 @@ function migrate(db: Database.Database): void {
   try {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_pairings_email ON telegram_pairings(email) WHERE email IS NOT NULL;`);
   } catch { /* already exists */ }
+
+  // Performance indexes for high-frequency lookups
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_agents_user_id ON agents(user_id);`); } catch { /* already exists */ }
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);`); } catch { /* already exists */ }
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_wallet ON users(wallet_address);`); } catch { /* already exists */ }
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_subscription ON payments(subscription_id);`); } catch { /* already exists */ }
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_token_usage_user_month ON token_usage(user_id, month);`); } catch { /* already exists */ }
 }
