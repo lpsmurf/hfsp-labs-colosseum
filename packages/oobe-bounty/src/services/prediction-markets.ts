@@ -21,16 +21,16 @@ const KALSHI_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 export async function fetchPolymarketScreened(
   minProbability = 0.92,
   maxProbability = 0.98,
-  maxHoursLeft = 168,
-  minVolume = 1_000,  // lowered — sports/esports markets have lower total volume
+  maxHoursLeft = 240, // 10 days — catches restricted/near-certain markets earlier
+  minVolume = 500,    // lowered for sports/esports + restricted markets
 ): Promise<PredictionMarket[]> {
   const now = Date.now();
   const windowEnd = new Date(now + maxHoursLeft * 3_600_000).toISOString();
   const windowStart = new Date(now).toISOString();
 
-  // Fetch via events API (includes restricted markets) filtered by end date window
   const allMarkets: PolymarketRaw[] = [];
-  // Page through date-windowed results (includes restricted markets)
+
+  // 1. Date-windowed query (includes restricted markets via endDateMin/Max)
   for (const offset of [0, 100, 200, 300, 400, 500]) {
     const res = await fetch(
       `${POLYMARKET_BASE}/markets?closed=false&limit=100&offset=${offset}&endDateMin=${windowStart}&endDateMax=${windowEnd}`,
@@ -43,7 +43,25 @@ export async function fetchPolymarketScreened(
     if (page.length < 100) break;
   }
 
-  // Also fetch breaking/trending markets sorted by 1-day price change (catches live sports/news)
+  // 2. Restricted markets (US-related events not in standard listings) — paginate all
+  for (const offset of [0, 100, 200, 300, 400]) {
+    const res = await fetch(
+      `${POLYMARKET_BASE}/markets?closed=false&restricted=true&limit=100&offset=${offset}`,
+      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
+    ).catch(() => null);
+    if (!res?.ok) break;
+    const page = (await res.json()) as PolymarketRaw[];
+    if (!Array.isArray(page) || page.length === 0) break;
+    const inWindow = page.filter(m => {
+      if (!m.endDate) return false;
+      const h = (new Date(m.endDate).getTime() - now) / 3_600_000;
+      return h > 0 && h <= maxHoursLeft;
+    });
+    allMarkets.push(...inWindow);
+    if (page.length < 100) break;
+  }
+
+  // 3. Breaking/trending markets sorted by 1-day price change (catches live sports/news)
   for (const sort of ['oneDayPriceChange', 'volume24hr']) {
     const res = await fetch(
       `${POLYMARKET_BASE}/markets?closed=false&limit=200&order=${sort}&descending=true`,
