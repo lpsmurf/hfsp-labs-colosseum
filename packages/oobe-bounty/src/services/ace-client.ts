@@ -19,8 +19,10 @@ export function createAceClient(): AceDataCloud {
   const keypair = buildSignerFromPrivateKey(config.walletPrivateKey);
   const connection = new Connection(config.solanaMainnetRpc, 'confirmed');
 
+  // Do NOT pass apiToken — that bypasses x402 and uses credit-based auth.
+  // Without a token the API returns 402, the payment handler pays USDC on Solana,
+  // and the on-chain tx signature is recorded for the bounty proof.
   return new AceDataCloud({
-    apiToken: config.aceDataApiKey,
     paymentHandler: createX402PaymentHandler({
       network: 'solana',
       solanaWallet: {
