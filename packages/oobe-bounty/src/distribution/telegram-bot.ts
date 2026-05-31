@@ -285,6 +285,7 @@ async function sendSignal(signal: TradingSignal): Promise<string | null> {
   const tg = getBot();
   const channelId = getChannelId();
   const text = formatMessage(signal);
+  if (!text.trim()) return null;  // safety guard — should be caught in processBatch
 
   try {
     const result = await tg.telegram.sendMessage(channelId, text, {
@@ -325,7 +326,12 @@ async function processBatch(): Promise<void> {
 
   for (const signal of signals) {
     try {
-      // Skip prediction market signals with 99-100% probability — not useful
+      // Individual NewsBot signals — kept in DB for AnalystBot, never posted to Telegram
+      if (signal.agent_id === 'price-monitor') {
+        markSignalPosted(signal.id, 'telegram', 'skipped-newsbot');
+        continue;
+      }
+      // Prediction market signals with >98% probability — not useful
       if (signal.symbol === 'PRED') {
         try {
           const data = JSON.parse(signal.reason) as { probability?: number };
@@ -333,11 +339,11 @@ async function processBatch(): Promise<void> {
             markSignalPosted(signal.id, 'telegram', 'skipped-100pct');
             continue;
           }
-        } catch { /* ignore parse errors */ }
+        } catch { /* ignore */ }
       }
-      // Skip signals where formatter returns empty (e.g. news with no headlines)
-      const formatted = formatMessage(signal);
-      if (!formatted.trim()) {
+      // Format first — skip if empty
+      const text = formatMessage(signal);
+      if (!text.trim()) {
         markSignalPosted(signal.id, 'telegram', 'skipped-empty');
         continue;
       }
