@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
 import { createAceClient } from '../services/ace-client.js';
-import { extractX402Hash, recordX402Payment } from '../services/x402-payments.js';
+import { extractX402Hash, recordX402Payment, getAndClearLastX402Signature } from '../services/x402-payments.js';
 import { fetchMarketData, fetchMarketContext } from '../services/coingecko.js';
 import { insertSignal, logAuditEvent, setAgentRunning } from '../db/migrations.js';
 import type { AceService, AgentId, RiskLevel, RunningAgent, SignalAction, TradingSignal } from '../types.js';
@@ -100,7 +100,7 @@ async function runNewsBot(ace: ReturnType<typeof createAceClient>, agentId: Agen
     .map((r) => String(r.title ?? r.snippet ?? ''))
     .filter(Boolean);
 
-  const x402Hash = extractX402Hash(result);
+  const x402Hash = getAndClearLastX402Signature() ?? extractX402Hash(result);
   recordX402Payment(agentId, 'search', x402Hash, db);
 
   return {
@@ -200,7 +200,7 @@ action must be BUY, SELL, or HOLD. confidence between 0.5 and 0.99.`;
   const confidence = Math.min(0.99, Math.max(0.5, parsed.confidence ?? 0.6));
   const riskLevel = (['LOW', 'MEDIUM', 'HIGH'].includes(parsed.risk_level ?? '') ? parsed.risk_level : 'MEDIUM') as RiskLevel;
 
-  const x402Hash = extractX402Hash(completion);
+  const x402Hash = getAndClearLastX402Signature() ?? extractX402Hash(completion);
   recordX402Payment(agentId, 'chat', x402Hash, db);
 
   return {

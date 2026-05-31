@@ -142,8 +142,18 @@ async function tryRegisterWithSapSdk(
     signer,
   });
 
-  const tx = await client.buildTransaction([ix], signer.publicKey);
-  await client.sendTransaction(tx, [signer]);
+  try {
+    const tx = await client.buildTransaction([ix], signer.publicKey);
+    await client.sendTransaction(tx, [signer]);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // "account already in use" = already registered — return the existing PDA
+    if (msg.includes('already in use') || msg.includes('already exists')) {
+      const sapId = agentPda.toBase58();
+      return { sapId, explorerUrl: buildExplorerUrl(sapId), pending: false };
+    }
+    throw err;
+  }
 
   const sapId = agentPda.toBase58();
   return { sapId, explorerUrl: buildExplorerUrl(sapId), pending: false };
