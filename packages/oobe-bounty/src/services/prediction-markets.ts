@@ -28,84 +28,71 @@ export async function fetchPolymarketScreened(
   const windowEnd = new Date(now + maxHoursLeft * 3_600_000).toISOString();
   const windowStart = new Date(now).toISOString();
 
+  // Full parallel scan of ALL 10K+ Polymarket markets in batches of 20 pages at a time.
+  // This covers the complete market space including restricted (US-blocked) markets.
   const allMarkets: PolymarketRaw[] = [];
+  const PAGE = 100;
+  const BATCH = 20;   // concurrent requests per round
+  const MAX_OFFSET = 12_000; // safety cap
 
-  // 1. Date-windowed query (includes restricted markets via endDateMin/Max)
-  for (const offset of [0, 100, 200, 300, 400, 500]) {
+  const fetchPage = async (offset: number): Promise<PolymarketRaw[]> => {
     const res = await fetch(
-      `${POLYMARKET_BASE}/markets?closed=false&limit=100&offset=${offset}&endDateMin=${windowStart}&endDateMax=${windowEnd}`,
-      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
+      `${POLYMARKET_BASE}/markets?closed=false&limit=${PAGE}&offset=${offset}`,
+      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12_000) },
     ).catch(() => null);
-    if (!res?.ok) break;
-    const page = (await res.json()) as PolymarketRaw[];
-    if (!Array.isArray(page) || page.length === 0) break;
-    allMarkets.push(...page);
-    if (page.length < 100) break;
+    if (!res?.ok) return [];
+    const page = (await res.json()).catch?.(() => []) ?? await res.json().catch(() => []);
+    return Array.isArray(page) ? page : [];
+  };
+
+  // Round 1: fetch first batch to check how many markets exist
+  const firstBatch = await Promise.all(
+    Array.from({ length: BATCH }, (_, i) => fetchPage(i * PAGE)),
+  );
+  for (const page of firstBatch) allMarkets.push(...page);
+
+  // Keep fetching until pages return empty
+  let offset = BATCH * PAGE;
+  while (offset < MAX_OFFSET) {
+    const batch = await Promise.all(
+      Array.from({ length: BATCH }, (_, i) => fetchPage(offset + i * PAGE)),
+    );
+    let anyData = false;
+    for (const page of batch) {
+      if (page.length > 0) { allMarkets.push(...page); anyData = true; }
+    }
+    if (!anyData) break;
+    offset += BATCH * PAGE;
   }
 
-  // 2. Restricted markets (US-related events not in standard listings) — paginate all
-  for (const offset of [0, 100, 200, 300, 400]) {
-    const res = await fetch(
-      `${POLYMARKET_BASE}/markets?closed=false&restricted=true&limit=100&offset=${offset}`,
-      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
-    ).catch(() => null);
-    if (!res?.ok) break;
-    const page = (await res.json()) as PolymarketRaw[];
-    if (!Array.isArray(page) || page.length === 0) break;
-    const inWindow = page.filter(m => {
-      if (!m.endDate) return false;
-      const h = (new Date(m.endDate).getTime() - now) / 3_600_000;
-      return h > 0 && h <= maxHoursLeft;
-    });
-    allMarkets.push(...inWindow);
-    if (page.length < 100) break;
-  }
-
-  // 3. Breaking/trending markets sorted by 1-day price change (catches live sports/news)
+  // Also add breaking/trending feed (catches live sports with big intraday moves)
   for (const sort of ['oneDayPriceChange', 'volume24hr']) {
     const res = await fetch(
       `${POLYMARKET_BASE}/markets?closed=false&limit=200&order=${sort}&descending=true`,
       { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
     ).catch(() => null);
-    if (!res?.ok) continue;
-    const page = (await res.json()) as PolymarketRaw[];
-    if (!Array.isArray(page)) continue;
-    const inWindow = page.filter(m => {
-      if (!m.endDate) return false;
-      const h = (new Date(m.endDate).getTime() - now) / 3_600_000;
-      return h > 0 && h <= maxHoursLeft;
-    });
-    allMarkets.push(...inWindow);
-  }
-
-  // Also fetch standard active listings (non-restricted markets, different sort)
-  for (const offset of [0, 100, 200]) {
-    const res = await fetch(
-      `${POLYMARKET_BASE}/markets?closed=false&active=true&limit=100&offset=${offset}`,
-      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
-    ).catch(() => null);
-    if (!res?.ok) break;
-    const page = (await res.json()) as PolymarketRaw[];
-    if (!Array.isArray(page) || page.length === 0) break;
-    // Only keep those that fall in our time window
-    const inWindow = page.filter(m => {
-      if (!m.endDate) return false;
-      const h = (new Date(m.endDate).getTime() - now) / 3_600_000;
-      return h > 0 && h <= maxHoursLeft;
-    });
-    allMarkets.push(...inWindow);
-    if (page.length < 100) break;
+    if (res?.ok) {
+      const page = (await res.json()) as PolymarketRaw[];
+      if (Array.isArray(page)) allMarkets.push(...page);
+    }
   }
 
   // Deduplicate by id
   const seen = new Set<string>();
   const deduped = allMarkets.filter(m => {
-    if (!m.id || seen.has(m.id)) return false;
-    seen.add(m.id);
+    if (!m.id || seen.has(String(m.id))) return false;
+    seen.add(String(m.id));
     return true;
   });
 
-  const markets = deduped;
+  console.info(`[Polymarket] Full scan: ${allMarkets.length} fetched, ${deduped.length} unique`);
+
+  const markets = deduped.filter(m => {
+    // Pre-filter: only keep markets in our time window (saves processing)
+    if (!m.endDate) return false;
+    const h = (new Date(m.endDate).getTime() - now) / 3_600_000;
+    return h > 0 && h <= maxHoursLeft;
+  });
   const results: PredictionMarket[] = [];
 
   for (const m of markets) {
