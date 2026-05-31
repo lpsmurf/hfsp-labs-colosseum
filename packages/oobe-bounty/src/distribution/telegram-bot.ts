@@ -158,9 +158,11 @@ function formatNewsDigest(signal: TradingSignal): string {
   try { data = JSON.parse(signal.reason) as typeof data; } catch { return signal.reason; }
   if (!data) return signal.reason;
 
-  const rows = (data.items ?? []).slice(0, 10).map((item, i) =>
-    `${i + 1}. *${item.title}*${item.source ? ` — ${item.source}` : ''}`
-  );
+  const rows = (data.items ?? []).slice(0, 10).map((item, i) => {
+    const source = item.source ? ` — ${item.source}` : '';
+    const link = item.url ? `\n   🔗 ${item.url}` : '';
+    return `${i + 1}. *${item.title}*${source}${link}`;
+  });
 
   return [
     `📰 *CRYPTO MORNING DIGEST*`,
@@ -204,12 +206,16 @@ function formatMessage(signal: TradingSignal): string {
   // AnalystBot / ContentBot — full signal with price
   const confidencePct = Math.round((signal.confidence || 0) * 100);
   const pair = `${signal.symbol || 'SOL'}/USD`;
-  const currentPrice = signal.actual_price > 0 ? `\n💰 Current: $${signal.actual_price.toFixed(2)}` : '';
-  const targetLine = signal.target_price > 0 ? `📍 Target: $${signal.target_price.toFixed(2)}${currentPrice}\n` : '';
+  const priceLines: string[] = [];
+  if (signal.actual_price > 0) priceLines.push(`💰 Price: $${signal.actual_price.toFixed(2)}`);
+  if (signal.target_price > 0 && signal.target_price !== signal.actual_price) {
+    priceLines.push(`📍 Target: $${signal.target_price.toFixed(2)}`);
+  }
   const accuracy = getAccuracyLine(_db);
   return [
     `🎯 **${pair} — ${signal.action}**`,
-    `${targetLine}📊 Confidence: ${confidencePct}%`,
+    ...priceLines,
+    `📊 Confidence: ${confidencePct}%`,
     `💡 ${signal.reason}`,
     `⚠️ Risk: ${signal.risk_level}${accuracy}`,
     ``,

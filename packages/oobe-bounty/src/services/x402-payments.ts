@@ -73,10 +73,15 @@ export function recordX402Payment(
 }
 
 export function extractX402Hash(response: unknown): string | null {
+  // Fallback: some SDK versions embed the hash in the response body
   if (!response || typeof response !== 'object') return null;
   const r = response as Record<string, unknown>;
   return (r.x402_tx ?? r.x402TxHash ?? r._x402_tx ?? null) as string | null;
 }
+
+// Called by base.ts after each Ace Data Cloud API call to capture the tx signature
+// that was set by the signAndSendTransaction hook in ace-client.ts
+export { getAndClearLastX402Signature } from './ace-client.js';
 
 function decodeBase58(value: string): Uint8Array {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

@@ -4,13 +4,21 @@ import { Connection, sendAndConfirmTransaction, Transaction } from '@solana/web3
 import { buildSignerFromPrivateKey } from './x402-payments.js';
 import { loadConfig } from '../config.js';
 
+// Thread-local storage for the last x402 tx signature captured during a payment.
+// Set by the signAndSendTransaction hook; read by extractX402Hash immediately after each API call.
+let _lastX402Signature: string | null = null;
+
+export function getAndClearLastX402Signature(): string | null {
+  const sig = _lastX402Signature;
+  _lastX402Signature = null;
+  return sig;
+}
+
 export function createAceClient(): AceDataCloud {
   const config = loadConfig();
   const keypair = buildSignerFromPrivateKey(config.walletPrivateKey);
   const connection = new Connection(config.solanaMainnetRpc, 'confirmed');
 
-  // The AceDataCloud SDK and x402-client have slightly divergent PaymentRequirement
-  // types (maxTimeoutSeconds optional vs required); the cast resolves the mismatch.
   return new AceDataCloud({
     apiToken: config.aceDataApiKey,
     paymentHandler: createX402PaymentHandler({
@@ -18,7 +26,11 @@ export function createAceClient(): AceDataCloud {
       solanaWallet: {
         publicKey: keypair.publicKey,
         async signAndSendTransaction(tx: Transaction) {
-          return sendAndConfirmTransaction(connection, tx, [keypair]);
+          const signature = await sendAndConfirmTransaction(connection, tx, [keypair]);
+          // Capture the signature so extractX402Hash can pick it up
+          _lastX402Signature = signature;
+          console.info(`[x402] Payment confirmed: ${signature}`);
+          return signature;
         },
       },
     }) as unknown as import('@acedatacloud/sdk').PaymentHandler,
