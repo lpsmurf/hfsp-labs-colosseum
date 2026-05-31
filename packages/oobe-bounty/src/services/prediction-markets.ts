@@ -20,8 +20,8 @@ const KALSHI_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 // Also fetches restricted markets (which don't appear in standard active=true listings).
 export async function fetchPolymarketScreened(
   minProbability = 0.92,
-  maxProbability = 0.98, // cap at 98% — 99-100% are near-certain and boring/unprofitable
-  maxHoursLeft = 72,
+  maxProbability = 0.98,
+  maxHoursLeft = 168, // default 7 days — broad search window
   minVolume = 5_000,
 ): Promise<PredictionMarket[]> {
   const now = Date.now();

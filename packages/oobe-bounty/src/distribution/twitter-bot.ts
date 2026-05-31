@@ -128,7 +128,7 @@ function formatTweet(signal: TradingSignal): string {
 
     if (data.urgent) {
       return [
-        `🚨 CLOSING IN ${data.hoursLeft}h`,
+        `🚨 CLOSING IN ${data.hoursLeft >= 48 ? Math.round(data.hoursLeft/24)+'d' : data.hoursLeft+'h'}`,
         ``,
         `"${data.question}"`,
         `→ ${data.outcome} at ${probPct}% probability`,
@@ -138,7 +138,7 @@ function formatTweet(signal: TradingSignal): string {
     }
 
     return [
-      `🎰 Near-certain bet — ${data.hoursLeft}h left`,
+      `🎰 Near-certain bet — ${data.hoursLeft >= 48 ? Math.round(data.hoursLeft/24)+'d' : data.hoursLeft+'h'} left`,
       ``,
       `"${data.question}"`,
       `→ ${data.outcome} at ${probPct}% probability`,

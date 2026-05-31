@@ -9,8 +9,9 @@ import type { RunningAgent } from '../types.js';
 
 const INTERVAL_MS = 60 * 60 * 1000;
 const MIN_PROBABILITY = parseFloat(process.env.PREDICTION_MIN_PROBABILITY ?? '0.92');
-// Only screen markets closing within 48h (safe window)
-const MAX_HOURS_LEFT = 48;
+const MAX_PROBABILITY = parseFloat(process.env.PREDICTION_MAX_PROBABILITY ?? '0.98');
+// Show opportunities closing within 7 days; paper bets only placed on <24h markets
+const MAX_HOURS_LEFT = parseFloat(process.env.PREDICTION_MAX_HOURS ?? '168');
 // Markets closing within 12h get an urgent "closing soon" alert post
 const URGENT_HOURS = 12;
 
@@ -24,8 +25,8 @@ export function startPredictionMarketsAgent(db: Database): RunningAgent {
     try {
       const kalshiKey = process.env.KALSHI_API_KEY ?? '';
       const [polyMarkets, kalshiMarkets] = await Promise.all([
-        fetchPolymarketScreened(MIN_PROBABILITY, MAX_HOURS_LEFT),
-        fetchKalshiScreened(kalshiKey, MIN_PROBABILITY, MAX_HOURS_LEFT),
+        fetchPolymarketScreened(MIN_PROBABILITY, MAX_PROBABILITY, MAX_HOURS_LEFT),
+        fetchKalshiScreened(kalshiKey, MIN_PROBABILITY, MAX_PROBABILITY, MAX_HOURS_LEFT),
       ]);
 
       const allMarkets = [...polyMarkets, ...kalshiMarkets]

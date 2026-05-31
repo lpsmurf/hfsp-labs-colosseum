@@ -90,9 +90,12 @@ function formatPredictionMessage(signal: TradingSignal): string {
   const profit = total - 100;
   const winnings = `💰 Bet $100 → get back $${total} (+$${profit} profit)`;
 
+  const timeStr = data.hoursLeft >= 48
+    ? `${Math.round(data.hoursLeft / 24)} days`
+    : `${data.hoursLeft}h`;
   const urgentHeader = data.urgent
-    ? `🚨 **CLOSING IN ${data.hoursLeft}h — ACT NOW**`
-    : `🎰 **NEAR-CERTAIN BET — ${data.hoursLeft}h left**`;
+    ? `🚨 **CLOSING IN ${timeStr} — ACT NOW**`
+    : `🎰 **NEAR-CERTAIN BET — ${timeStr} left**`;
 
   const llmLine = data.llmScore
     ? `\n🤖 AI score: ${data.llmScore}/10 — _${data.llmReasoning ?? ''}_`
