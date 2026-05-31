@@ -13,6 +13,7 @@ import { startOutcomeChecker } from './agents/outcome-checker.js';
 import { startPredictionMarketsAgent } from './agents/prediction-markets-agent.js';
 import { startNewsDigestAgent } from './agents/news-digest-agent.js';
 import { startPaperBetMonitor } from './agents/paper-bet-monitor.js';
+import { startCryptoNewsDigest } from './agents/crypto-news-digest.js';
 import { getAllBets, getPnL } from './services/paper-trading.js';
 import { TRACKED_SYMBOLS } from './config.js';
 import type { AgentId, RunningAgent } from './types.js';
@@ -256,6 +257,9 @@ function startAllAgents(db: Database, intervalMs: number): void {
 
   // Paper bet monitor — checks resolutions every 30 min, posts results
   startPaperBetMonitor(db);
+
+  // Combined crypto news digest — ONE message for SOL+BTC+ETH at 9am and 5pm NY
+  startCryptoNewsDigest(db);
 
   // News digest — top 10 crypto/SOL/prediction markets news at 9am NY every day
   startNewsDigestAgent(db);

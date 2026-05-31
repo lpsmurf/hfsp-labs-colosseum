@@ -85,6 +85,12 @@ export async function runAgentOnce(
 
 // --- Agent 1 — NewsBot (search) ---
 
+export interface NewsItem {
+  title: string;
+  url: string | null;
+  source: string | null;
+}
+
 async function runNewsBot(ace: ReturnType<typeof createAceClient>, agentId: AgentId, symbol: string, db: Database): Promise<TradingSignal> {
   const result = (await ace.search.google({
     query: `${symbol} cryptocurrency news today price`,
@@ -92,13 +98,18 @@ async function runNewsBot(ace: ReturnType<typeof createAceClient>, agentId: Agen
     language: 'en',
   })) as Record<string, unknown>;
 
-  const items = (
+  const rawItems = (
     (result.news ?? result.organic_results ?? result.news_results ?? result.items ?? []) as Array<Record<string, unknown>>
   );
-  const headlines = items
-    .slice(0, 8)
-    .map((r) => String(r.title ?? r.snippet ?? ''))
-    .filter(Boolean);
+
+  // Capture title + URL + source for each result
+  const newsItems: NewsItem[] = rawItems.slice(0, 8).map(r => ({
+    title: String(r.title ?? r.snippet ?? ''),
+    url: (r.link ?? r.url ?? r.source_url ?? null) as string | null,
+    source: (r.source ?? r.domain ?? null) as string | null,
+  })).filter(item => item.title.length > 3);
+
+  const headlines = newsItems.map(item => item.title);
 
   const x402Hash = getAndClearLastX402Signature() ?? extractX402Hash(result);
   recordX402Payment(agentId, 'search', x402Hash, db);
@@ -110,7 +121,8 @@ async function runNewsBot(ace: ReturnType<typeof createAceClient>, agentId: Agen
     symbol,
     target_price: 0,
     confidence: 0.5,
-    reason: `${symbol} headlines: ${headlines.slice(0, 3).join(' | ')}`,
+    // Store full news items as JSON for the combined digest formatter
+    reason: JSON.stringify({ type: 'news_items', symbol, items: newsItems }),
     risk_level: 'LOW',
     actual_price: 0,
     timestamp: new Date().toISOString(),
