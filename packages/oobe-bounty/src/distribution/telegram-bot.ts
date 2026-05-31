@@ -189,13 +189,14 @@ function formatMessage(signal: TradingSignal): string {
     return formatPredictionMessage(signal);
   }
 
-  // NewsBot signals (price-monitor) have no price — show as news update
-  if (signal.agentId === 'price-monitor') {
-    const headlines = signal.reason.replace(/^.*headlines:\s*/i, '').split('|').map(h => h.trim()).filter(Boolean);
-    if (headlines.length === 0) return '';  // skip empty news signals
+  // NewsBot signals (price-monitor) — format as news, no price/confidence/risk
+  if (signal.agent_id === 'price-monitor' || signal.service === 'search') {
+    const raw = signal.reason.replace(/^.*headlines:\s*/i, '');
+    const headlines = raw.split('|').map(h => h.trim()).filter(Boolean);
+    if (headlines.length === 0) return '';  // caller skips empty strings
     const rows = headlines.slice(0, 4).map((h, i) => `${i + 1}. ${h}`);
     return [
-      `📰 **${signal.symbol}/USD — Market News**`,
+      `📰 **${signal.symbol} Market News**`,
       ``,
       ...rows,
       ``,
@@ -315,6 +316,12 @@ async function processBatch(): Promise<void> {
             continue;
           }
         } catch { /* ignore parse errors */ }
+      }
+      // Skip signals where formatter returns empty (e.g. news with no headlines)
+      const formatted = formatMessage(signal);
+      if (!formatted.trim()) {
+        markSignalPosted(signal.id, 'telegram', 'skipped-empty');
+        continue;
       }
       const messageId = await sendSignal(signal);
       if (messageId) {
