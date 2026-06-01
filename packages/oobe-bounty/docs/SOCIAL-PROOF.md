@@ -1,78 +1,93 @@
-# Social Proof
+# Social Proof — Clawdrop x OOBE Protocol Bounty
 
-> Generated during Days 8-9 of the OOBE Protocol bounty sprint.
-> Replace placeholder values with actual screenshots and metrics.
+> Updated 2026-06-01. Add screenshots and YouTube link before final submission.
 
 ---
 
-## Twitter @ClawdropSignals
+## Twitter @ClawdropPriceBot
 
-- **Followers:** ___ (target: 100+)
-- **Tweets:** ___ (target: 48+)
-- **Engagement:** ___ total likes + retweets
-- **Profile URL:** https://twitter.com/ClawdropSignals
+- **Followers:** ___ (check and add manually)
+- **Tweets posted:** 112 (from DB `on_twitter` count)
+- **Profile URL:** https://twitter.com/ClawdropPriceBot
 
-### Screenshots
-<!-- Paste screenshots here -->
+### Screenshots Needed
 - [ ] Profile page showing follower count
-- [ ] Feed showing 5+ tweets with timestamps
-- [ ] Sample tweet showing likes/retweets
+- [ ] Feed showing recent tweets with timestamps
+- [ ] Sample tweet with engagement metrics
 
 ---
 
 ## Telegram @ClawdropSignals
 
-- **Members:** ___ (target: 100+)
-- **Messages:** ___ (target: 48+)
-- **Growth:** 0 → ___ members in ___ days
+- **Channel ID:** `-1003902301220`
+- **Members:** ___ (check and add manually)
+- **Messages posted:** 274 (all 274 signals distributed)
 - **Channel URL:** https://t.me/ClawdropSignals
 
-### Screenshots
-<!-- Paste screenshots here -->
+### Screenshots Needed
 - [ ] Channel view showing messages
 - [ ] Info panel showing member count
-- [ ] Message list showing 5+ signals
+- [ ] Message list showing recent signals
 
 ---
 
 ## Database Verification
 
-Run this query and paste the output:
-
 ```bash
-sqlite3 data/bounty-vault.db \
+sqlite3 packages/oobe-bounty/data/bounty-vault.db \
   "SELECT COUNT(*) as total, \
           SUM(CASE WHEN posted_to_twitter THEN 1 ELSE 0 END) as on_twitter, \
           SUM(CASE WHEN posted_to_telegram THEN 1 ELSE 0 END) as on_telegram \
    FROM trading_signals;"
 ```
 
-**Result:**
+**Result (2026-06-01):**
 ```
 total | on_twitter | on_telegram
-___   | ___        | ___
+274   | 112        | 274
 ```
+
+---
+
+## SAP Agent Registry
+
+All 6 agents registered on Solana:
+- **SAP ID:** `8m5MXkunTGabXKLrmVCj2WekLF4V2WwB3gKGuAc872rx`
+- **Explorer:** https://explorer.oobeprotocol.ai/agent/8m5MXkunTGabXKLrmVCj2WekLF4V2WwB3gKGuAc872rx
+
+---
+
+## x402 Transaction Proof
+
+- **31 on-chain transactions** — search (25) + chat (6)
+- **53+ hours continuous operation** (2026-05-30 15:06 → 2026-06-01 20:24)
+- Full list with Solscan links: [TRANSACTIONS.md](TRANSACTIONS.md)
 
 ---
 
 ## Demo Video
 
-- **YouTube Link:** [___]
-- **Duration:** ___ minutes
-- **Segments:**
-  1. [ ] Agent registration on Synapse Explorer
-  2. [ ] Signal generation in terminal
-  3. [ ] Distribution: Twitter + Telegram within 5 min
-  4. [ ] x402 transaction proof on Solscan
+- **YouTube Link:** ___ (record and add before submission)
+- **Segments to cover:**
+  1. [ ] Agent registration on OOBE Explorer (`8m5MXkunT...`)
+  2. [ ] Live PM2 process list (`pm2 list`)
+  3. [ ] Signal appearing in terminal logs
+  4. [ ] Signal posted to Telegram within minutes
+  5. [ ] x402 transaction on Solscan
+  6. [ ] `/api/proof` endpoint showing cumulative stats
 
 ---
 
 ## Submission Checklist
 
-- [ ] 48+ Twitter posts
-- [ ] 100+ Twitter followers
-- [ ] 48+ Telegram messages
-- [ ] 100+ Telegram members
-- [ ] Demo video uploaded to YouTube
-- [ ] Social proof documented with screenshots
-- [ ] Bounty submission posted
+- [x] 48+ hours continuous operation (53h+)
+- [x] 274 signals generated
+- [x] 31 x402 on-chain transactions
+- [x] 6 agents registered on SAP (`8m5MXkunT...`)
+- [x] 112 Twitter posts
+- [x] 274 Telegram messages distributed
+- [ ] Twitter follower count added
+- [ ] Telegram member count added
+- [ ] Screenshots added
+- [ ] Demo video recorded and uploaded to YouTube
+- [ ] Bounty submission posted on OOBE Protocol website
