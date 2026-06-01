@@ -5,8 +5,16 @@ import { buildSignerFromPrivateKey } from './x402-payments.js';
 import { loadConfig } from '../config.js';
 
 // Thread-local storage for the last x402 tx signature captured during a payment.
-// Set by the signAndSendTransaction hook; read by extractX402Hash immediately after each API call.
 let _lastX402Signature: string | null = null;
+
+// Global semaphore — Synapse RPC free tier can only handle one getRecentBlockhash at a time.
+// Queue x402 payments so they don't race each other and hit 429.
+let _paymentQueue: Promise<void> = Promise.resolve();
+function enqueuePayment<T>(fn: () => Promise<T>): Promise<T> {
+  const result = _paymentQueue.then(fn);
+  _paymentQueue = result.then(() => {}, () => {});
+  return result;
+}
 
 export function getAndClearLastX402Signature(): string | null {
   const sig = _lastX402Signature;
@@ -17,7 +25,8 @@ export function getAndClearLastX402Signature(): string | null {
 export function createAceClient(): AceDataCloud {
   const config = loadConfig();
   const keypair = buildSignerFromPrivateKey(config.walletPrivateKey);
-  const connection = new Connection(config.solanaMainnetRpc, 'confirmed');
+  // Bounty requirement: x402 payments must use Synapse RPC, not generic mainnet RPC
+  const connection = new Connection(config.synapseRpcUrl, 'confirmed');
 
   // Do NOT pass apiToken — that bypasses x402 and uses credit-based auth.
   // Without a token the API returns 402, the payment handler pays USDC on Solana,
@@ -28,11 +37,14 @@ export function createAceClient(): AceDataCloud {
       solanaWallet: {
         publicKey: keypair.publicKey,
         async signAndSendTransaction(tx: Transaction) {
-          const signature = await sendAndConfirmTransaction(connection, tx, [keypair]);
-          // Capture the signature so extractX402Hash can pick it up
-          _lastX402Signature = signature;
-          console.info(`[x402] Payment confirmed: ${signature}`);
-          return signature;
+          // Serialise through queue — prevents concurrent getRecentBlockhash calls
+          // that exhaust the Synapse RPC free-tier rate limit
+          return enqueuePayment(async () => {
+            const signature = await sendAndConfirmTransaction(connection, tx, [keypair]);
+            _lastX402Signature = signature;
+            console.info(`[x402] Payment confirmed: ${signature}`);
+            return signature;
+          });
         },
       },
     }) as unknown as import('@acedatacloud/sdk').PaymentHandler,
