@@ -1,4 +1,4 @@
-// Copyright 2026 Your Name &lt;Your E-Mail&gt;
+// Copyright 2026 Clawdrop <info@asicgenesis.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

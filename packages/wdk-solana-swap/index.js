@@ -1,4 +1,4 @@
-// Copyright 2026 Your Name &lt;Your E-Mail&gt;
+// Copyright 2026 Clawdrop <info@asicgenesis.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
 // limitations under the License.
 
 /** @typedef {import('@tetherto/wdk-wallet/protocols').SwapOptions} SwapOptions */
-
 /** @typedef {import('@tetherto/wdk-wallet/protocols').SwapResult} SwapResult */
-
-/** @typedef {import('./src/wdk-swap-solana-protocol-solana.js').WdkSwapSolanaProtocolConfig} WdkSwapSolanaProtocolConfig */
+/** @typedef {import('./src/wdk-swap-solana-protocol-solana.js').SolanaSwapProtocolConfig} SolanaSwapProtocolConfig */
 
 export { default } from './src/wdk-swap-solana-protocol-solana.js'
