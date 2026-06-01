@@ -1,0 +1,53 @@
+{
+  "name": "@clawdrop/wdk-swap-tron",
+  "version": "1.0.0-beta.1",
+  "description": "WDK community module — SunSwap-powered token swaps on Tron for WDK wallets.",
+  "keywords": ["wdk", "protocol", "swap", "sunswap", "tron", "usdt", "defi", "trc20"],
+  "author": "Clawdrop <info@asicgenesis.com>",
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "type": "module",
+  "types": "./types",
+  "scripts": {
+    "build:types": "tsc",
+    "lint": "standard",
+    "lint:fix": "standard --fix",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+  },
+  "dependencies": {
+    "@tetherto/wdk-wallet": "^1.0.0-beta.1",
+    "bare-node-runtime": "^1.1.4",
+    "tronweb": "^6.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "standard": "^17.1.2",
+    "typescript": "^5.8.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "bare": "./bare.js",
+      "default": "./index.js"
+    },
+    "./package": {
+      "default": "./package.json"
+    }
+  },
+  "standard": {
+    "ignore": [
+      "bare.js",
+      "tests/**/*.js"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "transformIgnorePatterns": [],
+    "moduleNameMapper": {
+      "^tronweb$": "<rootDir>/tests/__mocks__/tronweb.js"
+    }
+  }
+}
