@@ -238,7 +238,7 @@ function startAllAgents(db: Database, intervalMs: number): void {
   // Start signal agents staggered (10s apart) to avoid CoinGecko rate limits
   for (let i = 0; i < TRACKED_SYMBOLS.length; i++) {
     const symbol = TRACKED_SYMBOLS[i];
-    const delayMs = i * 10_000;
+    const delayMs = i * 45_000; // 45s apart — prevents concurrent Synapse RPC calls
     setTimeout(() => {
       const symbolContext = { ...context, symbol };
       startPriceMonitorAgent(symbolContext);
