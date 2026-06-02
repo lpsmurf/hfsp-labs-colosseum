@@ -1,0 +1,29 @@
+{
+  "name": "@clawdrop/vpn",
+  "version": "0.1.0",
+  "description": "x402-gated anonymous HTTP proxy — pay USDC, get a time-limited session. Registered on SAP marketplace.",
+  "author": "Clawdrop <info@asicgenesis.com>",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "sap:register": "tsx src/scripts/register-sap.ts"
+  },
+  "dependencies": {
+    "@oobe-protocol-labs/synapse-sap-sdk": "^0.19.8",
+    "@solana/web3.js": "^1.98.0",
+    "better-sqlite3": "^9.6.0",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.3"
+  }
+}
