@@ -15,6 +15,7 @@ import { startNewsDigestAgent } from './agents/news-digest-agent.js';
 import { startPaperBetMonitor } from './agents/paper-bet-monitor.js';
 import { startCryptoNewsDigest } from './agents/crypto-news-digest.js';
 import { getAllBets, getPnL } from './services/paper-trading.js';
+import { leaderboardHandler } from './services/x402-leaderboard.js';
 import { TRACKED_SYMBOLS } from './config.js';
 import type { AgentId, RunningAgent } from './types.js';
 
@@ -176,6 +177,11 @@ export function buildApp(db: Database): express.Express {
     const pnl  = getPnL(db, days);
     res.json({ pnl, bets });
   });
+
+  // x402-gated leaderboard — callers pay 0.01 USDC to our wallet, get live rankings back
+  // GET /api/leaderboard          → all-time
+  // GET /api/leaderboard?window=48 → last 48h
+  app.get('/api/leaderboard', leaderboardHandler(loadConfig().walletPublicKey));
 
   app.get('/api/proof', (_req: Request, res: Response) => {
     const paymentStats = db.prepare(`
