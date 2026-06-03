@@ -18,19 +18,12 @@ git -C "$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)" pull origin main
 
 # --- write .env if it doesn't already have real credentials ---
 echo -e "${CYAN}[2/5] Writing .env...${RESET}"
-cat > .env << 'EOF'
-ACEDATA_API_KEY=rIbhgtEaXnSsK1cnDD-dBvmcyRvO7I8I_eeursL1vmk
-ACEDATA_FACILITATOR_ADDRESS=https://facilitator.acedata.cloud
-WALLET_PUBLIC_KEY=G9PaCecm6XFVRR6xEaGL7dUbjGkPQauiBANAsGbs2swF
-WALLET_PRIVATE_KEY=218,221,52,216,140,123,253,119,130,255,208,241,226,36,179,43,90,3,139,66,15,117,31,121,0,74,42,54,56,156,120,204,225,5,121,28,173,189,249,72,233,167,228,229,205,219,89,41,194,36,15,68,94,241,190,27,67,14,52,181,193,145,221,154
-SOLANA_MAINNET_RPC=https://api.mainnet-beta.solana.com
-SYNAPSE_RPC_URL=https://synapse.oobeprotocol.ai
-PORT=8788
-DATABASE_PATH=./data/bounty-vault.db
-AGENT_INTERVAL_MS=300000
-START_AGENTS=true
-MOCK_ACEDATA=false
-EOF
+if [ -f .env ]; then
+  echo -e "${CYAN}  .env already exists — skipping (edit manually if needed)${RESET}"
+else
+  cp .env.example .env
+  echo -e "${CYAN}  Created .env from .env.example — fill in your credentials before starting${RESET}"
+fi
 
 # --- install dependencies ---
 echo -e "${CYAN}[3/5] Installing dependencies...${RESET}"
