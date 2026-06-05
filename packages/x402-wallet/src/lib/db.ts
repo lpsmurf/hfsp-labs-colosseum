@@ -36,7 +36,9 @@ function migrate(db: Database.Database) {
       spendCapUsdc     REAL NOT NULL DEFAULT 10,
       autoApproveUsdc  REAL NOT NULL DEFAULT 1,
       periodSeconds    INTEGER NOT NULL DEFAULT 86400,
-      createdAt        INTEGER NOT NULL
+      createdAt        INTEGER NOT NULL,
+      marketServiceId  TEXT,
+      marketCategory   TEXT
     );
 
     CREATE TABLE IF NOT EXISTS transactions (
@@ -55,6 +57,14 @@ function migrate(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_txs_blocktime ON transactions(blockTime DESC);
     CREATE INDEX IF NOT EXISTS idx_skills_agent ON skills(agentId);
   `);
+
+  // Non-destructive column additions for existing DBs
+  for (const stmt of [
+    `ALTER TABLE skills ADD COLUMN marketServiceId TEXT`,
+    `ALTER TABLE skills ADD COLUMN marketCategory  TEXT`,
+  ]) {
+    try { db.exec(stmt); } catch { /* column already exists */ }
+  }
 }
 
 // ─── Agent CRUD ───────────────────────────────────────────────────────────────
@@ -94,19 +104,27 @@ export function listSkills(agentId: string): Skill[] {
 export function upsertSkill(skill: Omit<Skill, 'createdAt'>): Skill {
   const now = Date.now();
   getDb().prepare(`
-    INSERT INTO skills (id, agentId, product, name, enabled, spendCapUsdc, autoApproveUsdc, periodSeconds, createdAt)
-    VALUES (@id, @agentId, @product, @name, @enabled, @spendCapUsdc, @autoApproveUsdc, @periodSeconds, @now)
+    INSERT INTO skills (id, agentId, product, name, enabled, spendCapUsdc, autoApproveUsdc, periodSeconds, createdAt, marketServiceId, marketCategory)
+    VALUES (@id, @agentId, @product, @name, @enabled, @spendCapUsdc, @autoApproveUsdc, @periodSeconds, @now, @marketServiceId, @marketCategory)
     ON CONFLICT(id) DO UPDATE SET
       enabled = excluded.enabled,
       spendCapUsdc = excluded.spendCapUsdc,
       autoApproveUsdc = excluded.autoApproveUsdc,
       periodSeconds = excluded.periodSeconds
-  `).run({ ...skill, enabled: skill.enabled ? 1 : 0, now });
+  `).run({ marketServiceId: null, marketCategory: null, ...skill, enabled: skill.enabled ? 1 : 0, now });
   return getDb().prepare('SELECT * FROM skills WHERE id = ?').get(skill.id) as Skill;
 }
 
 export function toggleSkill(id: string, enabled: boolean): void {
   getDb().prepare('UPDATE skills SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+}
+
+export function deleteSkillByMarketId(agentId: string, marketServiceId: string): void {
+  getDb().prepare('DELETE FROM skills WHERE agentId = ? AND marketServiceId = ?').run(agentId, marketServiceId);
+}
+
+export function deleteSkill(id: string): void {
+  getDb().prepare('DELETE FROM skills WHERE id = ?').run(id);
 }
 
 // ─── Transaction CRUD ─────────────────────────────────────────────────────────

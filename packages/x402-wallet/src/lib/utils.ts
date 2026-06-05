@@ -21,11 +21,12 @@ export function formatDate(ts: number): string {
 
 export function productLabel(product: string): string {
   const labels: Record<string, string> = {
-    'vpn-x402': 'VPN',
+    'vpn-x402':    'VPN',
     'gnosis-card': 'Gnosis Card',
-    'vps-x402': 'VPS',
-    'custom': 'Custom',
-    'unknown': 'Unknown',
+    'vps-x402':    'VPS',
+    'custom':      'Custom',
+    'marketplace': 'Marketplace',
+    'unknown':     'Unknown',
   };
   return labels[product] ?? product;
 }

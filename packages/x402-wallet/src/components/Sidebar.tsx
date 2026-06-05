@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { LayoutDashboard, Bot, Wallet, Zap } from 'lucide-react';
+import { LayoutDashboard, Bot, Wallet, Zap, Store } from 'lucide-react';
 
 const NAV = [
-  { href: '/',        icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/agents',  icon: Bot,             label: 'Agents' },
-  { href: '/skills',  icon: Zap,             label: 'Skills' },
-  { href: '/wallet',  icon: Wallet,          label: 'Wallet' },
+  { href: '/',            icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/agents',      icon: Bot,             label: 'Agents' },
+  { href: '/skills',      icon: Zap,             label: 'Skills' },
+  { href: '/wallet',      icon: Wallet,          label: 'Wallet' },
+  { href: '/marketplace', icon: Store,           label: 'Marketplace' },
 ];
 
 export function Sidebar() {

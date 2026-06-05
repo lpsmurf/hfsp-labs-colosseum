@@ -118,3 +118,4 @@ scripts/session-closer/
 packages/oobe-bounty/data/*.db
 packages/x402-wallet/data/*.db
 packages/oobe-bounty/wallet-pubkey.txt
+packages/x402-wallet/tsconfig.tsbuildinfo

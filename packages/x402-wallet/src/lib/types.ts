@@ -12,7 +12,7 @@ export interface Agent {
   updatedAt: number;
 }
 
-export type SkillProduct = 'vpn-x402' | 'gnosis-card' | 'vps-x402' | 'custom';
+export type SkillProduct = 'vpn-x402' | 'gnosis-card' | 'vps-x402' | 'custom' | 'marketplace';
 
 export interface Skill {
   id: string;
@@ -24,6 +24,9 @@ export interface Skill {
   autoApproveUsdc: number;   // auto-approve payments under this amount
   periodSeconds: number;     // cap resets every N seconds (e.g. 86400 = daily)
   createdAt: number;
+  // populated when product = 'marketplace'
+  marketServiceId?: string;
+  marketCategory?: string;
 }
 
 export type TxStatus = 'success' | 'pending' | 'failed';
