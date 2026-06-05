@@ -38,7 +38,7 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ['aws_key',           /AKIA[0-9A-Z]{16}/],
   ['openai_key',        /sk-[A-Za-z0-9]{20,}/],
   ['jwt',               /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],
-  ['stripe',            /(sk|pk)_live_[A-Za-z0-9]{16,}/],
+  ['stripe_secret',     /sk_live_[A-Za-z0-9]{16,}/], // pk_live_ is a PUBLISHABLE key (public by design) — not a leak
   ['internal_ip',       /\b(10\.\d{1,3}|192\.168|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/],
 ];
 
@@ -206,6 +206,8 @@ async function main() {
   let pool = enriched;
   if (tier === 'p1') pool = enriched.filter(s => s.l30d_calls >= 1000);
   else if (tier === 'p2') pool = enriched.filter(s => s.l30d_calls >= 100 && s.l30d_calls < 1000);
+  else if (tier === 'p3') pool = enriched.filter(s => s.l30d_calls >= 10 && s.l30d_calls < 100);
+  else if (tier === 'p4') pool = enriched.filter(s => s.l30d_calls >= 1 && s.l30d_calls < 10);
   pool = pool.slice(0, limit);
 
   const raw: Array<Record<string, unknown>> = JSON.parse(readFileSync(RAW_CATALOG, 'utf-8'));

@@ -121,5 +121,10 @@
 | 2026-06-05 | x402node.dev + cn402.com | Info | shared-payTo-across-distinct-vendors | — |
 | 2026-06-05 | flipr-x402.fly.dev | Low | http-200-for-error-condition | — |
 
+| 2026-06-05 | base-intel-api.jakemaxsigal.workers.dev | **CRITICAL** | payment-bypass-no-verification | — |
+| 2026-06-05 | zapper, justaname, lnpay, crinkl, slamai +5 | High | cors-reflect-origin-with-credentials | — |
+
 > Security sweep details (incl. verified false positives): [security-sweep-p1-p2.md](findings/security-sweep-p1-p2.md)
-> Headline: **0 confirmed auth bypasses / 0 secret leaks across 83 services** — the payment gate holds; issues are robustness + CORS.
+> P1+P2 headline: 0 confirmed bypasses across 83 services.
+> **P3 (233 services) headline: 1 CONFIRMED CRITICAL payment bypass** — [base-intel-api](findings/CRITICAL-base-intel-api-auth-bypass.md) serves full paid data on any non-empty `X-PAYMENT` header (no verification). Plus a 10-service [CORS+credentials cluster](findings/cors-credentials-cluster.md).
+> Verified false positives this round: myceliasignal/sho/info (public manifest), x402joke/theloopbreaker (200-on-error envelopes), voidfeed (Stripe *publishable* key — public by design; regex tightened to sk_live_).
