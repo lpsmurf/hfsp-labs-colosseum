@@ -54,3 +54,19 @@ curl -X POST "http://localhost:3001/api/card/topup" \
 
 - [User Guide](../../docs/guides/gnosis-card-user-guide.md)
 - [Agent & API Reference](../../docs/guides/gnosis-card-agent-api.md)
+
+## Contact
+
+**info@hfsp.xyz** · [hfsp.xyz](https://hfsp.xyz)
+
+## Support the Project
+
+If this saved you time or fees, consider a donation:
+
+| Chain | Address |
+|-------|---------|
+| **Solana** | `ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL` |
+| **EVM** (ETH, Base, Gnosis, Arbitrum…) | `0x002e76fEdb2014d24AB6032998BD9F406b322bDF` |
+| **Bitcoin** | `bc1pt6u3cgad70w5yypdkrdphdfqzmyrvjdljqxpz7r2neday2kjtj9qh4kfyd` |
+
+Built by [HFSP Labs](https://hfsp.xyz)

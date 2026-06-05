@@ -385,3 +385,23 @@ User (Base USDC)
 ```
 
 **Bridge provider:** [Relay.link](https://relay.link) — ~5s settlement, ~$0.03–$0.10 flat fee
+
+---
+
+## Contact & Support
+
+Technical questions or integration support: **info@hfsp.xyz**
+
+---
+
+## Support the Project
+
+If this API powers your product, consider donating — it helps us maintain the infrastructure and keep fees low.
+
+| Chain | Address |
+|-------|---------|
+| **Solana** | `ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL` |
+| **EVM** (ETH, Base, Gnosis, Arbitrum…) | `0x002e76fEdb2014d24AB6032998BD9F406b322bDF` |
+| **Bitcoin** | `bc1pt6u3cgad70w5yypdkrdphdfqzmyrvjdljqxpz7r2neday2kjtj9qh4kfyd` |
+
+Built by [HFSP Labs](https://hfsp.xyz) · info@hfsp.xyz

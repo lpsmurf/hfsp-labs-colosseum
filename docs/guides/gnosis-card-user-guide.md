@@ -186,3 +186,23 @@ Relay.link automatically refunds to your source wallet within a few minutes.
 
 **Minimum amount?**
 $1 USDC minimum. Below $10 the fees are proportionally high (~8–15%).
+
+---
+
+## Contact
+
+Questions or support: **info@hfsp.xyz**
+
+---
+
+## Support the Project
+
+If this product saved you time or fees, consider a small donation — it helps us keep building open x402 infrastructure.
+
+| Chain | Address |
+|-------|---------|
+| **Solana** | `ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL` |
+| **EVM** (ETH, Base, Gnosis, Arbitrum…) | `0x002e76fEdb2014d24AB6032998BD9F406b322bDF` |
+| **Bitcoin** | `bc1pt6u3cgad70w5yypdkrdphdfqzmyrvjdljqxpz7r2neday2kjtj9qh4kfyd` |
+
+Built with ❤️ by [HFSP Labs](https://hfsp.xyz)
