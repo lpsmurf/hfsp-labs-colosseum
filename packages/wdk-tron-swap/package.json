@@ -3,7 +3,7 @@
   "version": "1.0.0-beta.1",
   "description": "WDK community module — SunSwap-powered token swaps on Tron for WDK wallets.",
   "keywords": ["wdk", "protocol", "swap", "sunswap", "tron", "usdt", "defi", "trc20"],
-  "author": "Clawdrop <info@asicgenesis.com>",
+  "author": "Clawdrop <info@hfsp.xyz>",
   "license": "Apache-2.0",
   "main": "index.js",
   "type": "module",

@@ -2,7 +2,7 @@
   "name": "@clawdrop/vpn",
   "version": "0.1.0",
   "description": "x402-gated anonymous HTTP proxy — pay USDC, get a time-limited session. Registered on SAP marketplace.",
-  "author": "Clawdrop <info@asicgenesis.com>",
+  "author": "Clawdrop <info@hfsp.xyz>",
   "license": "MIT",
   "type": "module",
   "main": "src/server.ts",
