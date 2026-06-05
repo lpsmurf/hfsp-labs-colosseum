@@ -105,6 +105,12 @@ scripts/session-closer/
 .DS_Store
 .env*.local
 
+# Large media files (use external storage / links instead)
+*.mp4
+*.mp3
+*.mov
+*.avi
+
 # Solana keypairs (NEVER commit)
 **/solana-keypair.json
 **/wallet-keypair.json

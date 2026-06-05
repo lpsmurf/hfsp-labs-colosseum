@@ -20,7 +20,10 @@
     "packages/clawdrop-platform",
     "packages/trial-api",
     "packages/trial-frontend",
-    "packages/oobe-bounty"
+    "packages/oobe-bounty",
+    "packages/clawdrop-vpn",
+    "packages/gnosis-card-x402",
+    "packages/gnosis-card-contracts"
   ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
