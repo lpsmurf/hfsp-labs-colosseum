@@ -23,7 +23,8 @@
     "packages/oobe-bounty",
     "packages/clawdrop-vpn",
     "packages/gnosis-card-x402",
-    "packages/gnosis-card-contracts"
+    "packages/gnosis-card-contracts",
+    "packages/x402-wallet"
   ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",

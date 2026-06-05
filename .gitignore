@@ -116,4 +116,5 @@ scripts/session-closer/
 **/wallet-keypair.json
 **/*-keypair.json
 packages/oobe-bounty/data/*.db
+packages/x402-wallet/data/*.db
 packages/oobe-bounty/wallet-pubkey.txt
