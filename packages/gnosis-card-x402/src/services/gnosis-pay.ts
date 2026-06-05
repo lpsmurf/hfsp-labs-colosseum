@@ -107,8 +107,13 @@ async function gpFetch<T>(
  * Frontend signs: EIP-4361 message containing this nonce.
  */
 export async function getSiweNonce(walletAddress: string): Promise<string> {
-  const data = await gpFetch<{ nonce: string }>(`/api/v1/auth/nonce?address=${walletAddress}`);
-  return data.nonce;
+  const headers: Record<string, string> = {};
+  if (config.GP_APP_ID) headers['X-App-Id'] = config.GP_APP_ID;
+  const res = await fetch(`${GP}/api/v1/auth/nonce?address=${walletAddress}`, { headers });
+  if (!res.ok) throw new Error(`GP nonce → ${res.status}: ${await res.text().catch(() => '')}`);
+  const text = await res.text();
+  // GP returns either plain-text nonce or JSON { nonce }
+  try { return (JSON.parse(text) as { nonce: string }).nonce; } catch { return text.trim(); }
 }
 
 /**

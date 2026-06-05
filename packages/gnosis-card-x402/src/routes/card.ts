@@ -33,7 +33,7 @@ import {
   pollSafeDeployment,
   createVirtualCard,
 } from '../services/gnosis-pay.js';
-import { config, GNOSIS_TOKENS, type GnosisToken } from '../config.js';
+import { config, GNOSIS_TOKENS, type GnosisToken, type SourceChain } from '../config.js';
 
 export const cardRouter = Router();
 
@@ -43,12 +43,14 @@ const topupQuerySchema = z.object({
   amount:      z.string().transform(Number).pipe(z.number().min(1).max(10_000)),
   safeAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid Gnosis Safe address'),
   currency:    z.enum(['USDCe', 'EURe', 'GBPe']).default('USDCe'),
+  sourceChain: z.enum(['solana', 'base']).default('solana'),
 });
 
 const topupBodySchema = z.object({
   amount:      z.number().min(1).max(10_000),
   safeAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   currency:    z.enum(['USDCe', 'EURe', 'GBPe']).default('USDCe'),
+  sourceChain: z.enum(['solana', 'base']).default('solana'),
 });
 
 const nonceQuerySchema = z.object({
@@ -76,14 +78,15 @@ cardRouter.get('/topup/quote', async (req, res) => {
     res.status(400).json({ error: 'Invalid params', details: parsed.error.flatten().fieldErrors });
     return;
   }
-  const { amount, safeAddress, currency } = parsed.data;
+  const { amount, safeAddress, currency, sourceChain } = parsed.data;
 
   try {
-    const quote = await getQuote({ srcAmountUsdc: amount, dstToken: currency as GnosisToken, safeAddress });
+    const quote = await getQuote({ srcAmountUsdc: amount, dstToken: currency as GnosisToken, safeAddress, sourceChain: sourceChain as SourceChain });
+    const isBase = sourceChain === 'base';
     res.json({
       ok: true,
       quote: {
-        youPay:         `${amount} USDC (Solana)`,
+        youPay:         `${amount} USDC (${isBase ? 'Base' : 'Solana'})`,
         youReceive:     `${quote.dstAmountFormatted.toFixed(4)} ${currency} (Gnosis Chain)`,
         bridgeFee:      `$${quote.bridgeFeeUsdc.toFixed(4)} USDC`,
         serviceFee:     `$${quote.ourFeeUsdc.toFixed(4)} USDC (${config.TOPUP_FEE_PCT}%)`,
@@ -91,7 +94,12 @@ cardRouter.get('/topup/quote', async (req, res) => {
         safeAddress,
         dstTokenAddress: quote.dstTokenAddress,
       },
-      payment: {
+      payment: isBase ? {
+        payTo:   config.EVM_WALLET_ADDRESS,
+        asset:   '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        network: 'base-mainnet',
+        amount:  amount.toFixed(6),
+      } : {
         payTo:   config.WALLET_PUBLIC_KEY,
         asset:   'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         network: 'solana-mainnet',
@@ -129,8 +137,8 @@ cardRouter.post(
       res.status(400).json({ error: 'Invalid body', details: parsed.error.flatten().fieldErrors });
       return;
     }
-    const { amount, safeAddress, currency } = parsed.data;
-    const { signature } = res.locals.payment as { paidUsdc: number; signature: string };
+    const { amount, safeAddress, currency, sourceChain } = parsed.data;
+    const { signature } = res.locals.payment as { paidUsdc: number; signature: string; chain: string };
 
     // Prevent replay
     if (await isSpent(signature)) {
@@ -145,6 +153,7 @@ cardRouter.post(
         srcAmountUsdc: amount,
         dstToken:      currency as GnosisToken,
         safeAddress,
+        sourceChain:   sourceChain as SourceChain,
       });
 
       res.status(202).json({

@@ -1,164 +1,241 @@
 /**
- * deBridge DLN — Solana USDC → Gnosis Chain token bridge.
+ * Relay.link bridge — direct Solana USDC → Gnosis Chain USDCe in ~5 seconds.
  *
  * Flow:
- *   1. getQuote()  — get fee-inclusive amount needed on Solana
- *   2. createOrder() — get unsigned Solana tx from deBridge
- *   3. signAndSubmit() — sign with our wallet, submit to Solana
- *   4. getOrderStatus() — poll until fulfilled
+ *   1. getQuote()            — get fee breakdown + Solana tx instructions
+ *   2. createAndSubmitOrder() — build versioned tx from instructions, sign, submit
+ *   3. getOrderStatus()       — poll /intents/status until fulfilled
  *
- * Our server holds the Solana wallet that received the x402 payment.
- * We bridge from that wallet to the user's Gnosis Safe address directly.
- * No intermediary — user receives tokens straight into their Safe.
+ * Our server wallet receives x402 USDC and immediately bridges it to the
+ * user's Gnosis Safe. No intermediary chains.
  */
 
-import { Connection, VersionedTransaction, Keypair } from '@solana/web3.js';
+import {
+  Connection,
+  VersionedTransaction,
+  TransactionMessage,
+  TransactionInstruction,
+  AddressLookupTableAccount,
+  PublicKey,
+  Keypair,
+} from '@solana/web3.js';
+import { ethers } from 'ethers';
 import bs58 from 'bs58';
-import { config, CHAIN_IDS, GNOSIS_TOKENS, USDC_MINT, HELIUS_RPC, type GnosisToken } from '../config.js';
+import {
+  config, GNOSIS_TOKENS, USDC_MINT, BASE_USDC,
+  HELIUS_RPC, BASE_CHAIN_ID, SOLANA_CHAIN_ID, GNOSIS_CHAIN_ID,
+  type GnosisToken, type SourceChain,
+} from '../config.js';
 
-const DLN_API = config.DBRIDGE_API_URL;
+const RELAY_API = config.RELAY_API_URL;
 
 export interface BridgeQuote {
-  srcAmountUsdc: number;          // USDC to send on Solana (inc. our fee)
-  dstAmountRaw: string;           // raw token units received on Gnosis Chain
-  dstAmountFormatted: number;     // human-readable token amount
-  dstToken: GnosisToken;
-  dstTokenAddress: string;
-  bridgeFeeUsdc: number;          // deBridge protocol fee
-  ourFeeUsdc: number;             // our service fee
+  srcAmountUsdc:       number;
+  dstAmountFormatted:  number;
+  dstToken:            GnosisToken;
+  dstTokenAddress:     string;
+  bridgeFeeUsdc:       number;
+  ourFeeUsdc:          number;
   estimatedFillTimeMs: number;
+  sourceChain:         SourceChain;
 }
 
 export interface BridgeOrder {
-  orderId: string;
-  status: 'pending' | 'fulfilled' | 'failed';
+  orderId:    string;
+  status:     'pending' | 'fulfilled' | 'failed';
   srcTxHash?: string;
   dstTxHash?: string;
-  createdAt: number;
+  createdAt:  number;
+  requestId?: string;
 }
 
-function getServerKeypair(): Keypair {
+function getSolanaKeypair(): Keypair {
   return Keypair.fromSecretKey(bs58.decode(config.WALLET_PRIVATE_KEY));
 }
 
-/**
- * Get a bridge quote: how much USDC the user needs to send on Solana
- * for `dstAmount` of `dstToken` to land in `safeAddress` on Gnosis Chain.
- *
- * If dstAmount is omitted, quotes for srcAmountUsdc (minus fees).
- */
-export async function getQuote(opts: {
-  srcAmountUsdc: number;
-  dstToken: GnosisToken;
-  safeAddress: string;
-}): Promise<BridgeQuote> {
-  const { srcAmountUsdc, dstToken, safeAddress } = opts;
-  const feePct = parseFloat(config.TOPUP_FEE_PCT) / 100;
-  const ourFeeUsdc = parseFloat((srcAmountUsdc * feePct).toFixed(6));
+function getEvmWallet(): ethers.Wallet {
+  return new ethers.Wallet(config.EVM_WALLET_PRIVATE_KEY);
+}
 
-  // Amount we actually bridge after taking our cut
-  const bridgeAmountUsdc = srcAmountUsdc - ourFeeUsdc;
-  const srcAmountRaw = Math.round(bridgeAmountUsdc * 1_000_000).toString(); // USDC has 6 decimals
-
-  const params = new URLSearchParams({
-    srcChainId:                    CHAIN_IDS.SOLANA.toString(),
-    srcChainTokenIn:               USDC_MINT,
-    srcChainTokenInAmount:         srcAmountRaw,
-    dstChainId:                    CHAIN_IDS.GNOSIS.toString(),
-    dstChainTokenOut:              GNOSIS_TOKENS[dstToken],
-    dstChainTokenOutRecipient:     safeAddress,
-    srcChainOrderAuthorityAddress: config.WALLET_PUBLIC_KEY,
-    dstChainOrderAuthorityAddress: safeAddress,
-    prependOperatingExpenses:      'false',
-  });
-
-  const res = await fetch(`${DLN_API}/dln/order/quote?${params}`);
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`deBridge quote failed (${res.status}): ${body}`);
-  }
-
-  const data = await res.json() as {
-    estimation: {
-      srcChainTokenIn:  { amount: string; decimals: number };
-      dstChainTokenOut: { amount: string; decimals: number; recommendedAmount: string };
-      costsDetails:     Array<{ payload: { feeAmount: string; tokenIn: { decimals: number } } }>;
-    };
-    order: { approximateFulfillmentDelay: number };
+interface RelayQuoteResponse {
+  steps: Array<{
+    id: string;
+    items: Array<{
+      status: string;
+      data: {
+        instructions: Array<{
+          programId: string;
+          keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+          data: number[];
+        }>;
+        addressLookupTableAddresses: string[];
+      };
+      check: { endpoint: string; method: string };
+    }>;
+  }>;
+  fees: {
+    relayerService: { amountFormatted: string };
+    relayerGas:     { amountFormatted: string };
   };
-
-  const srcEst   = data.estimation.srcChainTokenIn;
-  const dstEst   = data.estimation.dstChainTokenOut;
-  const bridgeFeeRaw = data.estimation.costsDetails?.[0]?.payload?.feeAmount ?? '0';
-  const bridgeFeeDecimals = data.estimation.costsDetails?.[0]?.payload?.tokenIn?.decimals ?? 6;
-  const bridgeFeeUsdc = parseFloat(bridgeFeeRaw) / 10 ** bridgeFeeDecimals;
-
-  return {
-    srcAmountUsdc,
-    dstAmountRaw:       dstEst.recommendedAmount ?? dstEst.amount,
-    dstAmountFormatted: parseFloat(dstEst.recommendedAmount ?? dstEst.amount) / 10 ** dstEst.decimals,
-    dstToken,
-    dstTokenAddress:    GNOSIS_TOKENS[dstToken],
-    bridgeFeeUsdc:      parseFloat(bridgeFeeUsdc.toFixed(6)),
-    ourFeeUsdc,
-    estimatedFillTimeMs: (data.order?.approximateFulfillmentDelay ?? 60) * 1000,
+  details: {
+    currencyOut:  { amount: string; amountFormatted: string };
+    timeEstimate: number;
+  };
+  protocol: {
+    v2: { orderId: string };
   };
 }
 
-/**
- * Build, sign, and submit the bridge order transaction from our Solana wallet.
- * Returns an orderId that can be polled via getOrderStatus().
- */
-export async function createAndSubmitOrder(opts: {
-  srcAmountUsdc: number;
-  dstToken: GnosisToken;
-  safeAddress: string;
-}): Promise<BridgeOrder> {
-  const { srcAmountUsdc, dstToken, safeAddress } = opts;
-  const feePct = parseFloat(config.TOPUP_FEE_PCT) / 100;
-  const bridgeAmountUsdc = srcAmountUsdc * (1 - feePct);
-  const srcAmountRaw = Math.round(bridgeAmountUsdc * 1_000_000).toString();
+async function relayQuote(opts: {
+  srcAmountRaw:  string;
+  dstToken:      GnosisToken;
+  safeAddress:   string;
+  senderWallet:  string;
+  sourceChain:   SourceChain;
+}): Promise<RelayQuoteResponse> {
+  const originChainId   = opts.sourceChain === 'base' ? BASE_CHAIN_ID : SOLANA_CHAIN_ID;
+  const originCurrency  = opts.sourceChain === 'base' ? BASE_USDC     : USDC_MINT;
 
-  const params = new URLSearchParams({
-    srcChainId:                    CHAIN_IDS.SOLANA.toString(),
-    srcChainTokenIn:               USDC_MINT,
-    srcChainTokenInAmount:         srcAmountRaw,
-    dstChainId:                    CHAIN_IDS.GNOSIS.toString(),
-    dstChainTokenOut:              GNOSIS_TOKENS[dstToken],
-    dstChainTokenOutRecipient:     safeAddress,
-    srcChainOrderAuthorityAddress: config.WALLET_PUBLIC_KEY,
-    dstChainOrderAuthorityAddress: safeAddress,
-    prependOperatingExpenses:      'false',
+  const res = await fetch(`${RELAY_API}/quote`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user:                 opts.senderWallet,
+      originChainId,
+      destinationChainId:   GNOSIS_CHAIN_ID,
+      originCurrency,
+      destinationCurrency:  GNOSIS_TOKENS[opts.dstToken],
+      amount:               opts.srcAmountRaw,
+      recipient:            opts.safeAddress,
+      tradeType:            'EXACT_INPUT',
+    }),
   });
 
-  // Get unsigned transaction from deBridge
-  const res = await fetch(`${DLN_API}/dln/order/create-tx?${params}`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`deBridge create-tx failed (${res.status}): ${body}`);
+    throw new Error(`Relay.link quote failed (${res.status}): ${body}`);
   }
 
-  const data = await res.json() as {
-    tx:    { data: string };           // base64-encoded unsigned Solana tx
-    orderId: { stringValue: string };
+  return res.json() as Promise<RelayQuoteResponse>;
+}
+
+export async function getQuote(opts: {
+  srcAmountUsdc: number;
+  dstToken:      GnosisToken;
+  safeAddress:   string;
+  sourceChain?:  SourceChain;
+}): Promise<BridgeQuote> {
+  const { srcAmountUsdc, dstToken, safeAddress, sourceChain = 'solana' } = opts;
+  const feePct     = parseFloat(config.TOPUP_FEE_PCT) / 100;
+  const ourFeeUsdc = parseFloat((srcAmountUsdc * feePct).toFixed(6));
+  const bridgeAmt  = srcAmountUsdc - ourFeeUsdc;
+  const srcRaw     = Math.round(bridgeAmt * 1_000_000).toString();
+
+  const senderWallet = sourceChain === 'base'
+    ? config.EVM_WALLET_ADDRESS
+    : getSolanaKeypair().publicKey.toBase58();
+
+  const data = await relayQuote({ srcAmountRaw: srcRaw, dstToken, safeAddress, senderWallet, sourceChain });
+
+  const relayFee   = parseFloat(data.fees.relayerService.amountFormatted ?? '0');
+  const gasFee     = parseFloat(data.fees.relayerGas.amountFormatted ?? '0');
+
+  return {
+    srcAmountUsdc,
+    dstAmountFormatted:  parseFloat(data.details.currencyOut.amountFormatted),
+    dstToken,
+    dstTokenAddress:     GNOSIS_TOKENS[dstToken],
+    bridgeFeeUsdc:       parseFloat((relayFee + gasFee).toFixed(6)),
+    ourFeeUsdc,
+    estimatedFillTimeMs: (data.details.timeEstimate ?? 5) * 1000,
+    sourceChain,
   };
+}
 
-  const keypair = getServerKeypair();
-  const connection = new Connection(HELIUS_RPC, 'confirmed');
+export async function createAndSubmitOrder(opts: {
+  srcAmountUsdc: number;
+  dstToken:      GnosisToken;
+  safeAddress:   string;
+  sourceChain?:  SourceChain;
+}): Promise<BridgeOrder> {
+  const { srcAmountUsdc, dstToken, safeAddress, sourceChain = 'solana' } = opts;
+  const feePct    = parseFloat(config.TOPUP_FEE_PCT) / 100;
+  const bridgeAmt = srcAmountUsdc * (1 - feePct);
+  const srcRaw    = Math.round(bridgeAmt * 1_000_000).toString();
 
-  // Deserialize → sign → submit
-  const txBytes = Buffer.from(data.tx.data, 'base64');
-  const tx = VersionedTransaction.deserialize(txBytes);
-  tx.sign([keypair]);
+  const senderWallet = sourceChain === 'base'
+    ? config.EVM_WALLET_ADDRESS
+    : getSolanaKeypair().publicKey.toBase58();
 
-  const signature = await connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
-    maxRetries: 3,
-  });
+  const quote = await relayQuote({ srcAmountRaw: srcRaw, dstToken, safeAddress, senderWallet, sourceChain });
 
-  await connection.confirmTransaction(signature, 'confirmed');
+  const step = quote.steps.find(s => s.id === 'deposit');
+  if (!step?.items[0]?.data) throw new Error('Relay.link returned no deposit step');
 
-  const orderId = data.orderId?.stringValue ?? signature;
+  let signature: string;
+
+  if (sourceChain === 'base') {
+    // ── Base EVM path ──────────────────────────────────────────────────────────
+    const evmWallet  = getEvmWallet();
+    const provider   = new ethers.JsonRpcProvider(config.BASE_RPC_URL);
+    const signer     = evmWallet.connect(provider);
+
+    // Relay.link returns EVM tx data under steps[0].items[0].data for EVM chains
+    const txData = step.items[0].data as unknown as {
+      to: string; data: string; value: string; chainId: number;
+    };
+
+    const tx = await signer.sendTransaction({
+      to:      txData.to,
+      data:    txData.data,
+      value:   BigInt(txData.value ?? '0'),
+      chainId: txData.chainId ?? BASE_CHAIN_ID,
+    });
+
+    const receipt = await tx.wait(1);
+    if (!receipt || receipt.status !== 1) throw new Error('Base transaction failed');
+    signature = tx.hash;
+
+  } else {
+    // ── Solana path ────────────────────────────────────────────────────────────
+    const keypair    = getSolanaKeypair();
+    const connection = new Connection(HELIUS_RPC, 'confirmed');
+    const { instructions: rawInstructions, addressLookupTableAddresses } = step.items[0].data;
+
+    const altAccounts: AddressLookupTableAccount[] = [];
+    for (const addr of addressLookupTableAddresses ?? []) {
+      const res = await connection.getAddressLookupTable(new PublicKey(addr));
+      if (res.value) altAccounts.push(res.value);
+    }
+
+    const instructions: TransactionInstruction[] = rawInstructions.map(ix => new TransactionInstruction({
+      programId: new PublicKey(ix.programId),
+      keys:      ix.keys.map(k => ({
+        pubkey:     new PublicKey(k.pubkey),
+        isSigner:   k.isSigner,
+        isWritable: k.isWritable,
+      })),
+      data: Buffer.from(typeof ix.data === 'string' ? ix.data : Buffer.from(ix.data).toString('hex'), 'hex'),
+    }));
+
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const message = new TransactionMessage({
+      payerKey:        keypair.publicKey,
+      recentBlockhash: blockhash,
+      instructions,
+    }).compileToV0Message(altAccounts);
+
+    const solTx = new VersionedTransaction(message);
+    solTx.sign([keypair]);
+
+    signature = await connection.sendRawTransaction(solTx.serialize(), { skipPreflight: false, maxRetries: 3 });
+    await connection.confirmTransaction(signature, 'confirmed');
+  }
+
+  // Use the check endpoint requestId for status polling (not the protocol orderId)
+  const checkEndpoint = quote.steps[0]?.items[0]?.check?.endpoint ?? '';
+  const requestIdMatch = checkEndpoint.match(/requestId=([^&]+)/);
+  const orderId = requestIdMatch?.[1] ?? quote.protocol?.v2?.orderId ?? signature;
 
   return {
     orderId,
@@ -168,38 +245,30 @@ export async function createAndSubmitOrder(opts: {
   };
 }
 
-/**
- * Poll deBridge for the status of a submitted order.
- */
 export async function getOrderStatus(orderId: string): Promise<BridgeOrder> {
-  const res = await fetch(`${DLN_API}/dln/order/${encodeURIComponent(orderId)}`);
-  if (!res.ok) {
-    throw new Error(`deBridge order status failed (${res.status})`);
-  }
+  const res = await fetch(`${RELAY_API}/intents/status?requestId=${encodeURIComponent(orderId)}`);
+  if (!res.ok) throw new Error(`Relay.link status failed (${res.status})`);
 
   const data = await res.json() as {
-    status:           string;
-    orderId:          string;
-    srcTxHash?:       string;
-    fulfilledDstEventMetadata?: { transactionHash?: { stringValue?: string } };
+    status:      string;
+    inTxHash?:   string;
+    outTxHash?:  string;
   };
 
   const statusMap: Record<string, BridgeOrder['status']> = {
-    Created:           'pending',
-    Processing:        'pending',
-    Fulfilled:         'fulfilled',
-    SentUnlock:        'fulfilled',
-    ClaimedUnlock:     'fulfilled',
-    OrderCancelled:    'failed',
-    SentOrderCancel:   'failed',
-    ClaimedOrderCancel: 'failed',
+    waiting:    'pending',
+    pending:    'pending',
+    processing: 'pending',
+    success:    'fulfilled',
+    failure:    'failed',
+    refund:     'failed',
   };
 
   return {
-    orderId: data.orderId ?? orderId,
-    status:  statusMap[data.status] ?? 'pending',
-    srcTxHash: data.srcTxHash,
-    dstTxHash: data.fulfilledDstEventMetadata?.transactionHash?.stringValue,
+    orderId,
+    status:    statusMap[data.status?.toLowerCase()] ?? 'pending',
+    srcTxHash: data.inTxHash,
+    dstTxHash: data.outTxHash,
     createdAt: Date.now(),
   };
 }
