@@ -45,10 +45,12 @@ export const SOLANA_CHAIN_ID = 792703809;
 export const GNOSIS_CHAIN_ID = 100;
 
 // Gnosis Chain tokens
+// USDC: native Circle USDC on Gnosis (0x2a22...) — Gnosis Pay updated to this token
+// USDCe (0xDDAf...) is the legacy bridged version, no longer used by Gnosis Pay
 export const GNOSIS_TOKENS = {
-  USDCe: '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83',
-  EURe:  '0xcB444e90D8198415266c6a2724b7900fb12FC56E',
-  GBPe:  '0x5Cb9073902F2035222B9749F8fB0c9BFe5527108',
+  USDC:  '0x2a22f9c3b484c3629090feed35f17ff8f88f76f0',  // native Circle USDC (Gnosis Pay)
+  EURe:  '0xcB444e90D8198415266c6a2724b7900fb12FC56E',  // Monerium EURe
+  GBPe:  '0x5Cb9073902F2035222B9749F8fB0c9BFe5527108',  // Monerium GBPe
 } as const;
 
 export type GnosisToken  = keyof typeof GNOSIS_TOKENS;

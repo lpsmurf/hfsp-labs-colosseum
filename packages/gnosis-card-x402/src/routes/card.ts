@@ -42,14 +42,14 @@ export const cardRouter = Router();
 const topupQuerySchema = z.object({
   amount:      z.string().transform(Number).pipe(z.number().min(1).max(10_000)),
   safeAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid Gnosis Safe address'),
-  currency:    z.enum(['USDCe', 'EURe', 'GBPe']).default('USDCe'),
+  currency:    z.enum(['USDC', 'EURe', 'GBPe']).default('USDC'),
   sourceChain: z.enum(['solana', 'base']).default('solana'),
 });
 
 const topupBodySchema = z.object({
   amount:      z.number().min(1).max(10_000),
   safeAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-  currency:    z.enum(['USDCe', 'EURe', 'GBPe']).default('USDCe'),
+  currency:    z.enum(['USDC', 'EURe', 'GBPe']).default('USDC'),
   sourceChain: z.enum(['solana', 'base']).default('solana'),
 });
 
@@ -417,7 +417,7 @@ cardRouter.get('/', (_req, res) => {
       topup: {
         description:    'Top up your Gnosis Pay Safe directly from Solana USDC',
         fee:            `${config.TOPUP_FEE_PCT}% of bridged amount`,
-        currencies:     Object.keys(GNOSIS_TOKENS),
+        currencies:     ['USDC (native Circle)', 'EURe', 'GBPe'],
         estimatedTime:  '1-3 minutes',
         endpoints: {
           quote:  'GET  /api/card/topup/quote?amount=50&safeAddress=0x...&currency=USDCe',
