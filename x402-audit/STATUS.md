@@ -116,3 +116,10 @@
 | 2026-06-05 | orbisapi.com, Nansen, Exa, molty.cash | High | spec-v1-v2-divergence | — |
 | 2026-06-05 | stableenrich.dev, stabletravel.dev | Medium | broken-catalog-endpoint | — |
 | 2026-06-05 | 12 P1 services | Medium | non-spec-compliant-402-body | — |
+| 2026-06-05 | gateway-dev.flamewire.io | High | cors-reflect-origin-with-credentials | — |
+| 2026-06-05 | ~8 services (onesource, suverse, x402stock, stable*, agentwonderland) | Medium | crash-on-malformed-payment-5xx | — |
+| 2026-06-05 | x402node.dev + cn402.com | Info | shared-payTo-across-distinct-vendors | — |
+| 2026-06-05 | flipr-x402.fly.dev | Low | http-200-for-error-condition | — |
+
+> Security sweep details (incl. verified false positives): [security-sweep-p1-p2.md](findings/security-sweep-p1-p2.md)
+> Headline: **0 confirmed auth bypasses / 0 secret leaks across 83 services** — the payment gate holds; issues are robustness + CORS.
