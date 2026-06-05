@@ -1,5 +1,6 @@
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY ?? '';
 const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+const HELIUS_TXS = `https://api.helius.xyz/v0/transactions?api-key=${HELIUS_API_KEY}`;
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 export interface HeliusTx {
@@ -7,6 +8,8 @@ export interface HeliusTx {
   blockTime: number;
   usdcDelta: number;   // positive = received, negative = sent
   feeLamports: number;
+  description?: string;
+  type?: string;
 }
 
 export async function fetchWalletBalance(walletAddress: string): Promise<{ solLamports: number; usdcAmount: number }> {
@@ -36,8 +39,22 @@ export async function fetchWalletBalance(walletAddress: string): Promise<{ solLa
   return { solLamports, usdcAmount };
 }
 
+interface HeliusEnhancedTx {
+  signature: string;
+  timestamp: number;
+  fee: number;
+  description?: string;
+  type?: string;
+  tokenTransfers?: Array<{
+    fromUserAccount: string;
+    toUserAccount: string;
+    tokenAmount: number;
+    mint: string;
+  }>;
+}
+
 export async function fetchRecentUsdcTxs(walletAddress: string, limit = 50): Promise<HeliusTx[]> {
-  // Get recent signatures
+  // Step 1: get recent signatures via standard RPC
   const sigRes = await fetch(HELIUS_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -50,45 +67,39 @@ export async function fetchRecentUsdcTxs(walletAddress: string, limit = 50): Pro
   const { result: sigs } = await sigRes.json() as { result: Array<{ signature: string; blockTime: number; err: unknown }> };
   if (!sigs?.length) return [];
 
-  // Fetch tx details in batches of 10
-  const results: HeliusTx[] = [];
-  const batches = [];
-  for (let i = 0; i < sigs.length; i += 10) batches.push(sigs.slice(i, i + 10));
+  const validSigs = sigs.filter(s => !s.err).map(s => s.signature);
+  if (!validSigs.length) return [];
 
-  for (const batch of batches) {
-    const txRes = await fetch(HELIUS_RPC, {
+  // Step 2: fetch enriched tx details via Helius enhanced API (batches of 100)
+  const results: HeliusTx[] = [];
+  for (let i = 0; i < validSigs.length; i += 100) {
+    const batch = validSigs.slice(i, i + 100);
+    const res = await fetch(HELIUS_TXS, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 2,
-        method: 'getMultipleTransactions',
-        params: [batch.map(s => s.signature), { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
-      }),
+      body: JSON.stringify({ transactions: batch }),
     });
-    const { result: txs } = await txRes.json() as { result: Array<Record<string, unknown> | null> };
+    if (!res.ok) continue;
+    const txs = await res.json() as HeliusEnhancedTx[];
 
-    for (let i = 0; i < batch.length; i++) {
-      const tx = txs?.[i];
-      if (!tx || (tx.meta as Record<string, unknown>)?.err) continue;
-
-      const meta = tx.meta as Record<string, unknown>;
-      const post = (meta?.postTokenBalances as Array<Record<string, unknown>>) ?? [];
-      const pre  = (meta?.preTokenBalances  as Array<Record<string, unknown>>) ?? [];
+    for (const tx of txs) {
+      if (!tx.tokenTransfers?.length) continue;
 
       let usdcDelta = 0;
-      for (const pb of post) {
-        if (pb.mint !== USDC_MINT || pb.owner !== walletAddress) continue;
-        const preBal  = ((pre.find(p => p.accountIndex === pb.accountIndex)?.uiTokenAmount as Record<string, unknown>)?.uiAmount as number) ?? 0;
-        const postBal = ((pb.uiTokenAmount as Record<string, unknown>)?.uiAmount as number) ?? 0;
-        usdcDelta += postBal - preBal;
+      for (const t of tx.tokenTransfers) {
+        if (t.mint !== USDC_MINT) continue;
+        if (t.toUserAccount === walletAddress) usdcDelta += t.tokenAmount;
+        if (t.fromUserAccount === walletAddress) usdcDelta -= t.tokenAmount;
       }
 
       if (usdcDelta !== 0) {
         results.push({
-          signature: batch[i].signature,
-          blockTime: batch[i].blockTime ?? 0,
+          signature: tx.signature,
+          blockTime: tx.timestamp ?? 0,
           usdcDelta,
-          feeLamports: (meta?.fee as number) ?? 0,
+          feeLamports: tx.fee ?? 0,
+          description: tx.description,
+          type: tx.type,
         });
       }
     }

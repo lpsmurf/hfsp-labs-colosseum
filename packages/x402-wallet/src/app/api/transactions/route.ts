@@ -22,17 +22,16 @@ export async function POST(req: Request) {
   let imported = 0;
 
   for (const h of heliusTxs) {
-    if (h.usdcDelta >= 0) continue; // only outgoing = payments made
     const tx: X402Transaction = {
       id:         randomUUID(),
       agentId:    body.agentId,
       signature:  h.signature,
-      product:    'unknown',
-      endpoint:   '',
+      product:    h.usdcDelta < 0 ? 'outgoing' : 'incoming',
+      endpoint:   (h as { description?: string }).description ?? '',
       amountUsdc: Math.abs(h.usdcDelta),
       status:     'success',
       blockTime:  h.blockTime,
-      meta:       null ?? undefined,
+      meta:       undefined,
     };
     try {
       insertTransaction(tx);

@@ -117,5 +117,7 @@ scripts/session-closer/
 **/*-keypair.json
 packages/oobe-bounty/data/*.db
 packages/x402-wallet/data/*.db
+packages/x402-wallet/data/*.db-shm
+packages/x402-wallet/data/*.db-wal
 packages/oobe-bounty/wallet-pubkey.txt
 packages/x402-wallet/tsconfig.tsbuildinfo
