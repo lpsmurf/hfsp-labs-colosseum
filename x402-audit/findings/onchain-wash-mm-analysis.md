@@ -95,13 +95,29 @@ market-making / bot operators** — the on-chain analog of the x402
 | Operator | Type | Appears as top actor in | Role |
 |----------|------|-------------------------|------|
 | `0x8f10b468…f996` | unnamed bot **contract** | **5 of 7**: GITLAWB, BNKR, DRB, CLANKER, JUNO | cross-token **market-maker bot** (two-sided, high-frequency) |
-| `0x3304e22d…566a` | **EOA** funder | **3 of 7**: GITLAWB, JUNO, A0T | **sybil funder** — seeds clusters of bot trader wallets |
+| `0x3304e22d…566a` | **EOA** funder | **3 of 7**: GITLAWB, JUNO, A0T | funds clusters of bot trader wallets |
 
 **Implication:** a meaningful slice of both the "volume" *and* the "distinct traders"
-across these agent tokens is the **same handful of actors**, not independent demand.
-When evaluating any single agent token in isolation, its apparent activity is partly
-ecosystem-wide MM/bot infrastructure bleeding across every token. Likely a single
-market-making service (third-party or platform-run) operating the whole sector.
+across these agent tokens is the **same handful of actors**, not fully independent demand.
+Any single agent token's apparent activity is partly ecosystem-wide MM/bot infrastructure
+bleeding across every token.
+
+### Honest re-framing (verified, don't overclaim)
+Tracing `0x8f10` further: it **holds 50+ distinct ERC-20s including blue-chip BTC
+wrappers (WBTC, cbBTC, LBTC, iBTC) and stablecoins** — it is a **professional,
+general-purpose market-maker / arb bot**, not an agent-token-specific wash engine.
+Its presence across these tokens therefore reads as an **organic positive** (the
+tokens are liquid enough to attract a real MM) more than manipulation. The honest
+conclusion is *concentration of market-making*, **not** *coordinated wash trading*:
+- The recurring MM is legit infrastructure servicing the sector (and the wider Base market).
+- The recurring funder (`0x3304e2`, a long-lived EOA since early Base) runs **multiple
+  bot wallets** — a real but small-scale sybil-of-bots pattern, most visible on JUNO
+  (4 wallets). Worth noting, not alarming on its own.
+
+So: the agent-token sector leans on **shared professional MM/bot infrastructure**.
+That inflates per-token "distinct trader" optics, but is a sign of real market plumbing,
+not (by itself) fraud. The genuinely *suspect* token in the set is **CLANKER**, where
+that MM/bot layer is **66% of all volume** — i.e. the headline volume is mostly machines.
 
 ---
 
