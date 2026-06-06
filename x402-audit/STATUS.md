@@ -129,6 +129,8 @@
 | 2026-06-05 | zapper, justaname, lnpay, crinkl, slamai +5 | High | cors-reflect-origin-with-credentials | — |
 | 2026-06-06 | skim402, masterclaw, token-api.x402hub +5 (P4) | High | cors-reflect-origin-with-credentials | — |
 | 2026-06-06 | klymax402 (33), *pulse (44), recoup, wdh.sh +8 | Info | catalog-inflation-payto-clusters | — |
+| 2026-06-06 | CLANKER (MM-dominated), JUNO (sybil) +5 agent tokens | Info | onchain-wash-mm-analysis | — |
+| 2026-06-06 | 0x8f10 (MM bot, 5/7 tokens), 0x3304e2 (sybil funder, 3/7) | Info | cross-token-shared-operators | — |
 
 > Security sweep details (incl. verified false positives): [security-sweep-p1-p2.md](findings/security-sweep-p1-p2.md)
 > P1+P2 headline: 0 confirmed bypasses across 83 services.
