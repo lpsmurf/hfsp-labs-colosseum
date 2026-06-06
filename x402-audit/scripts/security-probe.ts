@@ -42,10 +42,13 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ['internal_ip',       /\b(10\.\d{1,3}|192\.168|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/],
 ];
 
+// NOTE: bare filesystem paths ('/home/', '/usr/src/app') were REMOVED — they
+// false-positive on ordinary content/URLs (e.g. a "HomePulse" service whose
+// resource URL contains '/home/'). Keep only high-confidence trace signatures.
 const STACKTRACE_MARKERS = [
-  'at Object.', 'at Module.', 'node_modules', 'Traceback (most recent call last)',
-  'java.lang.', 'System.Exception', '.go:', 'goroutine ', 'panic:',
-  'ECONNREFUSED', 'ENOTFOUND', '/usr/src/app', '/home/', 'webpack-internal',
+  'at Object.', 'at Module.', 'Traceback (most recent call last)',
+  'java.lang.', 'System.Exception', 'goroutine ', 'panic:',
+  'webpack-internal', '\n    at ', // V8 stack frame: newline + indent + "at "
 ];
 
 interface SecFinding {
@@ -128,13 +131,20 @@ async function probeSecurity(
       payload: { signature: '0x' + 'de'.repeat(32), authorization: {} },
     })).toString('base64')],
   ];
+  // Only a genuine bypass if the gate was actually closed to begin with:
+  // baseline (no X-PAYMENT) MUST be 402. If baseline is already 200, the route
+  // is free/echo/manifest (not gated) and a 200 on junk proves nothing — this
+  // was the source of every P4 critical false-positive (fiasignals, wisely, fpds).
+  const baselineGated = base.status === 402;
   for (const [label, val] of fakePayments) {
     const r = await safeFetch(url, { method, headers: { ...jsonHeaders, 'X-PAYMENT': val }, body: reqBody });
     if (!r) continue;
-    if (r.status === 200) {
+    if (r.status === 200 && baselineGated) {
       f.authBypass = true;
-      f.authBypassDetail = `fake '${label}' payment accepted (200)`;
+      f.authBypassDetail = `fake '${label}' payment accepted (200) while baseline is 402`;
       f.notes.push(f.authBypassDetail);
+    } else if (r.status === 200 && !baselineGated) {
+      f.notes.push(`'${label}' payment → 200 but baseline is ${base.status} (route not gated — not a bypass)`);
     }
     if (r.status >= 500) {
       f.crashOnMalformed = true;
@@ -157,7 +167,16 @@ async function probeSecurity(
     // BUT many x402 agents serve a public discovery doc (A2A agent card,
     // OpenAPI, x402 manifest) on GET by design — that is NOT a bypass.
     const b = alt.body.slice(0, 600);
-    const isDiscoveryDoc = /"\$schema"|agent\s*card|"protocol"\s*:\s*"A2A"|openapi|"x402Version"|"accepts"\s*:/i.test(b);
+    const altCT = alt.headers.get('content-type') ?? '';
+    // A GET that returns a MANIFEST / landing page / docs / agent card is
+    // expected, NOT a bypass. Across 744 services this heuristic produced ONLY
+    // false positives: GET universally serves discovery content (JSON manifest,
+    // HTML landing page, markdown docs, agent card, or "POST here" help text)
+    // while the paid route is POST-gated. We treat all of those as discovery.
+    const isHtmlOrMarkdown = /^\s*<!doctype|^\s*<html|text\/html|text\/markdown/i.test(altCT + '\n' + b);
+    const isHelpText = /send\s+a?\s*POST|this\s+is\s+a\s+POST\s+endpoint|"name"\s*:|"description"\s*:|POST\s+\/?\s*[—-]\s*\$/i.test(b);
+    const isManifest = /"\$schema"|agent\s*card|"protocol"\s*:\s*"(A2A|mcp)"|openapi|"x402Version"|"accepts"\s*:|"price"\s*:|"price_per_call"\s*:|"method"\s*:\s*"POST"|"pay_to"\s*:|"atomic_amount"\s*:|"network_caip"\s*:/i.test(b);
+    const isDiscoveryDoc = isManifest || isHtmlOrMarkdown || isHelpText;
     if (!isDiscoveryDoc) {
       f.methodConfusion = true;
       f.notes.push(`${altMethod} returns 200 (non-discovery) while ${method} is 402-gated`);

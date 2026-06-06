@@ -38,6 +38,30 @@ configs suggests a common x402 middleware/template ships these headers by defaul
 
 ---
 
+## P4 additions (manual repro, 2026-06-06)
+
+Same misconfiguration found in the P4 sweep (428 services). Reflected-origin +
+`credentials: true` confirmed by hand on:
+
+| Service | ACAO returned | Exploitable? |
+|---------|---------------|--------------|
+| skim402.com | reflected | **Yes** (verified) |
+| masterclaw.dev | reflected | **Yes** (verified) |
+| token-api.x402hub.xyz | reflected | **Yes** (verified) |
+| gifu-server.onrender.com | reflected | Yes |
+| kari.mayim-mayim.com | reflected | Yes |
+| econdash.org | reflected | Yes |
+| api.metalend.tech | reflected | Yes |
+| x402.agoragentic.com | reflected | Yes |
+| places-api.x402hub.xyz | `*` | Limited (browsers block `*`+creds) |
+
+> Spot-verified skim402 / masterclaw / token-api.x402hub by hand (all three echo
+> `Access-Control-Allow-Origin: https://evil.example` + `…-Credentials: true`).
+> Brings the ecosystem-wide reflected-origin CORS count to **~16 services** — strong
+> evidence of a shared x402 middleware default rather than per-app mistakes.
+
+---
+
 ## Reproduce
 
 ```bash

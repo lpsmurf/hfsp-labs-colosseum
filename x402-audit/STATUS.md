@@ -99,13 +99,17 @@
 | ⬜ | [api.cryptoetfsentinel.com](#) | — | 104 | 50 | $0.0300 | — |
 | ⬜ | [mpp.hyreagent.fun](#) | — | 100 | 20 | $0.0020 | — |
 
-## P3 — Low usage (<100 calls/30d)
+## P3 — Low usage (10–99 calls/30d)
 
-> 661 services — audit after P1/P2 complete.
+> ✅ 233 services security-swept (2026-06-06) — see [security-sweep-p4.md](findings/security-sweep-p4.md) coverage table. 1 CRITICAL (base-intel-api), 10 CORS.
+
+## P4 — Long tail (1–9 calls/30d)
+
+> ✅ 428 services security-swept (2026-06-06) — [security-sweep-p4.md](findings/security-sweep-p4.md). 0 CRITICAL, 8 CORS, 121 svcs→12 wallets. **All 744 active services now covered (100%).**
 
 ## Dead — Zero calls (30d)
 
-> 355 services — skip unless specifically interesting.
+> 355 services — skip (abandoned listings, no live traffic).
 
 ---
 
@@ -123,6 +127,8 @@
 
 | 2026-06-05 | base-intel-api.jakemaxsigal.workers.dev | **CRITICAL** | payment-bypass-no-verification | — |
 | 2026-06-05 | zapper, justaname, lnpay, crinkl, slamai +5 | High | cors-reflect-origin-with-credentials | — |
+| 2026-06-06 | skim402, masterclaw, token-api.x402hub +5 (P4) | High | cors-reflect-origin-with-credentials | — |
+| 2026-06-06 | klymax402 (33), *pulse (44), recoup, wdh.sh +8 | Info | catalog-inflation-payto-clusters | — |
 
 > Security sweep details (incl. verified false positives): [security-sweep-p1-p2.md](findings/security-sweep-p1-p2.md)
 > P1+P2 headline: 0 confirmed bypasses across 83 services.
