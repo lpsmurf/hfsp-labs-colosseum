@@ -1,0 +1,143 @@
+import { Router }            from 'express';
+import rateLimit             from 'express-rate-limit';
+import { verifyPayment }     from '../verify.js';
+import { fetchRepo, parseRepoUrl } from '../github.js';
+import { runStaticAnalysis } from '../static/index.js';
+import { runDynamicProbes }  from '../dynamic/index.js';
+import { buildReport }       from '../report.js';
+import { generateAIFeedback } from '../ai-feedback.js';
+import { BASE_USDC, AUDIT_PRICE_USDC, config } from '../config.js';
+
+export const auditRouter = Router();
+
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests — try again in 10 minutes' },
+});
+
+// GET /audit?repo=https://github.com/owner/repo
+// Returns 402 with payment details
+auditRouter.get('/', (req, res) => {
+  const repo = typeof req.query.repo === 'string' ? req.query.repo.trim() : null;
+
+  if (!repo) {
+    res.status(400).json({
+      error: 'Missing ?repo= parameter',
+      example: `GET /audit?repo=https://github.com/owner/repo`,
+    });
+    return;
+  }
+
+  try {
+    parseRepoUrl(repo); // validate format
+  } catch {
+    res.status(400).json({ error: 'Invalid GitHub repo URL' });
+    return;
+  }
+
+  const amountMicro = Math.round(AUDIT_PRICE_USDC * 1_000_000).toString();
+  const resource    = `${req.protocol}://${req.get('host')}/audit`;
+
+  res.status(402).json({
+    x402Version: 1,
+    error:       'Payment required to run security audit',
+    description: `x402 security audit for ${repo}`,
+    audit: {
+      repo,
+      includes: [
+        'Static analysis — CORS misconfiguration, payment bypass patterns, exposed secrets',
+        'Dynamic probing — live auth bypass test, CORS probe, info-leak probe',
+      ],
+      turnaround: '~30 seconds',
+    },
+    costBreakdown: {
+      priceUsdc:  AUDIT_PRICE_USDC,
+      serviceFee: '100% — no third-party fees',
+      note:       'One audit per payment. Payment verified on Base before analysis runs.',
+    },
+    accepts: [{
+      scheme:            'exact',
+      network:           'base-mainnet',
+      maxAmountRequired: amountMicro,
+      asset:             BASE_USDC,
+      payTo:             config.PAYMENT_RECIPIENT,
+      resource,
+      description:       `x402 security audit: ${repo}`,
+      mimeType:          'application/json',
+      maxTimeoutSeconds: 300,
+    }],
+    howToPay: [
+      `1. Send ${AUDIT_PRICE_USDC} USDC on Base to ${config.PAYMENT_RECIPIENT}`,
+      `2. POST /audit with X-Payment: <txHash> and body { "repo": "${repo}" }`,
+    ],
+  });
+});
+
+// POST /audit
+// Body: { repo: string, endpoint?: string }
+// Header: X-Payment: <Base tx hash>
+auditRouter.post('/', limiter, async (req, res) => {
+  const txHash   = (req.headers['x-payment'] as string | undefined)?.trim();
+  const repo     = typeof req.body?.repo     === 'string' ? req.body.repo.trim()     : null;
+  const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint.trim() : null;
+
+  if (!txHash) {
+    res.status(400).json({ error: 'Missing X-Payment header' });
+    return;
+  }
+  if (!repo) {
+    res.status(400).json({ error: 'Missing body.repo — provide a GitHub repo URL' });
+    return;
+  }
+
+  try {
+    parseRepoUrl(repo);
+  } catch {
+    res.status(400).json({ error: 'Invalid GitHub repo URL' });
+    return;
+  }
+
+  // Verify payment first
+  const { ok, error } = await verifyPayment(txHash);
+  if (!ok) {
+    res.status(402).json({ error });
+    return;
+  }
+
+  // Run the audit
+  try {
+    const repoMeta = await fetchRepo(repo);
+    const liveUrl  = endpoint ?? repoMeta.liveEndpoint;
+
+    const [staticFindings, dynamicFindings] = await Promise.all([
+      runStaticAnalysis(repoMeta.files),
+      liveUrl ? runDynamicProbes(liveUrl) : Promise.resolve([]),
+    ]);
+
+    const report = buildReport(
+      repo,
+      repoMeta.commitSha,
+      liveUrl,
+      repoMeta.files.length,
+      !!liveUrl,
+      [...staticFindings, ...dynamicFindings],
+    );
+
+    // AI feedback via ACE Data Cloud (OpenAI gpt-4o-mini, paid via x402)
+    const aiFeedback = await generateAIFeedback(
+      report,
+      config.ACEDATA_API_KEY ?? '',
+      config.ACEDATA_FACILITATOR_ADDRESS ?? '',
+    );
+
+    console.log(`[audit] ${repo} → ${report.summary.verdict} (${report.summary.total} findings, AI: ${aiFeedback ? 'yes' : 'no'})`);
+
+    res.status(200).json({ ...report, aiFeedback });
+  } catch (err) {
+    console.error('[audit] error:', err instanceof Error ? err.message : err);
+    res.status(500).json({ error: 'Audit failed — repo may be private or unreachable' });
+  }
+});

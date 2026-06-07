@@ -84,6 +84,14 @@ curl -s -D - -o /dev/null -X POST \
 
 ---
 
-## GitHub Issues to File
-- [ ] zapper, justaname, lnpay, crinkl, slamai: reflected-origin CORS + credentials (HIGH)
-- [ ] Trace the shared x402 middleware/template setting these defaults (root-cause fix)
+## Disclosure Log
+
+| Date | Service | Channel | Status |
+|------|---------|---------|--------|
+| 2026-06-07 | Zapper (`public.zapper.xyz`) | GitHub | [Zapper-fi/Zapper-API-Stack#1](https://github.com/Zapper-fi/Zapper-API-Stack/issues/1) ✅ |
+| 2026-06-07 | JustaName (`api.justaname.id`) | GitHub | [JustaName-id/JustaName-sdk#147](https://github.com/JustaName-id/JustaName-sdk/issues/147) ✅ |
+| 2026-06-07 | lnpay (`pay.lnpay.ai`) | GitHub | [lnpay/lnpay-js#20](https://github.com/lnpay/lnpay-js/issues/20) ✅ |
+| 2026-06-07 | crinkl (`api.crinkl.xyz`) | X/Twitter DM | Pending send |
+| 2026-06-07 | slamai (`api.slamai.dev`) | X/Twitter DM | Pending send |
+| 2026-06-07 | flamewire (`gateway-dev.flamewire.io`) | X/Twitter DM | Pending send |
+| — | coinbase/x402 (root cause) | GitHub | Deferred — fix shared middleware default |

@@ -22,7 +22,19 @@ packages/
 ├── clawdrop-platform         Subscriptions, Docker orchestration, ZK vault
 ├── agent-provisioning        Mastra brain + Telegram wizard + storefront API
 ├── clawdrop-mcp              MCP gateway + CLI wizard + payment protocol
-└── oobe-bounty               (Separate bounty deliverable)
+├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
+├── x402-audit-api            x402 ecosystem security audit API (Base, $0.99 USDC gate)
+├── x402-donate               x402-gated donation router (Base, Endaoment integration)
+├── x402-wallet               x402 wallet UI + agent dashboard
+├── gnosis-card-x402          Gnosis Card x402 payment integration
+├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
+├── wdk-tron-swap             WDK community module — SunSwap on Tron
+└── clawdrop-vpn              VPN x402 payment integration
+
+x402-audit/                   Security audit findings for the x402 ecosystem
+├── findings/                 Vulnerability disclosures (CRITICAL → INFO)
+├── reports/                  Raw sweep data (JSON)
+└── archive/                  Historical probe data
 ```
 
 ---

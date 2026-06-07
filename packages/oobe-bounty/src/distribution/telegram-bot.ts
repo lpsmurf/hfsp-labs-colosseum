@@ -157,11 +157,12 @@ function formatStopLoss(signal: TradingSignal): string {
 }
 
 function formatNewsDigest(signal: TradingSignal): string {
-  let data: { type: string; date: string; items: Array<{ title: string; source: string; url: string }> } | null = null;
-  try { data = JSON.parse(signal.reason) as typeof data; } catch { return signal.reason; }
+  type DigestData = { type: string; date: string; items: Array<{ title: string; source: string; url: string }> };
+  let data: DigestData | null = null;
+  try { data = JSON.parse(signal.reason) as DigestData; } catch { return signal.reason; }
   if (!data) return signal.reason;
 
-  const rows = (data.items ?? []).slice(0, 10).map((item, i) => {
+  const rows = ((data as DigestData).items ?? []).slice(0, 10).map((item, i) => {
     const source = item.source ? ` — ${item.source}` : '';
     const link = item.url ? `\n   🔗 ${item.url}` : '';
     return `${i + 1}. *${item.title}*${source}${link}`;
@@ -169,7 +170,7 @@ function formatNewsDigest(signal: TradingSignal): string {
 
   return [
     `📰 *CRYPTO MORNING DIGEST*`,
-    `_${data.date}_`,
+    `_${(data as DigestData).date}_`,
     ``,
     ...rows,
   ].join('\n');

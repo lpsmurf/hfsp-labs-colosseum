@@ -41,7 +41,7 @@ export async function fetchPolymarketScreened(
       { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12_000) },
     ).catch(() => null);
     if (!res?.ok) return [];
-    const page = (await res.json()).catch?.(() => []) ?? await res.json().catch(() => []);
+    const page = await res.json().catch(() => []);
     return Array.isArray(page) ? page : [];
   };
 

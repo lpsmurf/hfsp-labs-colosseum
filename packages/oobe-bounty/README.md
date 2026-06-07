@@ -89,6 +89,26 @@ PR submitted: https://github.com/OOBE-PROTOCOL/synapse-sap-sdk/pull/4
 
 ---
 
+## Contact
+
+HFSP Labs · [info@hfsp.xyz](mailto:info@hfsp.xyz)
+
+---
+
+## Support / Donations
+
+If this saved you time or inspired your build, consider a donation — it helps us keep building open x402 infrastructure.
+
+| Chain | Address |
+|-------|---------|
+| **Solana** | `ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL` |
+| **EVM** (ETH, Base, Gnosis, Arbitrum…) | `0x002e76fEdb2014d24AB6032998BD9F406b322bDF` |
+| **Bitcoin** | `bc1pt6u3cgad70w5yypdkrdphdfqzmyrvjdljqxpz7r2neday2kjtj9qh4kfyd` |
+
+Built by [HFSP Labs](https://hfsp.xyz)
+
+---
+
 ## Resources
 
 - Monorepo: https://github.com/lpsmurf/hfsp-labs-colosseum

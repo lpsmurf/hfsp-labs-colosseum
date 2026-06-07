@@ -64,6 +64,20 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     endpoint: `${AGENT_BASE_URL}/content`,
     symbol: 'SOL',
   },
+  {
+    id: 'x402-audit-api',
+    name: 'Clawdrop x402 Security Auditor',
+    service: 'search',
+    capabilities: [
+      'clawdrop:security-audit',
+      'clawdrop:static-analysis',
+      'clawdrop:dynamic-probe',
+      'clawdrop:cors-check',
+      'clawdrop:payment-bypass-check',
+    ],
+    endpoint: `${AGENT_BASE_URL}/audit`,
+    symbol: 'AUDIT',
+  },
 ];
 
 export interface RuntimeConfig {

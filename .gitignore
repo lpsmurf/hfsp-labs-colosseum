@@ -81,7 +81,7 @@ venv/
 *.sqlite
 
 # Internal team coordination (do not track)
-SESSIONS/
+/SESSIONS/
 BOUNTY-PREP-KIT.md
 .internal/
 .claude/

@@ -10,7 +10,7 @@ type GenerateSignal = (payload: Record<string, unknown>) => Promise<TradingSigna
 interface AgentLoopOptions {
   agentId: AgentId;
   service: AceService;
-  symbol: string;
+  symbol?: string;
   generateSignal: GenerateSignal;
   db: Database;
   intervalMs: number;

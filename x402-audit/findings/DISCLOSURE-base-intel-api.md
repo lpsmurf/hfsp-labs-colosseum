@@ -60,7 +60,8 @@
 | Date | Action | Outcome |
 |------|--------|---------|
 | 2026-06-06 | drafted | — |
-|  | contact located | — |
+| 2026-06-07 | contact search | No email on landing page. GitHub: `jakemaxsigal` exists (0 repos, no contact). `jakemaxsigal-creator` also exists (0 repos). Not found in coinbase/x402 ecosystem PRs. |
+| 2026-06-07 | next step | Try @jakemaxsigal on X/Twitter — DM draft ready in cors-credentials-cluster.md |
 |  | sent | — |
 |  | response | — |
 |  | fix confirmed | — |

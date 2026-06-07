@@ -3,7 +3,7 @@ import type { Database } from 'better-sqlite3';
 import { AGENT_DEFINITIONS, getAgentDefinition, loadConfig, missingRuntimeSecrets } from './config.js';
 import { initializeDatabase } from './db/schema.js';
 import { logAuditEvent, seedAgents } from './db/migrations.js';
-import { registerAgentOnSAP, registerAllAgentsOnSAP } from './services/sap-registry.js';
+import { registerAgentOnSAP, registerAllAgentsOnSAP, updateAgentPricing, initializeMerchant } from './services/sap-registry.js';
 import { buildSignerFromPrivateKey } from './services/x402-payments.js';
 import { startPriceMonitorAgent } from './agents/price-monitor.js';
 import { startPortfolioAnalyzerAgent } from './agents/portfolio-analyzer.js';
@@ -68,6 +68,33 @@ export function buildApp(db: Database): express.Express {
       agentsRunning: runningAgents.size,
       missingEnv: missing,
     });
+  });
+
+  // POST /api/agents/init-merchant — stakes 0.1 SOL, publishes tools, inscribes schemas (v0.2.0 merchant readiness)
+  app.post('/api/agents/init-merchant', async (_req: Request, res: Response) => {
+    try {
+      const signer = buildOptionalSigner(loadConfig().walletPrivateKey);
+      if (!signer) return res.status(400).json({ success: false, error: 'No wallet private key configured' });
+      const result = await initializeMerchant(signer);
+      return res.json({ success: result.errors.length === 0, ...result });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: safeMessage(error) });
+    }
+  });
+
+  // POST /api/agents/update-pricing — patches pricing tier on the already-registered on-chain agent
+  // Fixes "does not meet v0.2.0 merchant minimum" error in OOBE explorer
+  app.post('/api/agents/update-pricing', async (_req: Request, res: Response) => {
+    try {
+      const signer = buildOptionalSigner(loadConfig().walletPrivateKey);
+      const result = await updateAgentPricing(signer);
+      if (!result) {
+        return res.status(400).json({ success: false, error: 'No wallet private key configured — cannot sign transaction' });
+      }
+      return res.json({ success: true, sapId: result.sapId, explorerUrl: result.explorerUrl });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: safeMessage(error) });
+    }
   });
 
   app.post('/api/agents/register', async (req: Request, res: Response) => {

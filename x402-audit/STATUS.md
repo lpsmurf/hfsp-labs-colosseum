@@ -126,7 +126,7 @@
 | 2026-06-05 | flipr-x402.fly.dev | Low | http-200-for-error-condition | — |
 
 | 2026-06-05 | base-intel-api.jakemaxsigal.workers.dev | **CRITICAL** | payment-bypass-no-verification | — |
-| 2026-06-05 | zapper, justaname, lnpay, crinkl, slamai +5 | High | cors-reflect-origin-with-credentials | — |
+| 2026-06-05 | zapper, justaname, lnpay, crinkl, slamai +5 | High | cors-reflect-origin-with-credentials | Zapper [#1](https://github.com/Zapper-fi/Zapper-API-Stack/issues/1) · JustaName [#147](https://github.com/JustaName-id/JustaName-sdk/issues/147) · lnpay [#20](https://github.com/lnpay/lnpay-js/issues/20) · crinkl/slamai/flamewire: X DM pending |
 | 2026-06-06 | skim402, masterclaw, token-api.x402hub +5 (P4) | High | cors-reflect-origin-with-credentials | — |
 | 2026-06-06 | klymax402 (33), *pulse (44), recoup, wdh.sh +8 | Info | catalog-inflation-payto-clusters | — |
 | 2026-06-06 | CLANKER (MM-dominated), JUNO (sybil) +5 agent tokens | Info | onchain-wash-mm-analysis | — |

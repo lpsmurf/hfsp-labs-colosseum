@@ -20,13 +20,28 @@ async function fetchAgents() {
   })).filter(a => a.wallet);
 }
 
+async function fetchWithRetry(url, retries = 5) {
+  let delay = 1000;
+  for (let i = 0; i <= retries; i++) {
+    const res = await fetch(url);
+    const body = await res.json();
+    if (res.status === 429 || (body?.error?.code === -32429)) {
+      if (i === retries) return [];
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+      continue;
+    }
+    return Array.isArray(body) ? body : [];
+  }
+  return [];
+}
+
 async function getPayments(wallet, sinceTs = 0) {
   let count = 0, volume = 0, cursor;
   while (true) {
     const url = `${HELIUS_BASE}/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&limit=100&type=TRANSFER${cursor ? '&before=' + cursor : ''}`;
-    const res = await fetch(url);
-    const txs = await res.json();
-    if (!Array.isArray(txs) || txs.length === 0) break;
+    const txs = await fetchWithRetry(url);
+    if (txs.length === 0) break;
     let pastWindow = false;
     for (const tx of txs) {
       if (sinceTs && tx.timestamp < sinceTs) { pastWindow = true; continue; }
@@ -39,7 +54,7 @@ async function getPayments(wallet, sinceTs = 0) {
     }
     cursor = txs[txs.length - 1]?.signature;
     if (txs.length < 100 || pastWindow) break;
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 400));
   }
   return { count, volume };
 }
@@ -61,6 +76,7 @@ for (const { name, wallet } of agents) {
   process.stdout.write(`  scanning ${name.slice(0, 24).padEnd(24)}\r`);
   const { count, volume } = await getPayments(wallet, sinceTs);
   results.push({ name, count, volume });
+  await new Promise(r => setTimeout(r, 300));
 }
 
 process.stdout.write(' '.repeat(50) + '\r');
