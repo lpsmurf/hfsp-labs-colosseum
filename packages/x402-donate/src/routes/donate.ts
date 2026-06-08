@@ -107,6 +107,7 @@ donateRouter.post('/:id', verifyLimiter, async (req, res) => {
     charityName:      charity.name,
     baseAddress:      charity.baseAddress,
     txHash,
+    routeTxHash:      routeTxHash ?? null,
     paidUsdc,
     netToCharityUsdc: netToCharityUsdc ?? 0,
     timestamp:        new Date().toISOString(),

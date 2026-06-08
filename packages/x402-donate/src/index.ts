@@ -26,9 +26,9 @@ app.get('/', (_req, res) => {
     network:     'Base (chainId 8453)',
     asset:       'USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)',
     fees: {
-      endaomentAdmin: '1.5%',
-      thisService:    '0%',
-      gasOnBase:      '~$0.001',
+      endaomentAdmin: '1.5% — deducted by Endaoment from the routed amount',
+      thisService:    '3% — enforced on-chain by DonationRouter, sent to treasury',
+      gasOnBase:      '~$0.001 (donor tx) — we cover the route() gas',
     },
     endpoints: {
       'GET  /charities':                 'List charities — ?search=name&category=X&limit=20&offset=0',

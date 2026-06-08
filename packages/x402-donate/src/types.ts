@@ -41,11 +41,12 @@ export interface Charity {
 }
 
 export interface DonationReceipt {
-  charityId:       string;
-  charityName:     string;
-  baseAddress:     string;
-  txHash:          string;
-  paidUsdc:        number;
+  charityId:        string;
+  charityName:      string;
+  baseAddress:      string;
+  txHash:           string;
+  routeTxHash:      string | null;
+  paidUsdc:         number;
   netToCharityUsdc: number;
-  timestamp:       string;
+  timestamp:        string;
 }
