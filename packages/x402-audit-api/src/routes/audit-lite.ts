@@ -9,7 +9,7 @@ import { fetchRepo, parseRepoUrl } from '../github.js';
 import { runStaticAnalysis } from '../static/index.js';
 import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
-import { BASE_USDC, AUDIT_PRICE_USDC, config } from '../config.js';
+import { BASE_USDC, SOLANA_USDC_MINT, AUDIT_PRICE_USDC, config } from '../config.js';
 
 export const auditRouter = Router();
 
@@ -52,20 +52,34 @@ auditRouter.get('/', (req, res) => {
       priceUsdc:  AUDIT_PRICE_USDC,
       serviceFee: '100% — no third-party fees',
     },
-    accepts: [{
-      scheme:            'exact',
-      network:           'base-mainnet',
-      maxAmountRequired: amountMicro,
-      asset:             BASE_USDC,
-      payTo:             config.PAYMENT_RECIPIENT,
-      resource,
-      description:       `x402 security audit: ${repo}`,
-      mimeType:          'application/json',
-      maxTimeoutSeconds: 300,
-    }],
+    accepts: [
+      {
+        scheme:            'exact',
+        network:           'base-mainnet',
+        maxAmountRequired: amountMicro,
+        asset:             BASE_USDC,
+        payTo:             config.PAYMENT_RECIPIENT_BASE,
+        resource,
+        description:       `x402 security audit: ${repo} (Base USDC)`,
+        mimeType:          'application/json',
+        maxTimeoutSeconds: 300,
+      },
+      {
+        scheme:            'exact',
+        network:           'solana-mainnet',
+        maxAmountRequired: amountMicro,
+        asset:             SOLANA_USDC_MINT,
+        payTo:             config.PAYMENT_RECIPIENT_SOL,
+        resource,
+        description:       `x402 security audit: ${repo} (Solana USDC)`,
+        mimeType:          'application/json',
+        maxTimeoutSeconds: 300,
+      },
+    ],
     howToPay: [
-      `1. Send ${AUDIT_PRICE_USDC} USDC on Base to ${config.PAYMENT_RECIPIENT}`,
-      `2. POST /audit with X-Payment: <txHash> and body { "repo": "${repo}" }`,
+      `Option A (Base):    Send ${AUDIT_PRICE_USDC} USDC on Base to ${config.PAYMENT_RECIPIENT_BASE}`,
+      `Option B (Solana):  Send ${AUDIT_PRICE_USDC} USDC on Solana to ${config.PAYMENT_RECIPIENT_SOL}`,
+      `Then POST /audit with X-Payment: <txHash or signature> and body { "repo": "${repo}" }`,
     ],
     extensions: { bazaar: { discoverable: true, category: 'security' } },
   });

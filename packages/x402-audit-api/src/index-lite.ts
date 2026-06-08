@@ -31,7 +31,7 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
     contact:     'info@hfsp.xyz',
     category:    'security',
     tags:        ['security', 'audit', 'x402', 'web3', 'defi'],
-    networks:    ['base'],
+    networks:    ['base', 'solana'],
     endpoints: [
       {
         url:         '/audit',
@@ -53,7 +53,7 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
       scheme:  'exact',
       network: 'eip155:8453',
       asset:   BASE_USDC,
-      payTo:   config.PAYMENT_RECIPIENT,
+      payTo:   config.PAYMENT_RECIPIENT_BASE,
     },
     extensions: {
       bazaar: {
@@ -71,9 +71,12 @@ app.get('/', (_req, res) => {
     version:     '0.1.0',
     edition:     'lite',
     description: 'Pay $0.99 USDC to get a static + dynamic security audit of any public x402 GitHub repo',
-    price:       `${AUDIT_PRICE_USDC} USDC on Base`,
-    asset:       BASE_USDC,
-    payTo:       config.PAYMENT_RECIPIENT,
+    price:       `${AUDIT_PRICE_USDC} USDC`,
+    networks:    ['base', 'solana'],
+    payTo: {
+      base:   config.PAYMENT_RECIPIENT_BASE,
+      solana: config.PAYMENT_RECIPIENT_SOL,
+    },
     checks: {
       static:  ['CORS misconfiguration', 'Payment bypass patterns', 'Hardcoded secrets'],
       dynamic: ['Live auth bypass probe', 'CORS credentials probe', 'Info-leak probe'],
@@ -99,6 +102,6 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 const PORT = parseInt(process.env.PORT ?? '3009');
 app.listen(PORT, () => {
   console.log(`[x402-audit-api lite] listening on :${PORT}`);
-  console.log(`[x402-audit-api lite] price: $${AUDIT_PRICE_USDC} USDC → ${config.PAYMENT_RECIPIENT}`);
+  console.log(`[x402-audit-api lite] price: $${AUDIT_PRICE_USDC} USDC | Base → ${config.PAYMENT_RECIPIENT_BASE} | Solana → ${config.PAYMENT_RECIPIENT_SOL}`);
   console.log(`[x402-audit-api lite] agent-card: http://localhost:${PORT}/.well-known/agent-card.json`);
 });

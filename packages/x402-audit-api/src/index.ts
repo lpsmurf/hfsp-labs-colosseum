@@ -19,9 +19,12 @@ app.get('/', (_req, res) => {
     service:     'x402-audit-api',
     version:     '0.1.0',
     description: 'Pay $0.99 USDC to get a static + dynamic security audit of any public x402 GitHub repo',
-    price:       `${AUDIT_PRICE_USDC} USDC on Base`,
-    asset:       BASE_USDC,
-    payTo:       config.PAYMENT_RECIPIENT,
+    price:       `${AUDIT_PRICE_USDC} USDC`,
+    networks:    ['base', 'solana'],
+    payTo: {
+      base:   config.PAYMENT_RECIPIENT_BASE,
+      solana: config.PAYMENT_RECIPIENT_SOL,
+    },
     checks: {
       static: [
         'CORS reflected-origin + credentials misconfiguration',
@@ -53,5 +56,5 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 const PORT = parseInt(config.PORT);
 app.listen(PORT, () => {
   console.log(`[x402-audit-api] listening on :${PORT}`);
-  console.log(`[x402-audit-api] price: $${AUDIT_PRICE_USDC} USDC → ${config.PAYMENT_RECIPIENT}`);
+  console.log(`[x402-audit-api] price: $${AUDIT_PRICE_USDC} USDC | Base → ${config.PAYMENT_RECIPIENT_BASE} | Solana → ${config.PAYMENT_RECIPIENT_SOL}`);
 });
