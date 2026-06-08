@@ -9,6 +9,7 @@
     "start": "tsx src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "compile:router": "tsx scripts/compile-contract.ts",
     "deploy:router": "tsx scripts/deploy-router.ts"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
+    "solc": "^0.8.26",
     "tsx": "^4.19.0",
     "typescript": "^5.4.0"
   }
