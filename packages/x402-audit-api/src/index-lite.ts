@@ -7,10 +7,14 @@
  * - Price: $0.99 USDC on Base
  */
 import './config.js';
-import express         from 'express';
-import helmet          from 'helmet';
-import { auditRouter } from './routes/audit-lite.js';
+import path              from 'path';
+import { fileURLToPath } from 'url';
+import express           from 'express';
+import helmet            from 'helmet';
+import { auditRouter }   from './routes/audit-lite.js';
 import { config, AUDIT_PRICE_USDC, BASE_USDC } from './config.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(helmet());
@@ -65,31 +69,13 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
   });
 });
 
-app.get('/', (_req, res) => {
-  res.json({
-    service:     'x402-audit-api',
-    version:     '0.1.0',
-    edition:     'lite',
-    description: 'Pay $0.99 USDC to get a static + dynamic security audit of any public x402 GitHub repo',
-    price:       `${AUDIT_PRICE_USDC} USDC`,
-    networks:    ['base', 'solana'],
-    payTo: {
-      base:   config.PAYMENT_RECIPIENT_BASE,
-      solana: config.PAYMENT_RECIPIENT_SOL,
-    },
-    checks: {
-      static:  ['CORS misconfiguration', 'Payment bypass patterns', 'Hardcoded secrets'],
-      dynamic: ['Live auth bypass probe', 'CORS credentials probe', 'Info-leak probe'],
-    },
-    agentCard:  '/.well-known/agent-card.json',
-    usage: {
-      step1: 'GET /audit?repo=https://github.com/owner/repo  →  receive 402 with payTo address',
-      step2: `Send ${AUDIT_PRICE_USDC} USDC on Base to payTo address`,
-      step3: 'POST /audit  body: { "repo": "..." }  header: X-Payment: <txHash>',
-      step4: 'Receive full audit report',
-    },
-    extensions: { bazaar: { discoverable: true, category: 'security' } },
-  });
+app.get('/', (req, res) => {
+  const acceptsHtml = req.headers.accept?.includes('text/html');
+  if (acceptsHtml) {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  } else {
+    res.json({ service: 'x402-audit-api', version: '0.1.0', edition: 'lite', info: '/info', audit: '/audit', agentCard: '/.well-known/agent-card.json' });
+  }
 });
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));

@@ -114,6 +114,16 @@ auditRouter.post('/', limiter, async (req, res) => {
     return;
   }
 
+  if (endpoint) {
+    try {
+      const u = new URL(endpoint);
+      if (u.protocol !== 'https:') throw new Error();
+    } catch {
+      res.status(400).json({ error: 'endpoint must be a valid HTTPS URL' });
+      return;
+    }
+  }
+
   // Verify payment first
   const { ok, error } = await verifyPayment(txHash);
   if (!ok) {

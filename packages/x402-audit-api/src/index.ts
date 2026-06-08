@@ -1,8 +1,12 @@
 import './config.js';
+import path              from 'path';
+import { fileURLToPath } from 'url';
 import express           from 'express';
 import helmet            from 'helmet';
 import { auditRouter }   from './routes/audit.js';
 import { config, AUDIT_PRICE_USDC, BASE_USDC } from './config.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
@@ -14,7 +18,7 @@ app.use('/audit', auditRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'x402-audit-api' }));
 
-app.get('/', (_req, res) => {
+app.get('/info', (_req, res) => {
   res.json({
     service:     'x402-audit-api',
     version:     '0.1.0',
@@ -25,25 +29,17 @@ app.get('/', (_req, res) => {
       base:   config.PAYMENT_RECIPIENT_BASE,
       solana: config.PAYMENT_RECIPIENT_SOL,
     },
-    checks: {
-      static: [
-        'CORS reflected-origin + credentials misconfiguration',
-        'Payment header presence-only bypass pattern',
-        'Hardcoded secrets (private keys, API keys)',
-      ],
-      dynamic: [
-        'Live auth bypass — fake X-PAYMENT header accepted?',
-        'Live CORS probe — reflected origin + credentials?',
-        'Info leak — stack traces in error responses?',
-      ],
-    },
-    usage: {
-      step1: 'GET /audit?repo=https://github.com/owner/repo  →  receive 402 with payTo address',
-      step2: 'Send 0.99 USDC on Base to payTo address',
-      step3: 'POST /audit  body: { "repo": "...", "endpoint": "https://..." (optional) }  header: X-Payment: <txHash>',
-      step4: 'Receive full audit report with findings, severity ratings, and fix guidance',
-    },
   });
+});
+
+// Landing page — serve HTML for browsers, JSON for API clients
+app.get('/', (req, res) => {
+  const acceptsHtml = req.headers.accept?.includes('text/html');
+  if (acceptsHtml) {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  } else {
+    res.json({ service: 'x402-audit-api', version: '0.1.0', info: '/info', audit: '/audit' });
+  }
 });
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
