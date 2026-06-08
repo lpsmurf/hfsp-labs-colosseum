@@ -30,7 +30,7 @@ export interface Skill {
 }
 
 export type TxStatus = 'success' | 'pending' | 'failed';
-export type TxProduct = SkillProduct | 'unknown';
+export type TxProduct = SkillProduct | 'outgoing' | 'incoming' | 'unknown';
 
 export interface X402Transaction {
   id: string;

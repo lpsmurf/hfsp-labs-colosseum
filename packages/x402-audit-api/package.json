@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:lite": "tsx watch src/index-lite.ts",
     "start": "tsx src/index.ts",
+    "start:lite": "tsx src/index-lite.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
