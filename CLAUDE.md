@@ -34,6 +34,7 @@ packages/
 ├── gnosis-card-x402          Gnosis Card x402 payment integration
 ├── gnosis-card-contracts     Gnosis Card Solidity contracts
 ├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
+├── wdk-browser-extension     WDK community module — Solana browser extension wallet (Chrome/Brave MV3)
 └── wdk-tron-swap             WDK community module — SunSwap on Tron
 
 config/                       Deployment infrastructure configs

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WDK Solana Wallet</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<!-- ── Setup screen ─────────────────────────────────────────────── -->
+<div id="screen-setup" class="screen">
+  <div class="content">
+    <div class="setup-logo">
+      <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="26" cy="26" r="26" fill="#14b89a" opacity="0.12"/>
+        <circle cx="26" cy="26" r="18" fill="#14b89a" opacity="0.18"/>
+        <path d="M18 26c0-4.4 3.6-8 8-8s8 3.6 8 8-3.6 8-8 8-8-3.6-8-8z" fill="#14b89a"/>
+        <path d="M23 26l2 2 4-4" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>WDK Solana Wallet</h1>
+      <p>USDt on Solana · Powered by Tether WDK</p>
+    </div>
+
+    <div id="setup-main">
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-create-new">Create Wallet</button>
+        <button class="btn-secondary" id="btn-import-wallet">Import</button>
+      </div>
+    </div>
+
+    <!-- Create: set password -->
+    <div id="setup-create" style="display:none">
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" id="create-password" placeholder="At least 8 characters" />
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="create-confirm" placeholder="Repeat password" />
+      </div>
+      <button class="btn-primary" id="btn-create-confirm">Generate Wallet</button>
+      <div id="create-error" class="error-msg"></div>
+    </div>
+
+    <!-- Create: show mnemonic -->
+    <div id="setup-mnemonic" style="display:none">
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:10px">Write down your 12-word recovery phrase. Store it somewhere safe — it's the only way to recover your wallet.</p>
+      <div class="warning-box">⚠ Never share your seed phrase with anyone.</div>
+      <div class="mnemonic-grid" id="mnemonic-grid"></div>
+      <button class="btn-primary" id="btn-mnemonic-done" style="margin-top:8px">I've written it down →</button>
+    </div>
+
+    <!-- Import wallet -->
+    <div id="setup-import" style="display:none">
+      <div class="form-group">
+        <label>Seed Phrase (12 words)</label>
+        <textarea id="import-mnemonic" rows="3" placeholder="word1 word2 word3 ..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" id="import-password" placeholder="At least 8 characters" />
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="import-confirm" placeholder="Repeat password" />
+      </div>
+      <button class="btn-primary" id="btn-import-confirm">Import Wallet</button>
+      <div id="import-error" class="error-msg"></div>
+      <button class="btn-secondary" id="btn-import-back" style="margin-top:10px">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Unlock screen ─────────────────────────────────────────────── -->
+<div id="screen-unlock" class="screen">
+  <div class="header">
+    <div class="header-title">
+      <svg class="logo" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="#14b89a" opacity="0.15"/><circle cx="11" cy="11" r="6" fill="#14b89a"/></svg>
+      WDK Solana Wallet
+    </div>
+  </div>
+  <div class="content">
+    <div style="margin-bottom:24px;margin-top:8px;color:var(--text-muted);font-size:13px;text-align:center">Enter your password to unlock</div>
+    <div class="form-group">
+      <input type="password" id="unlock-password" placeholder="Password" />
+    </div>
+    <button class="btn-primary" id="btn-unlock">Unlock</button>
+    <div id="unlock-error" class="error-msg"></div>
+    <div style="text-align:center;margin-top:16px">
+      <button id="btn-unlock-reset" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline">Forgot password? Reset wallet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Home screen ───────────────────────────────────────────────── -->
+<div id="screen-home" class="screen">
+  <div class="header">
+    <div class="header-title">
+      <svg class="logo" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="#14b89a" opacity="0.15"/><circle cx="11" cy="11" r="6" fill="#14b89a"/></svg>
+      Solana Wallet
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn-icon" id="btn-settings" title="Settings">⚙</button>
+      <button class="btn-icon" id="btn-lock" title="Lock wallet">🔒</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="card balance-card">
+      <div class="balance-usdt" id="balance-usdt">— USDt</div>
+      <div class="balance-sol" id="balance-sol">— SOL</div>
+      <div class="balance-token" style="margin-top:8px;font-size:11px" id="home-address"></div>
+    </div>
+    <div class="action-grid">
+      <button class="action-btn" id="btn-go-send">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 11h14M13 6l5 5-5 5" stroke="#14b89a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Send</span>
+      </button>
+      <button class="action-btn" id="btn-go-receive">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M18 11H4M9 16l-5-5 5-5" stroke="#14b89a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Receive</span>
+      </button>
+    </div>
+    <div id="home-status" class="status-row">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">Fetching balances…</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Send screen ───────────────────────────────────────────────── -->
+<div id="screen-send" class="screen">
+  <div class="header">
+    <button class="back-btn" id="btn-send-back">←</button>
+    <div class="header-title">Send USDt</div>
+    <div style="width:28px"></div>
+  </div>
+  <div class="content">
+    <div class="form-group">
+      <label>Recipient Address</label>
+      <input type="text" id="send-to" placeholder="Solana address" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label>Amount (USDt)</label>
+      <input type="number" id="send-amount" placeholder="0.00" min="0" step="0.000001" />
+      <div style="display:flex;justify-content:flex-end;margin-top:4px">
+        <button id="btn-send-max" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer">MAX</button>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-send-confirm">Send</button>
+    <div id="send-error" class="error-msg"></div>
+    <div id="send-success" class="success-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── Receive screen ────────────────────────────────────────────── -->
+<div id="screen-receive" class="screen">
+  <div class="header">
+    <button class="back-btn" id="btn-receive-back">←</button>
+    <div class="header-title">Receive USDt</div>
+    <div style="width:28px"></div>
+  </div>
+  <div class="content">
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Share your Solana address to receive USDt or SOL.</p>
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Your address</div>
+      <div class="address-box" id="receive-address"></div>
+      <button class="copy-btn" id="btn-copy-address">Copy Address</button>
+    </div>
+    <div class="warning-box" style="font-size:12px">Only send <strong>Solana (SOL)</strong> or <strong>SPL tokens</strong> to this address. Sending assets from other networks will result in permanent loss.</div>
+  </div>
+</div>
+
+<!-- ── Settings screen ───────────────────────────────────────────── -->
+<div id="screen-settings" class="screen">
+  <div class="header">
+    <button class="back-btn" id="btn-settings-back">←</button>
+    <div class="header-title">Settings</div>
+    <div style="width:28px"></div>
+  </div>
+  <div class="content">
+    <div class="card" style="margin-bottom:16px">
+      <div class="settings-row">
+        <span class="settings-label">Network</span>
+        <span class="settings-value">Solana Mainnet</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Token</span>
+        <span class="settings-value">USDt (Tether)</span>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="form-group" style="margin-bottom:10px">
+        <label>RPC Endpoint</label>
+        <input type="url" id="settings-rpc" placeholder="https://api.mainnet-beta.solana.com" />
+      </div>
+      <button class="btn-secondary" id="btn-settings-rpc-save">Save RPC</button>
+      <div id="rpc-status" class="success-msg" style="display:none"></div>
+    </div>
+    <button class="btn-secondary" id="btn-reset-wallet" style="color:var(--red);border-color:var(--red)">Reset Wallet (Danger)</button>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
