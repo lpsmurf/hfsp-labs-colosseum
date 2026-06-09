@@ -4,7 +4,7 @@
 # Runs in three acts:
 #   1. Test suite  (brittle TAP)
 #   2. Live quote  (Jupiter mainnet API — no wallet needed)
-#   3. Live swap   (real SOL → USDC on mainnet)
+#   3. Live swap   (real SOL → USDt on mainnet)
 #
 # Usage:
 #   PRIVATE_KEY=<base58> RPC_URL=<helius-url> bash examples/demo.sh
@@ -43,10 +43,12 @@ sleep 1
 header "ACT 2 / 3 — Live quote (Jupiter mainnet, no wallet needed)"
 node examples/quote.js
 
-sleep 1
+echo ""
+echo "  (pausing 12s to respect Jupiter rate limits...)"
+sleep 12
 
 # ── Act 3: Live swap ──────────────────────────────────────────────────────────
-header "ACT 3 / 3 — Live swap (SOL → USDC on Solana mainnet)"
+header "ACT 3 / 3 — Live swap (SOL → USDt on Solana mainnet)"
 
 if [ -z "${PRIVATE_KEY:-}" ]; then
   echo "  PRIVATE_KEY not set — skipping live swap"

@@ -1,4 +1,4 @@
-// examples/swap.js — execute a real SOL → USDC swap on Solana mainnet
+// examples/swap.js — execute a real SOL → USDT swap on Solana mainnet
 //
 // Usage:
 //   PRIVATE_KEY=<base58> RPC_URL=<helius-url> node examples/swap.js
@@ -12,7 +12,7 @@ import bs58 from 'bs58'
 import SolanaSwapProtocol from '../index.js'
 
 const SOL_MINT  = 'So11111111111111111111111111111111111111112'
-const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+const USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
 
 async function run () {
   const privateKeyB58 = process.env.PRIVATE_KEY
@@ -46,30 +46,30 @@ async function run () {
   console.log('─'.repeat(60))
   console.log(`\n Wallet:  ${keypair.publicKey.toBase58()}`)
   console.log(` Selling: ${amountSol} SOL`)
-  console.log(` Buying:  USDC`)
+  console.log(` Buying:  USDT`)
 
   // Step 1: quote
   process.stdout.write('\n[1/3] Fetching Jupiter quote ...')
   const quote = await swapper.quoteSwap({
     tokenIn:       SOL_MINT,
-    tokenOut:      USDC_MINT,
+    tokenOut:      USDT_MINT,
     tokenInAmount: amountAtomic
   })
   const outUsdc = (Number(quote.tokenOutAmount) / 1e6).toFixed(6)
   console.log(' done')
-  console.log(`      Expected out: ${outUsdc} USDC`)
+  console.log(`      Expected out: ${outUsdc} USDT`)
   console.log(`      Platform fee: ${quote.fee} lamports`)
 
   // Step 2: execute (retry once on 429 rate limit)
   process.stdout.write('\n[2/3] Signing and broadcasting transaction ...')
   let result
   try {
-    result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDC_MINT, tokenInAmount: amountAtomic })
+    result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDT_MINT, tokenInAmount: amountAtomic })
   } catch (err) {
     if (err.message.includes('429')) {
       process.stdout.write(' rate limited, retrying in 5s ...')
       await new Promise(r => setTimeout(r, 5000))
-      result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDC_MINT, tokenInAmount: amountAtomic })
+      result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDT_MINT, tokenInAmount: amountAtomic })
     } else {
       throw err
     }
@@ -80,7 +80,7 @@ async function run () {
   const actualUsdc = (Number(result.tokenOutAmount) / 1e6).toFixed(6)
   console.log('\n[3/3] Swap confirmed ✓')
   console.log(`      Sold:     ${amountSol} SOL`)
-  console.log(`      Received: ${actualUsdc} USDC`)
+  console.log(`      Received: ${actualUsdc} USDT`)
   console.log(`      Tx hash:  ${result.hash}`)
   console.log(`      Explorer: https://solscan.io/tx/${result.hash}`)
   console.log('\n' + '─'.repeat(60))
