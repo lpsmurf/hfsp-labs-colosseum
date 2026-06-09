@@ -1,23 +1,23 @@
-// examples/swap.js — execute a real USDC → SOL swap on Solana mainnet
+// examples/swap.js — execute a real SOL → USDC swap on Solana mainnet
 //
 // Usage:
 //   PRIVATE_KEY=<base58> RPC_URL=<helius-url> node examples/swap.js
 //
 // PRIVATE_KEY  — base58-encoded Solana wallet private key (64 bytes)
 // RPC_URL      — Solana RPC endpoint (Helius recommended for reliability)
-// AMOUNT_USDC  — USDC to sell (default: 1)
+// AMOUNT_SOL   — SOL to sell (default: 0.002)
 
 import { Keypair } from '@solana/web3.js'
 import bs58 from 'bs58'
 import SolanaSwapProtocol from '../index.js'
 
-const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 const SOL_MINT  = 'So11111111111111111111111111111111111111112'
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
 async function run () {
   const privateKeyB58 = process.env.PRIVATE_KEY
   const rpcUrl        = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com'
-  const amountUsdc    = parseFloat(process.env.AMOUNT_USDC || '1')
+  const amountSol     = parseFloat(process.env.AMOUNT_SOL || '0.002')
 
   if (!privateKeyB58) {
     console.error('Error: PRIVATE_KEY env var required (base58 Solana private key)')
@@ -25,7 +25,7 @@ async function run () {
   }
 
   const keypair      = Keypair.fromSecretKey(bs58.decode(privateKeyB58))
-  const amountAtomic = BigInt(Math.round(amountUsdc * 1e6)) // USDC has 6 decimals
+  const amountAtomic = BigInt(Math.round(amountSol * 1e9)) // SOL has 9 decimals
 
   // WDK-compatible account wrapping the keypair
   const account = {
@@ -37,7 +37,7 @@ async function run () {
   const swapper = new SolanaSwapProtocol(account, {
     rpcUrl,
     slippageBps: 50,
-    swapMaxFee:  100_000n  // refuse if platform fee > 0.0001 SOL
+    swapMaxFee:  100_000n
   })
 
   console.log('─'.repeat(60))
@@ -45,35 +45,42 @@ async function run () {
   console.log(' Jupiter aggregator · Solana mainnet')
   console.log('─'.repeat(60))
   console.log(`\n Wallet:  ${keypair.publicKey.toBase58()}`)
-  console.log(` Selling: ${amountUsdc} USDC`)
-  console.log(` Buying:  SOL`)
+  console.log(` Selling: ${amountSol} SOL`)
+  console.log(` Buying:  USDC`)
 
   // Step 1: quote
   process.stdout.write('\n[1/3] Fetching Jupiter quote ...')
   const quote = await swapper.quoteSwap({
-    tokenIn:       USDC_MINT,
-    tokenOut:      SOL_MINT,
+    tokenIn:       SOL_MINT,
+    tokenOut:      USDC_MINT,
     tokenInAmount: amountAtomic
   })
-  const outSol = (Number(quote.tokenOutAmount) / 1e9).toFixed(6)
+  const outUsdc = (Number(quote.tokenOutAmount) / 1e6).toFixed(6)
   console.log(' done')
-  console.log(`      Expected out: ${outSol} SOL`)
+  console.log(`      Expected out: ${outUsdc} USDC`)
   console.log(`      Platform fee: ${quote.fee} lamports`)
 
-  // Step 2: execute
+  // Step 2: execute (retry once on 429 rate limit)
   process.stdout.write('\n[2/3] Signing and broadcasting transaction ...')
-  const result = await swapper.swap({
-    tokenIn:       USDC_MINT,
-    tokenOut:      SOL_MINT,
-    tokenInAmount: amountAtomic
-  })
+  let result
+  try {
+    result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDC_MINT, tokenInAmount: amountAtomic })
+  } catch (err) {
+    if (err.message.includes('429')) {
+      process.stdout.write(' rate limited, retrying in 5s ...')
+      await new Promise(r => setTimeout(r, 5000))
+      result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDC_MINT, tokenInAmount: amountAtomic })
+    } else {
+      throw err
+    }
+  }
   console.log(' done')
 
   // Step 3: result
-  const actualSol = (Number(result.tokenOutAmount) / 1e9).toFixed(6)
+  const actualUsdc = (Number(result.tokenOutAmount) / 1e6).toFixed(6)
   console.log('\n[3/3] Swap confirmed ✓')
-  console.log(`      Sold:     ${amountUsdc} USDC`)
-  console.log(`      Received: ${actualSol} SOL`)
+  console.log(`      Sold:     ${amountSol} SOL`)
+  console.log(`      Received: ${actualUsdc} USDC`)
   console.log(`      Tx hash:  ${result.hash}`)
   console.log(`      Explorer: https://solscan.io/tx/${result.hash}`)
   console.log('\n' + '─'.repeat(60))

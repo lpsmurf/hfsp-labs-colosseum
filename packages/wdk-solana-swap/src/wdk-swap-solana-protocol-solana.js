@@ -22,8 +22,8 @@ import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 /** @typedef {import('@tetherto/wdk-wallet/protocols').SwapOptions} SwapOptions */
 /** @typedef {import('@tetherto/wdk-wallet/protocols').SwapResult} SwapResult */
 
-const JUPITER_QUOTE_URL = 'https://quote-api.jup.ag/v6/quote'
-const JUPITER_SWAP_URL = 'https://quote-api.jup.ag/v6/swap'
+const JUPITER_QUOTE_URL = 'https://api.jup.ag/swap/v1/quote'
+const JUPITER_SWAP_URL = 'https://api.jup.ag/swap/v1/swap'
 const DEFAULT_RPC = 'https://api.mainnet-beta.solana.com'
 const DEFAULT_SLIPPAGE_BPS = 50 // 0.5%
 

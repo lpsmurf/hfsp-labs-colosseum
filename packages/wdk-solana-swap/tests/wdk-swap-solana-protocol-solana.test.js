@@ -59,10 +59,10 @@ function mockFetch (impl) {
 
 function jupiterFetch (quoteBody, swapBody) {
   return async (url) => {
-    if (url.startsWith('https://quote-api.jup.ag/v6/quote')) {
+    if (url.startsWith('https://api.jup.ag/swap/v1/quote')) {
       return { ok: true, json: async () => quoteBody }
     }
-    if (url.startsWith('https://quote-api.jup.ag/v6/swap')) {
+    if (url.startsWith('https://api.jup.ag/swap/v1/swap')) {
       return { ok: true, json: async () => swapBody }
     }
     throw new Error(`Unexpected fetch: ${url}`)
@@ -171,7 +171,7 @@ test('swap - throws immediately when account has no private key', async (t) => {
 
 test('swap - throws when swap fee exceeds swapMaxFee', async (t) => {
   const restore = mockFetch(async (url) => {
-    if (url.startsWith('https://quote-api.jup.ag/v6/quote')) {
+    if (url.startsWith('https://api.jup.ag/swap/v1/quote')) {
       return { ok: true, json: async () => ({ ...MOCK_QUOTE, platformFee: { amount: '10000' } }) }
     }
     throw new Error('should not reach swap endpoint')
@@ -187,7 +187,7 @@ test('swap - throws when swap fee exceeds swapMaxFee', async (t) => {
 
 test('swap - throws on Jupiter swap API error', async (t) => {
   const restore = mockFetch(async (url) => {
-    if (url.startsWith('https://quote-api.jup.ag/v6/quote')) {
+    if (url.startsWith('https://api.jup.ag/swap/v1/quote')) {
       return { ok: true, json: async () => MOCK_QUOTE }
     }
     return { ok: false, status: 500, text: async () => 'internal error' }
