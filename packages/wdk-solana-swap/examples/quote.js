@@ -24,9 +24,9 @@ async function run () {
   console.log('─'.repeat(56))
 
   const pairs = [
-    { label: '1 SOL  → USDT', tokenIn: SOL_MINT,  tokenOut: USDT_MINT, amount: 1_000_000_000n, inDecimals: 9, outDecimals: 6  },
-    { label: '1 SOL  → USDC', tokenIn: SOL_MINT,  tokenOut: USDC_MINT, amount: 1_000_000_000n, inDecimals: 9, outDecimals: 6  },
-    { label: '10 USDC → SOL', tokenIn: USDC_MINT, tokenOut: SOL_MINT,  amount: 10_000_000n,    inDecimals: 6, outDecimals: 9  }
+    { label: '1 USDC  → SOL',  tokenIn: USDC_MINT, tokenOut: SOL_MINT,  amount: 1_000_000n,     inDecimals: 6, outDecimals: 9 },
+    { label: '10 USDC → SOL',  tokenIn: USDC_MINT, tokenOut: SOL_MINT,  amount: 10_000_000n,    inDecimals: 6, outDecimals: 9 },
+    { label: '1 SOL   → USDC', tokenIn: SOL_MINT,  tokenOut: USDC_MINT, amount: 1_000_000_000n, inDecimals: 9, outDecimals: 6 }
   ]
 
   for (const pair of pairs) {
