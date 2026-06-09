@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
+# package-lock.json is committed for reproducible installs (do not add here)
 
 # Environment
 .env
@@ -121,3 +121,7 @@ packages/x402-wallet/data/*.db-shm
 packages/x402-wallet/data/*.db-wal
 packages/oobe-bounty/wallet-pubkey.txt
 packages/x402-wallet/tsconfig.tsbuildinfo
+
+# Demo recordings and wallet envs (never commit private keys)
+packages/x402-vpn-vps/*.cast
+packages/x402-vpn-vps/.env.demo

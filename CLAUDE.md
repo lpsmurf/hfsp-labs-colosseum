@@ -22,14 +22,27 @@ packages/
 ├── clawdrop-platform         Subscriptions, Docker orchestration, ZK vault
 ├── agent-provisioning        Mastra brain + Telegram wizard + storefront API
 ├── clawdrop-mcp              MCP gateway + CLI wizard + payment protocol
+├── clawdrop-landing          Landing page (stub — redesign in progress)
+├── clawdrop-vpn              VPN x402 payment integration (clawdrop HTTP proxy)
 ├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
-├── x402-audit-api            x402 ecosystem security audit API (Base, $0.99 USDC gate)
+├── x402-audit-api            x402 ecosystem security audit API ($0.99 USDC, Base + Solana)
 ├── x402-donate               x402-gated donation router (Base, Endaoment integration)
 ├── x402-wallet               x402 wallet UI + agent dashboard
+├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet USDC, Helius verification
+├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator
 ├── gnosis-card-x402          Gnosis Card x402 payment integration
+├── gnosis-card-contracts     Gnosis Card Solidity contracts
 ├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
-├── wdk-tron-swap             WDK community module — SunSwap on Tron
-└── clawdrop-vpn              VPN x402 payment integration
+└── wdk-tron-swap             WDK community module — SunSwap on Tron
+
+config/                       Deployment infrastructure configs
+├── vps/                      Server infra (nginx, PM2, systemd) for production VPS
+├── docker/                   Docker configs
+└── nginx/                    Nginx reverse proxy configs
+
+marketplace/                  Marketplace submissions (pay-skills, x402scan, Agentic Market)
+├── pay-skills/               solana-foundation/pay-skills catalog entries
+└── providers/                Other provider marketplace entries (OpenClaw, etc.)
 
 x402-audit/                   Security audit findings for the x402 ecosystem
 ├── findings/                 Vulnerability disclosures (CRITICAL → INFO)
@@ -88,9 +101,13 @@ npm run dev
 - `/packages/*/src/` — Implementation code (TypeScript)
 - `/packages/*/tests/` — Unit + integration tests
 - `/docs/` — Public documentation, guides, architecture
-- `/.github/` — GitHub templates, workflows
+- `/.github/workflows/` — GitHub Actions CI/CD pipelines
+- `/.github/CODEOWNERS` — Code ownership declarations
 - `/config/` — Docker, nginx, PM2, system configs
+- `/config/vps/` — Production VPS server infra (nginx, PM2, systemd)
 - `/scripts/` — Deployment, dev, and utility scripts
+- `/marketplace/` — Marketplace submissions (pay-skills, x402scan, Agentic Market)
+- `/x402-audit/` — Security audit findings and reports
 
 ---
 

@@ -1,9 +1,9 @@
-# Code ownership for Clawdrop
+# Code ownership for Clawdrop / HFSP Labs monorepo
 
-# Default: maintainers
+# Default: all files
 *                                           @lpsmurf
 
-# Packages
+# Clawdrop core
 /packages/trial-api/                        @lpsmurf
 /packages/trial-frontend/                   @lpsmurf
 /packages/clawdrop-mcp-server/              @lpsmurf
@@ -11,12 +11,35 @@
 /packages/clawdrop-platform/                @lpsmurf
 /packages/agent-provisioning/               @lpsmurf
 /packages/clawdrop-mcp/                     @lpsmurf
+/packages/clawdrop-landing/                 @lpsmurf
+/packages/clawdrop-vpn/                     @lpsmurf
+/packages/oobe-bounty/                      @lpsmurf
 
-# Config and deployment
+# x402 products
+/packages/x402-vpn-vps/                    @lpsmurf
+/packages/x402-vpn-vps-base/               @lpsmurf
+/packages/x402-wallet/                     @lpsmurf
+/packages/x402-audit-api/                  @lpsmurf
+/packages/x402-donate/                     @lpsmurf
+
+# Gnosis card integration
+/packages/gnosis-card-x402/                @lpsmurf
+/packages/gnosis-card-contracts/            @lpsmurf
+
+# WDK community modules
+/packages/wdk-solana-swap/                  @lpsmurf
+/packages/wdk-tron-swap/                    @lpsmurf
+
+# Config and deployment infra
 /config/                                    @lpsmurf
 /docker-compose*.yml                        @lpsmurf
 /.github/                                   @lpsmurf
 /scripts/                                   @lpsmurf
 
+# Marketplace submissions
+/marketplace/                               @lpsmurf
+/x402-audit/                               @lpsmurf
+
 # Root
-/package.json                                @lpsmurf
+/package.json                               @lpsmurf
+/CLAUDE.md                                  @lpsmurf
