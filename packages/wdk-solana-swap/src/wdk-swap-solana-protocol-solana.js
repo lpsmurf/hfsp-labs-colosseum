@@ -32,6 +32,7 @@ const DEFAULT_SLIPPAGE_BPS = 50 // 0.5%
  * @property {string} [rpcUrl] - Solana RPC endpoint. Defaults to mainnet-beta public RPC.
  * @property {number} [slippageBps] - Slippage tolerance in basis points (default: 50 = 0.5%).
  * @property {number | bigint} [swapMaxFee] - Maximum acceptable platform fee in lamports.
+ * @property {object} [_connection] - Override Solana Connection instance (for testing).
  */
 
 export default class SolanaSwapProtocol extends SwapProtocol {
@@ -43,7 +44,7 @@ export default class SolanaSwapProtocol extends SwapProtocol {
     super(account, config)
     this._rpcUrl = config.rpcUrl ?? DEFAULT_RPC
     this._slippageBps = config.slippageBps ?? DEFAULT_SLIPPAGE_BPS
-    this._connection = new Connection(this._rpcUrl, 'confirmed')
+    this._connection = config._connection ?? new Connection(this._rpcUrl, 'confirmed')
   }
 
   /**
@@ -105,6 +106,12 @@ export default class SolanaSwapProtocol extends SwapProtocol {
    * @returns {Promise<SwapResult>}
    */
   async swap (options) {
+    // Fail fast — no point making network calls without a signing key
+    const { keyPair } = this._account
+    if (!keyPair?.privateKey) {
+      throw new Error('Account private key unavailable — dispose() may have been called')
+    }
+
     const address = await this._account.getAddress()
     const quote = await this._jupiterQuote(options)
 
@@ -138,12 +145,6 @@ export default class SolanaSwapProtocol extends SwapProtocol {
 
     // Deserialize, sign, and broadcast
     const tx = VersionedTransaction.deserialize(Buffer.from(swapTransaction, 'base64'))
-
-    const { keyPair } = this._account
-    if (!keyPair?.privateKey) {
-      throw new Error('Account private key unavailable — dispose() may have been called')
-    }
-
     tx.sign([Keypair.fromSecretKey(keyPair.privateKey)])
 
     const hash = await this._connection.sendRawTransaction(tx.serialize(), {
