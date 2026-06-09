@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>x402 Security Auditor — HFSP Labs</title>
+  <meta name="description" content="Pay $0.99 USDC to run a static + dynamic security audit on any public x402 GitHub repo. Checks CORS misconfiguration, payment-bypass patterns, exposed secrets, and live auth-bypass."/>
+  <meta property="og:title" content="x402 Security Auditor — HFSP Labs"/>
+  <meta property="og:description" content="Pay $0.99 USDC to audit any x402 GitHub repo for security vulnerabilities."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-surface-variant": "#d7c3ae",
+            "on-surface": "#e5e2e1",
+            "on-primary": "#452b00",
+            "terminal-green": "#00D992",
+            "surface-tint": "#ffb955",
+            "surface-container-highest": "#353534",
+            "primary-container": "#f5a623",
+            "surface-dim": "#131313",
+            "surface-container-high": "#2a2a2a",
+            "inverse-surface": "#e5e2e1",
+            "primary": "#ffc880",
+            "border-subtle": "rgba(255, 255, 255, 0.07)",
+            "on-primary-container": "#644000",
+            "background": "#0a0a0a",
+            "surface-elevated": "#111111",
+            "on-secondary": "#2f3131",
+            "outline": "#9f8e7a",
+            "secondary": "#c6c6c7",
+            "surface": "#131313",
+            "surface-container": "#201f1f",
+            "secondary-container": "#454747",
+            "code-bg": "#1c1c1c"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "12px",
+            "full": "0.75rem"
+          },
+          spacing: {
+            "margin-mobile": "16px",
+            "container-max": "1280px",
+            "margin-desktop": "40px",
+            "gutter": "24px",
+            "unit": "8px",
+            "section-gap": "120px"
+          },
+          fontFamily: {
+            "headline-lg": ["Syne", "sans-serif"],
+            "headline-md": ["Syne", "sans-serif"],
+            "display-lg": ["Syne", "sans-serif"],
+            "label-mono": ["JetBrains Mono", "monospace"],
+            "body-lg": ["Inter", "sans-serif"],
+            "body-md": ["Inter", "sans-serif"],
+            "label-caps": ["Inter", "sans-serif"]
+          },
+          fontSize: {
+            "display-lg": ["56px", { lineHeight: "1.1", fontWeight: "800" }],
+            "headline-lg": ["36px", { lineHeight: "1.2", fontWeight: "700" }],
+            "headline-md": ["24px", { lineHeight: "1.3", fontWeight: "600" }],
+            "body-lg": ["18px", { lineHeight: "1.6" }],
+            "body-md": ["15px", { lineHeight: "1.6" }],
+            "label-mono": ["12px", { lineHeight: "1.4", letterSpacing: "0.05em", fontWeight: "500" }],
+            "label-caps": ["12px", { lineHeight: "1.4", letterSpacing: "0.08em", fontWeight: "500" }]
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: "Inter", sans-serif; }
+    .font-syne { font-family: "Syne", sans-serif; }
+    .font-mono-code { font-family: "JetBrains Mono", monospace; }
+    .syntax-keyword { color: #ffc880; }
+    .syntax-string  { color: #00D992; }
+    .syntax-comment { color: #6b7280; }
+    .syntax-function{ color: #93c5fd; }
+    .syntax-number  { color: #f9a8d4; }
+    .glow-hint::before {
+      content: "";
+      position: absolute;
+      top: -1px; left: -1px; right: -1px; bottom: -1px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(245,166,35,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .severity-critical { color: #ff4444; }
+    .severity-high     { color: #ff8800; }
+    .severity-medium   { color: #ffcc00; }
+    .severity-low      { color: #00D992; }
+    .severity-info     { color: #93c5fd; }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245,166,35,0.15); }
+      50%       { box-shadow: 0 0 20px 4px rgba(245,166,35,0.08); }
+    }
+    .badge-live { animation: pulse-glow 3s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-background text-on-surface-variant font-body-md antialiased overflow-x-hidden selection:bg-primary-container selection:text-background">
+
+  <!-- Nav -->
+  <header class="fixed top-0 w-full border-b border-border-subtle bg-background/80 backdrop-blur-md z-50">
+    <div class="flex justify-between items-center max-w-[1280px] mx-auto px-4 md:px-10 h-20">
+      <a href="https://hfsp.cloud" class="flex items-center gap-2 opacity-90 hover:opacity-100 transition-opacity">
+        <span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings:'FILL' 1">terminal</span>
+        <span class="font-syne text-xl font-bold tracking-tighter text-primary">HFSP_LABS</span>
+      </a>
+      <div class="flex items-center gap-6">
+        <a href="https://github.com/hfsp-labs" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">GitHub</a>
+        <a href="https://hfsp.cloud" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">HFSP.cloud</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative min-h-[70vh] flex items-center justify-center pt-20 overflow-hidden border-b border-border-subtle">
+    <canvas class="absolute inset-0 w-full h-full z-0 opacity-60" id="hero-canvas"></canvas>
+    <div class="absolute inset-0 pointer-events-none z-10" style="background:radial-gradient(ellipse 80% 60% at 50% 100%, rgba(10,10,10,0.8) 0%, transparent 70%)"></div>
+    <div class="relative z-20 text-center max-w-4xl mx-auto px-4 md:px-10 py-20">
+      <div class="inline-flex items-center gap-2 bg-surface-container border border-border-subtle rounded-full px-4 py-2 mb-8 badge-live">
+        <span class="w-2 h-2 rounded-full bg-terminal-green inline-block"></span>
+        <span class="font-mono-code text-xs text-terminal-green uppercase tracking-widest">Live on Mainnet</span>
+      </div>
+      <h1 class="font-syne text-4xl md:text-6xl font-extrabold text-on-surface mb-6 leading-tight">
+        x402 Security<br/><span class="text-primary-container">Auditor</span>
+      </h1>
+      <p class="text-on-surface-variant text-lg md:text-xl mb-12 max-w-2xl mx-auto leading-relaxed">
+        Pay <span class="text-primary font-mono-code font-bold">$0.99 USDC</span> to run a static + dynamic security audit on any public x402 GitHub repo.
+        Returns severity-rated findings with fix guidance — in ~30 seconds.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#how-it-works" class="bg-primary-container text-on-primary-container font-bold px-8 py-4 rounded-xl hover:opacity-90 transition-opacity text-sm tracking-wide uppercase">
+          See How It Works
+        </a>
+        <a href="/audit?repo=https://github.com/coinbase/x402" class="border border-border-subtle text-on-surface px-8 py-4 rounded-xl hover:bg-surface-elevated transition-colors text-sm tracking-wide uppercase font-mono-code">
+          Try the API
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <main class="max-w-[1280px] mx-auto px-4 md:px-10 py-24 flex flex-col gap-24">
+
+    <!-- Pricing + Chains -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-[#111111] border border-border-subtle rounded-xl p-8 flex flex-col gap-3">
+        <span class="material-symbols-outlined text-primary-container text-3xl">payments</span>
+        <div class="font-mono-code text-3xl text-primary-container font-bold">$0.99</div>
+        <div class="text-on-surface-variant text-sm">USDC per audit — flat fee, no subscriptions</div>
+      </div>
+      <div class="bg-[#111111] border border-border-subtle rounded-xl p-8 flex flex-col gap-3">
+        <span class="material-symbols-outlined text-terminal-green text-3xl">link</span>
+        <div class="font-mono-code text-xl text-terminal-green font-bold">Base + Solana</div>
+        <div class="text-on-surface-variant text-sm">Pay from either chain — auto-detected from tx hash format</div>
+      </div>
+      <div class="bg-[#111111] border border-border-subtle rounded-xl p-8 flex flex-col gap-3">
+        <span class="material-symbols-outlined text-primary text-3xl">timer</span>
+        <div class="font-mono-code text-xl text-primary font-bold">~30 sec</div>
+        <div class="text-on-surface-variant text-sm">Static analysis + live endpoint probes, no queue</div>
+      </div>
+    </section>
+
+    <!-- What it checks -->
+    <section class="flex flex-col gap-10 border-b border-border-subtle pb-24">
+      <div>
+        <div class="inline-block bg-surface-container border border-border-subtle rounded-full px-4 py-2 mb-6">
+          <span class="font-mono-code text-xs text-primary-container uppercase tracking-widest">Coverage</span>
+        </div>
+        <h2 class="font-syne text-3xl md:text-4xl font-bold text-on-surface mb-4">What gets audited</h2>
+        <p class="text-on-surface-variant max-w-2xl">Every audit runs both static code analysis and live dynamic probing against the deployed endpoint.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Static -->
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-8 relative overflow-hidden glow-hint">
+          <div class="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+            <span class="material-symbols-outlined text-8xl">code</span>
+          </div>
+          <div class="font-mono-code text-xs text-primary-container uppercase tracking-widest mb-6">Static Analysis</div>
+          <ul class="flex flex-col gap-4">
+            <li class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-primary-container text-lg mt-0.5">shield_lock</span>
+              <div>
+                <div class="text-on-surface font-medium text-sm mb-1">CORS Misconfiguration</div>
+                <div class="text-on-surface-variant text-xs">Reflected-origin + credentials flags that allow any site to read 402-gated responses</div>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-primary-container text-lg mt-0.5">lock_open</span>
+              <div>
+                <div class="text-on-surface font-medium text-sm mb-1">Payment Bypass Patterns</div>
+                <div class="text-on-surface-variant text-xs">Presence-only checks (<span class="font-mono-code text-xs">if headers['x-payment']</span>) that skip verification entirely</div>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-primary-container text-lg mt-0.5">key_off</span>
+              <div>
+                <div class="text-on-surface font-medium text-sm mb-1">Hardcoded Secrets</div>
+                <div class="text-on-surface-variant text-xs">Private keys, mnemonics, and API keys committed in source code</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <!-- Dynamic -->
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-8 relative overflow-hidden glow-hint">
+          <div class="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+            <span class="material-symbols-outlined text-8xl">radar</span>
+          </div>
+          <div class="font-mono-code text-xs text-terminal-green uppercase tracking-widest mb-6">Dynamic Probing</div>
+          <ul class="flex flex-col gap-4">
+            <li class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-terminal-green text-lg mt-0.5">vpn_key_off</span>
+              <div>
+                <div class="text-on-surface font-medium text-sm mb-1">Live Auth Bypass</div>
+                <div class="text-on-surface-variant text-xs">Sends a fake <span class="font-mono-code text-xs">X-Payment</span> header to the live endpoint and checks if access is granted</div>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-terminal-green text-lg mt-0.5">public</span>
+              <div>
+                <div class="text-on-surface font-medium text-sm mb-1">CORS Credentials Probe</div>
+                <div class="text-on-surface-variant text-xs">Checks if <span class="font-mono-code text-xs">Access-Control-Allow-Credentials: true</span> is returned with an arbitrary origin</div>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-terminal-green text-lg mt-0.5">error_outline</span>
+              <div>
+                <div class="text-on-surface font-medium text-sm mb-1">Info-Leak Probe</div>
+                <div class="text-on-surface-variant text-xs">Checks if error responses expose stack traces, internal paths, or environment details</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how-it-works" class="flex flex-col gap-10 border-b border-border-subtle pb-24">
+      <div>
+        <div class="inline-block bg-surface-container border border-border-subtle rounded-full px-4 py-2 mb-6">
+          <span class="font-mono-code text-xs text-primary-container uppercase tracking-widest">Integration</span>
+        </div>
+        <h2 class="font-syne text-3xl md:text-4xl font-bold text-on-surface mb-4">How it works</h2>
+        <p class="text-on-surface-variant max-w-2xl">Three HTTP calls. No account required. x402-native flow.</p>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+        <!-- Steps -->
+        <div class="flex flex-col gap-6">
+          <div class="flex gap-5 items-start">
+            <div class="w-8 h-8 rounded-full bg-surface-container border border-border-subtle flex items-center justify-center font-mono-code text-xs text-primary-container flex-shrink-0 mt-1">1</div>
+            <div>
+              <div class="text-on-surface font-medium mb-1">GET /audit?repo=&lt;github-url&gt;</div>
+              <div class="text-on-surface-variant text-sm">Receive an HTTP 402 response with <span class="font-mono-code text-xs">payTo</span> addresses for both Base and Solana, amount, and payment instructions.</div>
+            </div>
+          </div>
+          <div class="flex gap-5 items-start">
+            <div class="w-8 h-8 rounded-full bg-surface-container border border-border-subtle flex items-center justify-center font-mono-code text-xs text-primary-container flex-shrink-0 mt-1">2</div>
+            <div>
+              <div class="text-on-surface font-medium mb-1">Send $0.99 USDC</div>
+              <div class="text-on-surface-variant text-sm">Pay from Base (EVM tx hash) or Solana (base58 signature). Chain is auto-detected — no extra configuration needed.</div>
+            </div>
+          </div>
+          <div class="flex gap-5 items-start">
+            <div class="w-8 h-8 rounded-full bg-surface-container border border-border-subtle flex items-center justify-center font-mono-code text-xs text-primary-container flex-shrink-0 mt-1">3</div>
+            <div>
+              <div class="text-on-surface font-medium mb-1">POST /audit with X-Payment header</div>
+              <div class="text-on-surface-variant text-sm">Submit the tx hash. Receive a full audit report in ~30 seconds: severity-rated findings, fix guidance, and an overall PASS/REVIEW/FAIL verdict.</div>
+            </div>
+          </div>
+          <!-- Sample output -->
+          <div class="bg-code-bg border border-border-subtle rounded-xl p-5 font-mono-code text-xs text-on-surface-variant overflow-x-auto mt-2">
+            <div class="text-on-surface-variant mb-2 text-[10px] uppercase tracking-widest">Sample response</div>
+            <pre><code>{
+  <span class="syntax-string">"summary"</span>: {
+    <span class="syntax-string">"verdict"</span>: <span class="syntax-string">"REVIEW"</span>,
+    <span class="syntax-string">"total"</span>: <span class="syntax-number">3</span>,
+    <span class="syntax-string">"critical"</span>: <span class="syntax-number">0</span>, <span class="syntax-string">"high"</span>: <span class="syntax-number">1</span>,
+    <span class="syntax-string">"medium"</span>: <span class="syntax-number">1</span>, <span class="syntax-string">"low"</span>: <span class="syntax-number">0</span>, <span class="syntax-string">"info"</span>: <span class="syntax-number">1</span>
+  },
+  <span class="syntax-string">"findings"</span>: [{
+    <span class="syntax-string">"severity"</span>: <span class="syntax-string">"HIGH"</span>,
+    <span class="syntax-string">"title"</span>: <span class="syntax-string">"Payment bypass — presence-only check"</span>,
+    <span class="syntax-string">"location"</span>: <span class="syntax-string">"src/middleware.ts:42"</span>,
+    <span class="syntax-string">"fix"</span>: <span class="syntax-string">"Verify tx on-chain, not just header presence"</span>
+  }]
+}</code></pre>
+          </div>
+        </div>
+        <!-- API request snippet -->
+        <div class="flex flex-col gap-4">
+          <div class="bg-code-bg border border-border-subtle rounded-xl p-5 font-mono-code text-xs overflow-x-auto">
+            <div class="text-on-surface-variant mb-3 text-[10px] uppercase tracking-widest">Step 1 — Request payment challenge</div>
+            <pre><code><span class="syntax-keyword">GET</span> https://audit.hfsp.cloud/audit<span class="syntax-string">?repo=https://github.com/owner/repo</span>
+
+<span class="syntax-comment"># → 402 Payment Required</span>
+{
+  <span class="syntax-string">"accepts"</span>: [
+    {
+      <span class="syntax-string">"network"</span>: <span class="syntax-string">"base-mainnet"</span>,
+      <span class="syntax-string">"payTo"</span>: <span class="syntax-string">"0x002e76..."</span>,
+      <span class="syntax-string">"maxAmountRequired"</span>: <span class="syntax-string">"990000"</span>
+    },
+    {
+      <span class="syntax-string">"network"</span>: <span class="syntax-string">"solana-mainnet"</span>,
+      <span class="syntax-string">"payTo"</span>: <span class="syntax-string">"ALDJCQEj..."</span>,
+      <span class="syntax-string">"maxAmountRequired"</span>: <span class="syntax-string">"990000"</span>
+    }
+  ]
+}</code></pre>
+          </div>
+          <div class="bg-code-bg border border-border-subtle rounded-xl p-5 font-mono-code text-xs overflow-x-auto">
+            <div class="text-on-surface-variant mb-3 text-[10px] uppercase tracking-widest">Step 3 — Submit payment + run audit</div>
+            <pre><code><span class="syntax-keyword">POST</span> https://audit.hfsp.cloud/audit
+<span class="syntax-string">X-Payment</span>: &lt;solana-sig or base-txhash&gt;
+<span class="syntax-string">Content-Type</span>: application/json
+
+{
+  <span class="syntax-string">"repo"</span>: <span class="syntax-string">"https://github.com/owner/repo"</span>,
+  <span class="syntax-string">"endpoint"</span>: <span class="syntax-string">"https://api.example.com"</span> <span class="syntax-comment">// optional</span>
+}</code></pre>
+          </div>
+          <div class="bg-[#111111] border border-border-subtle rounded-xl p-5">
+            <div class="font-mono-code text-xs text-on-surface-variant mb-3 uppercase tracking-widest">Pay to</div>
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center gap-3">
+                <span class="font-mono-code text-xs text-primary-container w-14 flex-shrink-0">BASE</span>
+                <span class="font-mono-code text-xs text-on-surface-variant break-all">0x002e76fEdb2014d24AB6032998BD9F406b322bDF</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="font-mono-code text-xs text-terminal-green w-14 flex-shrink-0">SOL</span>
+                <span class="font-mono-code text-xs text-on-surface-variant break-all">ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Severity scale -->
+    <section class="flex flex-col gap-10 border-b border-border-subtle pb-24">
+      <div>
+        <div class="inline-block bg-surface-container border border-border-subtle rounded-full px-4 py-2 mb-6">
+          <span class="font-mono-code text-xs text-primary-container uppercase tracking-widest">Output</span>
+        </div>
+        <h2 class="font-syne text-3xl md:text-4xl font-bold text-on-surface mb-4">Severity scale</h2>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-6 flex flex-col gap-2">
+          <div class="font-mono-code text-sm severity-critical font-bold">CRITICAL</div>
+          <div class="text-on-surface-variant text-xs">Exploitable without interaction — immediate fix required</div>
+        </div>
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-6 flex flex-col gap-2">
+          <div class="font-mono-code text-sm severity-high font-bold">HIGH</div>
+          <div class="text-on-surface-variant text-xs">Directly exploitable with minimal effort</div>
+        </div>
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-6 flex flex-col gap-2">
+          <div class="font-mono-code text-sm severity-medium font-bold">MEDIUM</div>
+          <div class="text-on-surface-variant text-xs">Exploitable under specific conditions</div>
+        </div>
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-6 flex flex-col gap-2">
+          <div class="font-mono-code text-sm severity-low font-bold">LOW</div>
+          <div class="text-on-surface-variant text-xs">Limited direct impact; defense-in-depth</div>
+        </div>
+        <div class="bg-[#111111] border border-border-subtle rounded-xl p-6 flex flex-col gap-2">
+          <div class="font-mono-code text-sm severity-info font-bold">INFO</div>
+          <div class="text-on-surface-variant text-xs">Observations and best-practice notes</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full border-t border-border-subtle bg-background">
+    <div class="max-w-[1280px] mx-auto px-4 md:px-10 py-16 flex flex-col md:flex-row justify-between items-start gap-10">
+      <div class="flex flex-col gap-4">
+        <a href="https://hfsp.cloud" class="font-syne text-xl font-bold text-on-surface opacity-90 hover:opacity-100 transition-all">HFSP_LABS</a>
+        <p class="font-mono-code text-xs text-on-surface-variant">©2024 HFSP LABS. ALL RIGHTS RESERVED.</p>
+        <a href="mailto:info@hfsp.xyz" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors">info@hfsp.xyz</a>
+      </div>
+      <div class="flex flex-col gap-5">
+        <div class="font-mono-code text-xs text-on-surface-variant uppercase tracking-widest mb-1">Support / Donations</div>
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center gap-3">
+            <span class="font-mono-code text-xs text-on-surface-variant w-10 flex-shrink-0">SOL</span>
+            <span class="font-mono-code text-xs text-on-surface-variant break-all">ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="font-mono-code text-xs text-on-surface-variant w-10 flex-shrink-0">EVM</span>
+            <span class="font-mono-code text-xs text-on-surface-variant break-all">0x002e76fEdb2014d24AB6032998BD9F406b322bDF</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="font-mono-code text-xs text-on-surface-variant w-10 flex-shrink-0">BTC</span>
+            <span class="font-mono-code text-xs text-on-surface-variant break-all">bc1pt6u3cgad70w5yypdkrdphdfqzmyrvjdljqxpz7r2neday2kjtj9qh4kfyd</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div class="font-mono-code text-xs text-on-surface-variant uppercase tracking-widest mb-1">Links</div>
+        <a href="https://github.com/hfsp-labs" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">GitHub</a>
+        <a href="/audit?repo=https://github.com/coinbase/x402" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">Try the API</a>
+        <a href="/.well-known/agent-card.json" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">Agent Card</a>
+        <a href="/health" class="font-mono-code text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">Status</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Particle canvas (same style as hfsp.cloud) -->
+  <script>
+    const canvas = document.getElementById('hero-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+
+    function createParticle() {
+      return {
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 1.5 + 0.5,
+        alpha: Math.random() * 0.4 + 0.05,
+        color: Math.random() > 0.7 ? '#ffc880' : '#ffffff'
+      };
+    }
+
+    function init() {
+      resize();
+      particles = Array.from({ length: 80 }, createParticle);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha;
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', () => { resize(); });
+    init();
+    draw();
+  </script>
+</body>
+</html>

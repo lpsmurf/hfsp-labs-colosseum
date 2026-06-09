@@ -101,10 +101,10 @@ export function Admin() {
           <div className="px-4 py-3 flex justify-between items-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">Email</span>
             <a
-              href="mailto:support@hfsp.cloud"
+              href="mailto:info@hfsp.xyz"
               className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
             >
-              support@hfsp.cloud
+              info@hfsp.xyz
             </a>
           </div>
         </section>

@@ -55,10 +55,11 @@ function getBearerClient(): TwitterApi | null {
 function formatTweet(signal: TradingSignal): string {
   // Daily news digest
   if (signal.symbol === 'NEWS') {
-    let data: { date: string; items: Array<{ title: string; source: string }> } | null = null;
-    try { data = JSON.parse(signal.reason) as typeof data; } catch { return signal.reason.slice(0, 280); }
+    type DigestData = { date: string; items: Array<{ title: string; source: string }> };
+    let data: DigestData | null = null;
+    try { data = JSON.parse(signal.reason) as DigestData; } catch { return signal.reason.slice(0, 280); }
     if (!data) return signal.reason.slice(0, 280);
-    const rows = (data.items ?? []).slice(0, 4).map((item, i) =>
+    const rows = ((data as DigestData).items ?? []).slice(0, 4).map((item, i) =>
       `${i + 1}. ${item.title.slice(0, 55)}`
     );
     return [`📰 CRYPTO MORNING DIGEST`, ``, ...rows, ``, CTA].join('\n').slice(0, 280);
@@ -242,11 +243,11 @@ function isTwitterWorthy(signal: TradingSignal): boolean {
   if (
     signal.symbol === 'PRED' ||
     signal.symbol === 'PRED_STOPLOSS' ||
-    signal.agentId === 'price-monitor'   // NewsBot — headlines only, no price, skip Twitter
+    signal.agent_id === 'price-monitor'   // NewsBot — headlines only, no price, skip Twitter
   ) return false;
 
   // Crypto analyst signals: only post confirmed correct calls
-  if (signal.agentId === 'portfolio-analyzer') {
+  if (signal.agent_id === 'portfolio-analyzer') {
     return signal.outcome_correct === true;
   }
 

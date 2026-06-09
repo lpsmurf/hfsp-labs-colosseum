@@ -278,4 +278,4 @@ Unauthorized commercial use is prohibited under Commons Clause license.
 
 **Last Updated:** April 18, 2026 @ 00:00 UTC  
 **Git History:** See `git log` for timestamped development record  
-**Contact:** info@asicgenesis.com
+**Contact:** info@hfsp.xyz

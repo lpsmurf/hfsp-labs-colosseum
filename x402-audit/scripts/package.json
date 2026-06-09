@@ -1,0 +1,15 @@
+{
+  "name": "x402-audit-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "probe": "npx tsx probe.ts",
+    "batch": "npx tsx batch-probe.ts",
+    "batch:p1": "npx tsx batch-probe.ts --tier p1",
+    "batch:p2": "npx tsx batch-probe.ts --tier p2 --limit 50"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

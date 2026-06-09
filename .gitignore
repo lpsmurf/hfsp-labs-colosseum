@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
+# package-lock.json is committed for reproducible installs (do not add here)
 
 # Environment
 .env
@@ -81,7 +81,7 @@ venv/
 *.sqlite
 
 # Internal team coordination (do not track)
-SESSIONS/
+/SESSIONS/
 BOUNTY-PREP-KIT.md
 .internal/
 .claude/
@@ -105,9 +105,23 @@ scripts/session-closer/
 .DS_Store
 .env*.local
 
+# Large media files (use external storage / links instead)
+*.mp4
+*.mp3
+*.mov
+*.avi
+
 # Solana keypairs (NEVER commit)
 **/solana-keypair.json
 **/wallet-keypair.json
 **/*-keypair.json
 packages/oobe-bounty/data/*.db
+packages/x402-wallet/data/*.db
+packages/x402-wallet/data/*.db-shm
+packages/x402-wallet/data/*.db-wal
 packages/oobe-bounty/wallet-pubkey.txt
+packages/x402-wallet/tsconfig.tsbuildinfo
+
+# Demo recordings and wallet envs (never commit private keys)
+packages/x402-vpn-vps/*.cast
+packages/x402-vpn-vps/.env.demo

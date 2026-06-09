@@ -1,0 +1,394 @@
+{
+  "runAt": "2026-06-05T21:59:12.478Z",
+  "tier": "p1",
+  "limit": 26,
+  "summary": {
+    "total": 26,
+    "clean": 3,
+    "issues": 19,
+    "broken": 4,
+    "security": 0
+  },
+  "results": [
+    {
+      "serviceId": "orbisapi-com",
+      "serviceName": "orbisapi.com",
+      "url": "https://orbisapi.com/api/proxy/gas-fee-estimator-api-a96f58/estimate",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "accepts[0] missing: maxAmountRequired",
+        "accepts[1] missing: maxAmountRequired"
+      ],
+      "duration_ms": 538,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "signal-engine-production-d88d-up-railway-app",
+      "serviceName": "signal-engine-production-d88d.up.railway.app",
+      "url": "https://signal-engine-production-d88d.up.railway.app/v1/arena/ema_5_breakout/BTC",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 785,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "win-oneshotagent-com",
+      "serviceName": "win.oneshotagent.com",
+      "url": "https://win.oneshotagent.com/v1/tools/commerce/search",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 355,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "x402-ottoai-services",
+      "serviceName": "x402.ottoai.services",
+      "url": "https://x402.ottoai.services/bridge",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 235,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-molty-cash",
+      "serviceName": "api.molty.cash",
+      "url": "https://api.molty.cash/0xmesuthere/a2a",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "accepts[0] missing: maxAmountRequired",
+        "accepts[1] missing: maxAmountRequired",
+        "accepts[2] missing: maxAmountRequired",
+        "accepts[3] missing: maxAmountRequired",
+        "accepts[4] missing: maxAmountRequired",
+        "accepts[5] missing: maxAmountRequired",
+        "accepts[6] missing: maxAmountRequired",
+        "accepts[7] missing: maxAmountRequired"
+      ],
+      "duration_ms": 533,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "skills-onesource-io",
+      "serviceName": "skills.onesource.io",
+      "url": "https://skills.onesource.io/api/chain/allowance",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 969,
+      "replayStatus": 400,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "blockint-ai",
+      "serviceName": "blockint.ai",
+      "url": "https://blockint.ai/api/v1/c3-reports",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 464,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-nansen-ai",
+      "serviceName": "Nansen",
+      "url": "https://api.nansen.ai/api/v1/perp-leaderboard",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "accepts[0] missing: maxAmountRequired",
+        "accepts[1] missing: maxAmountRequired",
+        "accepts[2] missing: maxAmountRequired"
+      ],
+      "duration_ms": 384,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "blockrun-ai",
+      "serviceName": "BlockRun.AI",
+      "url": "https://blockrun.ai/api/v1/defillama/chains",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 427,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "serp-x402-vercel-app",
+      "serviceName": "serp-x402.vercel.app",
+      "url": "https://serp-x402.vercel.app/serp/bing",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 355,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "stableenrich-dev",
+      "serviceName": "stableenrich.dev",
+      "url": "https://stableenrich.dev/api/apollo/people-enrich",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "402 body is not valid JSON"
+      ],
+      "duration_ms": 720,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "x402-twit-sh",
+      "serviceName": "x402.twit.sh",
+      "url": "https://x402.twit.sh/articles/by/id",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 118,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "stabletravel-dev",
+      "serviceName": "stabletravel.dev",
+      "url": "https://stabletravel.dev/api/activities/by-square",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "402 body is not valid JSON"
+      ],
+      "duration_ms": 979,
+      "replayStatus": 400,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "exa-ai",
+      "serviceName": "Exa",
+      "url": "https://api.exa.ai/contents",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "accepts[0] missing: maxAmountRequired"
+      ],
+      "duration_ms": 488,
+      "replayStatus": 400,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-exa-ai",
+      "serviceName": "api.exa.ai",
+      "url": "https://api.exa.ai/contents",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "accepts[0] missing: maxAmountRequired"
+      ],
+      "duration_ms": 355,
+      "replayStatus": 400,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "ot-intel-api-onrender-com",
+      "serviceName": "ot-intel-api.onrender.com",
+      "url": "https://ot-intel-api.onrender.com/ot/actor",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 1038,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-x402node-dev",
+      "serviceName": "api.x402node.dev",
+      "url": "https://api.x402node.dev/chain/base-gas",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [],
+      "duration_ms": 819,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-stocktrends-com",
+      "serviceName": "api.stocktrends.com",
+      "url": "https://api.stocktrends.com/v1/agent/screener/top",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 1061,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-cn402-com",
+      "serviceName": "api.cn402.com",
+      "url": "https://api.cn402.com/age/calc",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [],
+      "duration_ms": 803,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "x402-browserbase-com",
+      "serviceName": "Browserbase",
+      "url": "https://x402.browserbase.com/browser/session/:id/extend",
+      "method": "GET",
+      "statusCode": 404,
+      "is402": false,
+      "specIssues": [
+        "Expected 402, got 404"
+      ],
+      "duration_ms": 447,
+      "replayStatus": 404,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "telesint-api-onrender-com",
+      "serviceName": "telesint-api.onrender.com",
+      "url": "https://telesint-api.onrender.com/actor",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 434,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "x402-api-aubr-ai",
+      "serviceName": "x402-api.aubr.ai",
+      "url": "https://x402-api.aubr.ai/api/analysis",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "accepts[0] missing: maxAmountRequired"
+      ],
+      "duration_ms": 405,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "stableupload-dev",
+      "serviceName": "StableUpload",
+      "url": "https://stableupload.dev/api/site",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "402 body is not valid JSON"
+      ],
+      "duration_ms": 797,
+      "replayStatus": 400,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "human-twin3-ai",
+      "serviceName": "human.twin3.ai",
+      "url": "https://human.twin3.ai/v1/human",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "Missing x402Version",
+        "Missing or empty accepts array"
+      ],
+      "duration_ms": 1745,
+      "replayStatus": 402,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "docs-apollo-io",
+      "serviceName": "Apollo",
+      "url": "https://stableenrich.dev/api/apollo/org-enrich",
+      "method": "POST",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [
+        "402 body is not valid JSON"
+      ],
+      "duration_ms": 532,
+      "replayStatus": 400,
+      "replayAccepted": false
+    },
+    {
+      "serviceId": "api-myceliasignal-com",
+      "serviceName": "api.myceliasignal.com",
+      "url": "https://api.myceliasignal.com/oracle/cot/btc",
+      "method": "GET",
+      "statusCode": 402,
+      "is402": true,
+      "specIssues": [],
+      "duration_ms": 524,
+      "replayStatus": 402,
+      "replayAccepted": false
+    }
+  ]
+}

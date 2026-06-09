@@ -9,14 +9,17 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.0",
+    "@bentoguard/sdk": "^1.2.7",
     "@mastra/core": "^0.10.0",
     "@solana-agent-kit/plugin-misc": "^2.0.6",
     "@solana-agent-kit/plugin-token": "^2.0.9",
     "axios": "^1.7.0",
     "better-sqlite3": "^9.4.0",
+    "bs58": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^4.18.0",
     "solana-agent-kit": "^2.0.10",
+    "tweetnacl": "^1.0.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {

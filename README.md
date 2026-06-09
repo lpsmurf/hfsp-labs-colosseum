@@ -1,154 +1,82 @@
-# Clawdrop
+# HFSP Labs — x402 Ecosystem
 
-> **"While you sleep, your agent trades."**
+> **Payment-gated HTTP services for autonomous AI agents. Pay USDC on-chain, get the resource. No API keys, no accounts.**
 
-Deploy per-user autonomous Solana AI agents that run 24/7, execute DeFi strategies, and interact with 60+ Solana protocols—without users writing code or sharing private keys.
-
-Two stages: free trial chatbot → paid deployed agent on isolated infrastructure.
+Built on the [x402 protocol](https://x402.org) and Solana. Agents discover services, pay atomically, and receive provisioned resources — VPN configs, gift card codes, audit reports, and more.
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](package.json)
-[![solana-agent-kit](https://img.shields.io/badge/solana--agent--kit-v2.0.10-9945FF)](https://github.com/sendaifun/solana-agent-kit)
-[![MCP](https://img.shields.io/badge/MCP-compatible-orange)](https://modelcontextprotocol.io)
-[![Docker](https://img.shields.io/badge/docker-ready-blue)](docker-compose.trial.yml)
 
 ---
 
-## Architecture Overview
+## x402 Services
 
-```
-STAGE 1: FREE TRIAL                      STAGE 2: DEPLOYED AGENT
-──────────────────────────────────────   ──────────────────────────────────────
-
-User Browser                              User via Telegram
-     ↓                                           ↓
-trial-frontend (React/Vite)              clawdrop-agent-runtime (per-user)
-     ↓                                           ↓ MCP Client
-trial-api (Mastra Agent)                 clawdrop-mcp-server (per-user)
-     ↓                                           ↓
-SolanaAgentKit                           SolanaAgentKit + TokenPlugin + DefiPlugin
-  • TokenPlugin                          + x402engine-mcp (payment protocol)
-  • MiscPlugin                           + Clawdrop custom tools
-  (read-only on devnet)                  (full capabilities on mainnet)
-                                          ↓
-                                   Helius RPC → Solana Blockchain
-                                   Jupiter, Birdeye, DexScreener
-```
-
-**Key insight:** Each paid subscriber gets an isolated Docker container running their own `clawdrop-mcp-server` instance—their private key, their dedicated MCP endpoint, never shared infrastructure.
+| Package | Domain | Network | What agents buy |
+|---------|--------|---------|-----------------|
+| `x402-vpn-vps` | `vpn.hfsp.cloud` | Solana | Anonymous WireGuard VPN ($0.20–$7.99) + ephemeral Ubuntu VPS ($0.25–$3.99) |
+| `x402-vpn-vps-base` | — | Base | Same VPN + VPS via x402.org facilitator (EVM) |
+| `x402-store` | `store.hfsp.cloud` | Solana | Gift cards, mobile top-ups, eSIMs — 10,500+ brands, 180+ countries |
+| `x402-donate` | — | Base | Route USDC to 10,000+ Endaoment charities |
+| `x402-audit-api` | — | Base + Solana | Automated GitHub security audits for $0.99 USDC |
+| `x402-wallet` | — | Solana | Agent wallet dashboard |
+| `gnosis-card-x402` | — | Solana + Base | Top up Gnosis Pay Safe with USDC |
+| `oobe-bounty` | Solana mainnet | Solana | Live autonomous agent — proof of x402 at scale |
 
 ---
 
-## SendAI Agent Kit Integration
+## x402 Payment Pattern
 
-Clawdrop makes deep use of **SendAI Solana Agent Kit** as the unified tool provider:
+Every service in this repo implements the same protocol:
 
-### Trial Chatbot (Stage 1)
-- `packages/trial-api` instantiates `SolanaAgentKit` with `TokenPlugin` + `MiscPlugin`
-- Tools: token price (Jupiter), wallet balance, domain resolution (.sol), NFT metadata, token safety (RugCheck), Allora inference
-- Uses: Mastra agent orchestration for conversational routing
-- Scope: read-only devnet access, rate-limited
+```
+1. POST /api/resource (no payment header)
+   ← 402  { amount, asset: "USDC", network: "solana", payTo: "..." }
 
-### Deployed Agent (Stage 2)
-- `packages/clawdrop-mcp-server` exposes `SolanaAgentKit` as an MCP server via `@solana-agent-kit/adapter-mcp`
-- Tools: all TokenPlugin + DefiPlugin actions (swaps, liquidity, yield, routing)
-- Extensibility: custom Clawdrop tools (`list_tiers`, `get_wallet_analytics`, `check_token_risk`) registered in same `actionsRecord` as Agent Kit tools
-- Pattern:
-  ```typescript
-  const agent = new SolanaAgentKit(wallet, RPC_URL, config)
-    .use(TokenPlugin)
-    .use(DefiPlugin);
-  
-  const actionsRecord = Object.fromEntries(
-    agent.actions.map(a => [a.name, a])
-  );
-  
-  // Extend with custom tools
-  for (const tool of clawdropTools) {
-    actionsRecord[tool.name] = tool;
-  }
-  
-  const mcpServer = createMcpServer(actionsRecord, agent, {
-    name: 'clawdrop-mcp',
-    version: '0.1.0'
-  });
-  ```
+2. Agent sends USDC on Solana mainnet, gets tx signature
 
-### Why This Architecture
-- **Agent Kit as tool provider, not agent loop** — Clawdrop uses Mastra for agent orchestration, not LangChain. This allows model-agnostic LLM routing (OpenRouter, custom endpoint, BYOK).
-- **x402 payment protocol alongside Agent Kit** — `x402engine-mcp` tools are registered in the same MCP server, giving agents unified budget-aware tool selection.
-- **Per-user MCP server isolation** — Each user's MCP server is containerized separately; private keys are AES-GCM encrypted at rest, decrypted only at spawn time.
+3. POST /api/resource
+   Header: X-Solana-Tx: <confirmed_signature>
+   ← 200  { ...provisioned resource... }
+```
+
+Server-side: Helius RPC verifies the tx, Redis SET NX claims the signature (replay protection), resource is provisioned.
 
 ---
 
-## Packages
+## WDK Community Modules
 
-```
-packages/
-├── trial-api              Chatbot backend: Mastra agent routing + SendAI Agent Kit
-├── trial-frontend         Chatbot UI: React + Vite + Solana wallet adapters
-├── clawdrop-mcp-server    Per-user Solana MCP server (SendAI + x402 + custom tools)
-├── clawdrop-agent-runtime Per-user autonomous agent (Telegram + MCP client)
-├── clawdrop-platform      Subscriptions, Docker orchestration, ZK credential vault
-├── agent-provisioning     Mastra brain + Telegram wizard + storefront API
-├── clawdrop-mcp           MCP gateway + CLI wizard + payment protocol
-└── oobe-bounty            Ace Data Cloud bounty deliverable
-```
+| Package | What it does |
+|---------|-------------|
+| `wdk-solana-swap` | Jupiter-powered swaps on Solana |
+| `wdk-tron-swap` | SunSwap swaps on Tron |
 
 ---
 
-## Quick Start
+## Smart Contracts
 
-### Prerequisites
-- Node.js 20+
-- Docker Desktop 4.x+
-- Git
-
-### Run the Trial Stack
-
-```bash
-# Clone repo
-git clone https://github.com/lpsmurf/hfsp-labs-colosseum.git
-cd hfsp-labs-colosseum
-
-# Set up environment
-cp .env.example .env.trial
-# Edit .env.trial and add:
-#   OPENROUTER_API_KEY=your_api_key
-#   HELIUS_API_KEY=your_helius_key
-
-# Install and start
-npm install
-npm run dev
-```
-
-Services start on:
-
-| Service | URL |
-|---------|-----|
-| Trial Frontend | http://localhost:3000 |
-| Trial API | http://localhost:8787 |
-| Clawdrop Platform | http://localhost:8788 |
-| MCP Server | http://localhost:3002 |
+| Package | What it does |
+|---------|-------------|
+| `gnosis-card-contracts` | Solidity contracts for Gnosis Card payment routing (Hardhat + OpenZeppelin) |
 
 ---
 
-## Architecture Decisions
+## Clawdrop (Private)
 
-### 1. Per-User MCP Isolation
-Each subscriber gets their own Docker container with dedicated `clawdrop-mcp-server`. Their Solana private key is stored AES-GCM encrypted; plaintext is never written to disk. Keys are decrypted only at container spawn time and immediately revoked from the credential broker.
+`packages/clawdrop-*`, `packages/trial-*`, `packages/agent-provisioning` — per-user autonomous AI agent platform. Architecture under active restructuring; not yet public.
 
-### 2. Agent Kit as Tool Provider, Not Loop
-Clawdrop decouples tool definitions (SendAI Agent Kit) from agent execution (Mastra). This allows:
-- Swap LLMs without changing tools
-- LLM routing (OpenRouter, BYOK, custom endpoint)
-- Any language model can control Solana tools
+---
 
-### 3. x402 Payment Protocol Alongside Tools
-`x402engine-mcp` tools are registered in the same MCP `actionsRecord` as Agent Kit tools. The agent can reason about payment and execution in one loop: "Check if I have budget, then execute the swap."
+## Marketplace
 
-### 4. No Shared Key Infrastructure
-Unlike centralized custodial agents, Clawdrop never holds user keys in a shared vault. Each user's encrypted key lives only in their credential storage entry; decryption requires a server-side encryption key that is environment-isolated per deployment.
+Registered on [pay-skills](https://github.com/solana-foundation/pay-skills) · [x402scan](https://x402scan.com)
+
+See [`marketplace/`](marketplace/) for submission files.
+
+---
+
+## Security Audit
+
+[`x402-audit/`](x402-audit/) — ongoing security research across the x402 ecosystem. Findings categorized CRITICAL → INFO.
 
 ---
 
@@ -156,75 +84,30 @@ Unlike centralized custodial agents, Clawdrop never holds user keys in a shared 
 
 | Layer | Technology |
 |-------|-----------|
-| **Agent Tools** | SendAI Solana Agent Kit v2.0.10 (TokenPlugin, DefiPlugin, MiscPlugin) |
-| **Tool Protocol** | Model Context Protocol (MCP) + @solana-agent-kit/adapter-mcp |
-| **Payment** | x402engine-mcp (HTTP 402 payment protocol) |
-| **Orchestration** | Mastra (@mastra/core) |
-| **LLM Routing** | OpenRouter (multi-provider, model-agnostic) |
-| **Blockchain** | @solana/web3.js, @solana/pay, SPL Token, Helius RPC |
-| **Messaging** | Telegram (Grammy) |
-| **Storage** | SQLite (better-sqlite3), Docker volumes |
-| **Infrastructure** | Docker (per-user isolation), Docker Compose |
-| **Frontend** | React 18 + Vite + Tailwind |
-| **Backend** | Node.js 20 + TypeScript + Express |
-
----
-
-## Documentation
-
-- **[System Flow](docs/guides/system-flow.md)** — How a deployment request moves through the stack
-- **[Architecture](docs/ARCHITECTURE.md)** — Detailed system design, component interactions, ZK vault
-- **[Getting Started](docs/getting-started/development-setup.md)** — Local dev setup, troubleshooting
-- **[API Reference](docs/API.md)** — REST endpoints, MCP tools, authentication
-- **[Design Decisions](docs/design-decisions/technical-innovations.md)** — x402 payment protocol, multi-agent routing, MemPalace, provisioning strategies
-
----
-
-## Key Features
-
-✅ **One-click agent deployment** via Telegram or web wizard  
-✅ **Per-user isolation** — Docker containers + ZK credential vault  
-✅ **60+ Solana tools** via SendAI Agent Kit (token, DeFi, misc)  
-✅ **Model-agnostic** — Route between Claude, GPT-4, Gemini, etc.  
-✅ **BYOK support** — Users bring their own LLM API keys  
-✅ **x402 payments** — Dynamic fee collection tied to transaction type  
-✅ **Telegram-first UX** — Primary interface for autonomous agents  
-✅ **Production-ready** — Deployed on VPS, PM2 process management, Nginx reverse proxy  
-
----
-
-## Deployment
-
-See [docs/getting-started/deployment.md](docs/getting-started/deployment.md) for:
-- PM2 process management
-- Docker Compose production setup
-- Nginx reverse proxy configuration
-- SSL/TLS setup
+| Payment protocol | x402 v2 (`@x402/core`, `@x402/svm`, `@x402/evm`) |
+| Blockchain (Solana) | `@solana/web3.js`, `@solana/spl-token`, Helius RPC |
+| Blockchain (EVM) | `ethers.js`, Base, Gnosis Chain |
+| Blockchain (Tron) | `tronweb` |
+| Smart contracts | Hardhat + OpenZeppelin (Solidity) |
+| Storage | SQLite + Redis (replay protection) |
+| Infrastructure | PM2, Nginx |
+| Frontend | React 18, Vite, Tailwind CSS |
+| Backend | Node.js 20+, TypeScript, Express |
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- How to pick a task
-- Commit message conventions
-- PR process
-- Code ownership
-
----
+See [CONTRIBUTING.md](CONTRIBUTING.md) — commit style, PR process, code ownership.
 
 ## License
 
 MIT (with Commons Clause) — See [LICENSE](LICENSE)
 
----
+## Contact
 
-## Support
-
-- **Questions?** Check the [docs](docs/)
-- **Found a bug?** [Open an issue](https://github.com/lpsmurf/hfsp-labs-colosseum/issues)
-- **Want to contribute?** See [CONTRIBUTING.md](CONTRIBUTING.md)
+[info@hfsp.xyz](mailto:info@hfsp.xyz) · [hfsp.xyz](https://hfsp.xyz)
 
 ---
 
-Built with ❤️ on Solana. Powered by **SendAI Solana Agent Kit**.
+*Powered by the [x402 protocol](https://x402.org) and [Solana](https://solana.com).*

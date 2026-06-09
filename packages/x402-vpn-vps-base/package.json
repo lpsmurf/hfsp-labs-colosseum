@@ -1,0 +1,12 @@
+{
+  "name": "x402-vpn-vps-base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "x402 VPN passes and ephemeral VPS servers — Base mainnet (EVM) via x402.org facilitator",
+  "scripts": {
+    "dev":   "npm run dev   --workspace=backend",
+    "build": "npm run build --workspace=backend",
+    "start": "npm run start --workspace=backend"
+  },
+  "workspaces": ["backend"]
+}

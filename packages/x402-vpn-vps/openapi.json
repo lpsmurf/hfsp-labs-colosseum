@@ -1,0 +1,257 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "VPN x402 — Anonymous WireGuard & Ephemeral VPS",
+    "version": "0.1.0",
+    "description": "Buy anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers with USDC on Base or Solana. Semaphore ZK anonymity — no account required."
+  },
+  "servers": [
+    { "url": "https://vpn.hfsp.cloud" }
+  ],
+  "paths": {
+    "/api/vpn/pay": {
+      "post": {
+        "operationId": "vpnPay",
+        "summary": "Buy a VPN pass (Base USDC via x402)",
+        "description": "Pays USDC on Base via x402 HTTP payment protocol. Returns Semaphore groupId + merkleRoot for ZK proof generation.",
+        "x-x402": {
+          "price": { "hour": "0.20", "day": "0.79", "week": "2.99", "month": "7.99" },
+          "currency": "USDC",
+          "network": "base"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["identityCommitment", "period"],
+                "properties": {
+                  "identityCommitment": { "type": "string", "description": "Semaphore identity commitment (bigint as string)" },
+                  "period": { "type": "string", "enum": ["hour", "day", "week", "month"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment accepted, Semaphore group joined",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PayResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vpn/sol-pay": {
+      "post": {
+        "operationId": "vpnSolanaPay",
+        "summary": "Buy a VPN pass (Solana USDC)",
+        "description": "Verify a Solana USDC transfer and join the Semaphore group. Funds stay on Solana — no swap to Base.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["txSignature", "identityCommitment", "period"],
+                "properties": {
+                  "txSignature":        { "type": "string", "description": "Finalized Solana transaction signature" },
+                  "identityCommitment": { "type": "string" },
+                  "period":             { "type": "string", "enum": ["hour", "day", "week", "month"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Solana tx verified, Semaphore group joined", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PayResponse" } } } }
+        }
+      }
+    },
+    "/api/vpn/claim": {
+      "post": {
+        "operationId": "vpnClaim",
+        "summary": "Claim a WireGuard VPN server",
+        "description": "Submit a Semaphore ZK proof (generated client-side) to claim an anonymous WireGuard server. Returns server IP and server WireGuard public key — client must supply their own private key (generated in browser) to build the .conf.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["proof", "merkleTreeRoot", "nullifier", "signal", "region", "period", "clientWgPublicKey"],
+                "properties": {
+                  "proof":              { "type": "object", "description": "Semaphore v4 proof" },
+                  "merkleTreeRoot":     { "type": "string" },
+                  "nullifier":          { "type": "string" },
+                  "signal":             { "type": "string", "enum": ["vpn-claim"] },
+                  "region":             { "type": "string", "enum": ["DE_FSN","DE_NBG","FI_HEL","PL_WAW","US_ASH","US_HIL","SG_SIN"] },
+                  "period":             { "type": "string", "enum": ["hour","day","week","month"] },
+                  "clientWgPublicKey":  { "type": "string", "description": "Base64 X25519 public key — generated in browser, never stored" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "VPN server provisioned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok":            { "type": "boolean" },
+                    "expiresAt":     { "type": "string", "format": "date-time" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "ip":             { "type": "string" },
+                        "serverWgPubKey": { "type": "string", "description": "Server WireGuard public key (base64)" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vps/pay": {
+      "post": {
+        "operationId": "vpsPay",
+        "summary": "Buy a VPS lease (Base USDC via x402)",
+        "x-x402": {
+          "price": { "hour": "0.25", "day": "0.79", "week": "3.99" },
+          "currency": "USDC",
+          "network": "base"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["identityCommitment", "period", "region"],
+                "properties": {
+                  "identityCommitment": { "type": "string" },
+                  "period":             { "type": "string", "enum": ["hour","day","week"] },
+                  "region":             { "type": "string", "enum": ["DE_FSN","DE_NBG","FI_HEL","PL_WAW","US_ASH","US_HIL","SG_SIN"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Payment accepted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PayResponse" } } } }
+        }
+      }
+    },
+    "/api/vps/sol-pay": {
+      "post": {
+        "operationId": "vpsSolanaPay",
+        "summary": "Buy a VPS lease (Solana USDC)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["txSignature", "identityCommitment", "period", "region"],
+                "properties": {
+                  "txSignature":        { "type": "string" },
+                  "identityCommitment": { "type": "string" },
+                  "period":             { "type": "string", "enum": ["hour","day","week"] },
+                  "region":             { "type": "string", "enum": ["DE_FSN","DE_NBG","FI_HEL","PL_WAW","US_ASH","US_HIL","SG_SIN"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Solana tx verified", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PayResponse" } } } }
+        }
+      }
+    },
+    "/api/vps/claim": {
+      "post": {
+        "operationId": "vpsClaim",
+        "summary": "Claim an ephemeral Ubuntu VPS",
+        "description": "Submit ZK proof to provision an anonymous Ubuntu VPS. SSH keypair must be generated in the browser (Ed25519 via WebCrypto) — the private key never reaches the backend. Operator has zero access.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["proof","merkleTreeRoot","nullifier","signal","period","region","sshPublicKey"],
+                "properties": {
+                  "proof":          { "type": "object" },
+                  "merkleTreeRoot": { "type": "string" },
+                  "nullifier":      { "type": "string" },
+                  "signal":         { "type": "string", "enum": ["vps-claim"] },
+                  "period":         { "type": "string", "enum": ["hour","day","week"] },
+                  "region":         { "type": "string", "enum": ["DE_FSN","DE_NBG","FI_HEL","PL_WAW","US_ASH","US_HIL","SG_SIN"] },
+                  "sshPublicKey":   { "type": "string", "description": "OpenSSH public key (browser-generated Ed25519)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "VPS provisioned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok":        { "type": "boolean" },
+                    "expiresAt": { "type": "string", "format": "date-time" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "ip":                  { "type": "string" },
+                        "wireguardClientConf": { "type": "string", "description": "Base64 WireGuard client config template" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/x402.json": {
+      "get": {
+        "operationId": "x402Manifest",
+        "summary": "x402 service discovery manifest",
+        "responses": { "200": { "description": "JSON manifest of all x402-gated services" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PayResponse": {
+        "type": "object",
+        "properties": {
+          "ok":        { "type": "boolean" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "groupId":    { "type": "string" },
+              "merkleRoot": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

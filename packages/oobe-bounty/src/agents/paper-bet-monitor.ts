@@ -5,7 +5,9 @@ import type { PaperBet } from '../services/paper-trading.js';
 
 const INTERVAL_MS = 30 * 60 * 1000;
 const POLYMARKET_BASE = 'https://gamma-api.polymarket.com';
-const STOP_LOSS_THRESHOLD = parseFloat(process.env.PAPER_STOP_LOSS ?? '0.81');
+// Sell position if market probability of our outcome drops below this threshold.
+// Partial sell value = stake × (currentProb / entryProb) — limits loss to the drop %.
+const STOP_LOSS_THRESHOLD = parseFloat(process.env.PAPER_STOP_LOSS ?? '0.85');
 
 export function startPaperBetMonitor(db: Database): { stop: () => void } {
   let running = true;
@@ -141,11 +143,13 @@ async function checkPolymarketStopLoss(db: Database, bet: PaperBet): Promise<voi
   const currentProb = prices[ourIdx] ?? 0;
 
   if (currentProb < STOP_LOSS_THRESHOLD) {
-    // Mark as void (stop-loss triggered)
-    db.prepare(`
-      UPDATE paper_bets SET status = 'void', actual_outcome = ?, resolved_at = datetime('now')
-      WHERE market_id = ? AND status = 'open'
-    `).run(`STOP_LOSS at ${(currentProb * 100).toFixed(0)}%`, bet.market_id);
+    // Sell at current market price. Partial payout = stake × (currentProb / entryProb).
+    // This correctly records the loss in P&L rather than voiding it.
+    const sellValue = parseFloat((bet.stake * (currentProb / bet.entry_probability)).toFixed(4));
+    const loss = parseFloat((sellValue - bet.stake).toFixed(4));
+    const stopLabel = `STOP_LOSS@${(currentProb * 100).toFixed(0)}%`;
+
+    resolvePaperBet(db, bet.market_id, stopLabel, false, sellValue);
 
     const pnl = getPnL(db, 3);
     const runningStr = pnl.netProfit >= 0 ? `+$${pnl.netProfit.toFixed(2)}` : `-$${Math.abs(pnl.netProfit).toFixed(2)}`;
@@ -163,8 +167,10 @@ async function checkPolymarketStopLoss(db: Database, bet: PaperBet): Promise<voi
         predictedOutcome: bet.predicted_outcome,
         entryProbability: bet.entry_probability,
         currentProbability: currentProb,
-        drop: Math.round((bet.entry_probability - currentProb) * 100),
+        dropPct: Math.round((bet.entry_probability - currentProb) * 100),
         stake: bet.stake,
+        sellValue,
+        loss,
         marketUrl: bet.market_url,
         runningPnL: runningStr,
       }),
@@ -174,7 +180,11 @@ async function checkPolymarketStopLoss(db: Database, bet: PaperBet): Promise<voi
     });
 
     logAuditEvent(db, 'prediction-markets-agent', 'paper_bet_stop_loss', {
-      marketId: bet.market_id, entryProb: bet.entry_probability, currentProb,
+      marketId: bet.market_id,
+      entryProb: bet.entry_probability,
+      currentProb,
+      sellValue,
+      loss,
     });
   }
 }

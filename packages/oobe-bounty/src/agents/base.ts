@@ -10,7 +10,7 @@ type GenerateSignal = (payload: Record<string, unknown>) => Promise<TradingSigna
 interface AgentLoopOptions {
   agentId: AgentId;
   service: AceService;
-  symbol: string;
+  symbol?: string;
   generateSignal: GenerateSignal;
   db: Database;
   intervalMs: number;
@@ -257,16 +257,19 @@ async function runContentBot(ace: ReturnType<typeof createAceClient>, agentId: A
   const newsPrompt = `Daily ${symbol} crypto news digest card, dark crypto aesthetic, professional infographic. Show these headlines as a list: ${headlines.slice(0, 4).join(' • ')}. Clawdrop branding. No people, no faces.`;
 
   async function genImage(prompt: string): Promise<string | null> {
-    const taskOrResult = (await ace.images.generate({ prompt, provider: 'flux' })) as Record<string, unknown> & {
+    const taskOrResult = (await ace.images.generate({ prompt, provider: 'flux', size: '1024x1024' })) as Record<string, unknown> & {
       wait?: () => Promise<Record<string, unknown>>;
     };
     const result = typeof taskOrResult.wait === 'function' ? await taskOrResult.wait() : taskOrResult;
-    const x402Hash = extractX402Hash(result);
+    // Must use getAndClearLastX402Signature — Flux response body does not embed the tx hash
+    const x402Hash = getAndClearLastX402Signature() ?? extractX402Hash(result);
     recordX402Payment(agentId, 'images', x402Hash, db);
     return (result.image_url ?? result.url ?? result.imageUrl ?? null) as string | null;
   }
 
-  const [signalImageUrl, newsImageUrl] = await Promise.all([genImage(signalPrompt), genImage(newsPrompt)]);
+  // Sequential — not Promise.all — so getAndClearLastX402Signature() captures each payment before the next fires
+  const signalImageUrl = await genImage(signalPrompt);
+  const newsImageUrl = await genImage(newsPrompt);
 
   return {
     agentId,

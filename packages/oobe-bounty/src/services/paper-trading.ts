@@ -85,12 +85,14 @@ export function resolvePaperBet(
   marketId: string,
   actualOutcome: string,
   won: boolean,
+  payoutOverride?: number,
 ): PaperBet | null {
   const bet = db.prepare('SELECT * FROM paper_bets WHERE market_id = ? AND status = ?')
     .get(marketId, 'open') as PaperBet | undefined;
   if (!bet) return null;
 
-  const actualPayout = won ? bet.potential_payout : 0;
+  // payoutOverride used for stop-loss (partial sell value) — otherwise full payout or zero
+  const actualPayout = payoutOverride ?? (won ? bet.potential_payout : 0);
   db.prepare(`
     UPDATE paper_bets
     SET status = ?, actual_outcome = ?, actual_payout = ?, resolved_at = datetime('now')
