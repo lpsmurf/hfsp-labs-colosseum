@@ -27,6 +27,7 @@ packages/
 ├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
 ├── x402-audit-api            x402 ecosystem security audit API ($0.99 USDC, Base + Solana)
 ├── x402-donate               x402-gated donation router (Base, Endaoment integration)
+├── x402-store                x402 Cryptorefills proxy — gift cards/top-ups/eSIMs, commission markup (Solana USDC)
 ├── x402-wallet               x402 wallet UI + agent dashboard
 ├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet USDC, Helius verification
 ├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator

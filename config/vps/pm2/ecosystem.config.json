@@ -107,6 +107,27 @@
       "time": true
     },
     {
+      "name": "x402-store",
+      "script": "packages/x402-store/backend/dist/index.js",
+      "cwd": "/opt/hfsp-labs",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": "3005"
+      },
+      "instances": 1,
+      "exec_mode": "fork",
+      "watch": false,
+      "max_memory_restart": "256M",
+      "restart_delay": 3000,
+      "max_restarts": 5,
+      "min_uptime": "10s",
+      "log_file": "./logs/x402-store.log",
+      "out_file": "./logs/x402-store-out.log",
+      "err_file": "./logs/x402-store-err.log",
+      "merge_logs": true,
+      "time": true
+    },
+    {
       "name": "clawdrop-wizard",
       "script": "packages/agent-provisioning/services/clawdrop-wizard/server.js",
       "cwd": "/opt/hfsp-labs",

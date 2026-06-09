@@ -69,5 +69,3 @@ app.use((_req, res) => {
     process.exit(1);
   }
 })();
-  console.log(`[server] Solana recipient: ${env.OPERATOR_SOLANA_ADDRESS}`);
-});

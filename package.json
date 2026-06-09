@@ -30,6 +30,7 @@
     "packages/x402-audit-api",
     "packages/x402-donate",
     "packages/x402-vpn-vps",
+    "packages/x402-store",
     "packages/x402-vpn-vps-base",
     "packages/x402-wallet"
   ],

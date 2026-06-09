@@ -1,0 +1,11 @@
+{
+  "name": "x402-store",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev":   "npm run dev   --workspace=backend",
+    "build": "npm run build --workspace=backend",
+    "start": "npm run start --workspace=backend"
+  },
+  "workspaces": ["backend"]
+}
