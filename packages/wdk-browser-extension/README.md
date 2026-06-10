@@ -1,22 +1,72 @@
-# @clawdrop/wdk-browser-extension-solana
+# @clawdrop/wdk-browser-extension
 
-A Solana browser extension wallet built on **Tether WDK** — Chrome/Brave, Manifest V3.
+> Multi-chain browser extension wallet starter — Chrome & Brave (Manifest V3)  
+> Built with [Tether WDK](https://docs.wdk.tether.io) · Solana · Ethereum · Polygon · Arbitrum · Plasma · Bitcoin · Lightning
 
-Send and receive **USDt on Solana** directly from your browser. Keys are encrypted with AES-GCM and stored in `chrome.storage.local`. The wallet logic runs in the extension's background service worker, isolated from any web page.
+[![WDK](https://img.shields.io/badge/tether-wdk-green)](https://docs.wdk.tether.io)
+[![MV3](https://img.shields.io/badge/chrome-mv3-blue)](https://developer.chrome.com/docs/extensions/mv3)
+[![License](https://img.shields.io/badge/license-Apache--2.0-orange)](LICENSE)
+
+## What This Is
+
+A **production-quality browser extension starter** that demonstrates how to use Tether WDK to build a non-custodial multi-chain wallet. Fork it to build your own wallet product.
+
+**End-to-end capabilities:**
+- Create or import wallet via BIP-39 seed phrase
+- Derive accounts for 7 networks from a single mnemonic
+- Check native token + USDt balances
+- Send tokens (USDt and native)
+- Sign arbitrary messages (EIP-191 on EVM, Ed25519 on Solana)
+- Password-encrypted storage with AES-GCM (PBKDF2 200k iterations)
 
 ---
 
-## Features
+## Networks Supported
 
-- **Create or import** a 12-word BIP-39 seed phrase
-- **AES-GCM encrypted storage** — password-derived via PBKDF2 (200k iterations)
-- **WDK wallet** — key derivation via SLIP-0010, `@tetherto/wdk-wallet-solana`
-- **SOL + USDt balances** — live from Solana mainnet
-- **Send USDt** — SPL token transfers via WDK `account.transfer()`
-- **Receive** — copy your Solana address
-- **Configurable RPC** — use your own Helius/QuickNode endpoint
-- **Lock / unlock** — session kept in service worker memory; cleared on lock or browser restart
-- **MV3 service worker** — `type: module`, fully ESM, minimal permissions (`storage` only)
+| Network | Symbol | USDt | WDK Package |
+|---------|--------|------|-------------|
+| Solana | SOL | ✅ | `@tetherto/wdk-wallet-solana` |
+| Ethereum | ETH | ✅ | `@tetherto/wdk-wallet-evm` |
+| Polygon | POL | ✅ | `@tetherto/wdk-wallet-evm` |
+| Arbitrum | ETH | ✅ | `@tetherto/wdk-wallet-evm` |
+| Plasma | ETH | ✅ | `@tetherto/wdk-wallet-evm` |
+| Bitcoin | BTC | — | `@tetherto/wdk-wallet-btc` |
+| Lightning (Spark) | BTC | — | `@tetherto/wdk-wallet-spark` |
+
+> One seed phrase controls all accounts. EVM chains (Ethereum, Polygon, Arbitrum, Plasma) share the same address.
+
+---
+
+## Quick Start
+
+### Install
+
+```bash
+npm install
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Load in Chrome or Brave
+
+1. Open `chrome://extensions` (or `brave://extensions`)
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked**
+4. Select the `dist/` folder
+
+The wallet icon appears in your browser toolbar.
+
+### Development (watch mode)
+
+```bash
+npm run dev
+```
+
+Vite rebuilds on file save. Reload the extension manually after each rebuild.
 
 ---
 
@@ -24,64 +74,152 @@ Send and receive **USDt on Solana** directly from your browser. Keys are encrypt
 
 ```
 src/
-├── background/service-worker.js   ← WDK wallet + message dispatcher
+├── background/
+│   └── service-worker.js   ← All wallet logic (MV3 service worker)
 ├── popup/
-│   ├── index.html                 ← 5-view single-page popup
-│   ├── app.js                     ← vanilla JS state machine
-│   └── styles.css
-└── keystore.js                    ← Web Crypto AES-GCM encrypt/decrypt
+│   ├── index.html          ← Extension popup UI
+│   ├── app.js              ← Popup state machine (vanilla JS)
+│   └── styles.css          ← UI styles
+└── keystore.js             ← AES-GCM encrypt/decrypt (Web Crypto API)
 ```
 
-**Message protocol** (popup → service worker):
+### Message Protocol
 
-| Type | Payload | Response |
-|------|---------|----------|
-| `WALLET_STATE` | — | `{ initialized, unlocked, address }` |
-| `WALLET_CREATE` | `{ password }` | `{ mnemonic, address }` |
-| `WALLET_IMPORT` | `{ mnemonic, password }` | `{ address }` |
-| `WALLET_UNLOCK` | `{ password }` | `{ address }` |
-| `WALLET_LOCK` | — | `{ ok }` |
-| `WALLET_BALANCE` | — | `{ sol, usdt }` |
-| `WALLET_SEND` | `{ to, amount }` | `{ hash }` |
-| `RPC_SET` | `{ rpcUrl }` | `{ ok }` |
+The popup communicates with the service worker via `chrome.runtime.sendMessage`:
 
----
+```js
+// All messages: { type, ...payload } → { data } or { error }
 
-## Build & Install
-
-```bash
-npm install
-npm run build        # outputs to dist/
-npm run gen:icons    # regenerates icons in public/icons/ (already included)
+WALLET_STATE   → {}                          → { initialized, unlocked, address, networkId }
+WALLET_CREATE  → { password }               → { mnemonic, address }
+WALLET_IMPORT  → { mnemonic, password }     → { address }
+WALLET_UNLOCK  → { password }               → { address, networkId }
+WALLET_LOCK    → {}                          → { ok }
+WALLET_BALANCE → {}                          → { native, nativeSymbol, usdt, usdtSymbol }
+WALLET_SEND    → { to, amount, asset }      → { hash }
+WALLET_SIGN    → { message }               → { signature, address, network }
+NETWORK_GET    → {}                          → { networkId, network }
+NETWORK_SET    → { networkId }             → { address }
+RPC_SET        → { networkId, rpcUrl }     → { ok }
 ```
 
-**Load in Chrome/Brave:**
+### WDK Integration
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select the `dist/` folder
+Each network type maps to a WDK wallet class:
+
+```js
+// Solana
+const manager = new WalletManagerSolana(mnemonic, { provider: rpcUrl })
+
+// EVM (Ethereum, Polygon, Arbitrum, Plasma)
+const manager = new WalletManagerEvm(mnemonic, { provider: rpcUrl })
+
+// Bitcoin (WebSocket Electrum — required for browser)
+const manager = new WalletManagerBtc(mnemonic, {
+  client: { type: 'electrum-ws', clientConfig: { url: 'wss://electrum.blockstream.info:50004' } },
+  network: 'bitcoin'
+})
+
+// Lightning (Spark)
+const manager = new WalletManagerSpark(mnemonic, { network: 'MAINNET' })
+
+// All share the same interface:
+const account = await manager.getAccount(0)          // account index
+const address = await account.getAddress()
+const balance = await account.getBalance()           // native token (lamports / wei / sats)
+const tokenBal = await account.getTokenBalance(addr) // SPL / ERC-20
+const sig = await account.sign(message)              // message signing
+await account.transfer({ token, recipient, amount }) // send tokens
+```
+
+### Key Derivation & Security
+
+```
+Seed phrase (BIP-39, 12 words)
+    │
+    ├─ Solana  → SLIP-0010 / Ed25519  m/44'/501'/0'/0'
+    ├─ EVM     → BIP-44 / secp256k1   m/44'/60'/0'/0/0
+    └─ Bitcoin → BIP-84 / secp256k1   m/84'/0'/0'/0/0
+```
+
+**Storage:** The seed phrase is never stored in plaintext. Encrypted with:
+- Key derivation: PBKDF2, SHA-256, 200,000 iterations, random 16-byte salt
+- Encryption: AES-GCM, 256-bit key, random 12-byte IV
+- Storage: `chrome.storage.local` (encrypted blob only)
+
+**Session:** Decrypted mnemonic lives in service worker memory only while unlocked. Lost when the service worker sleeps (Chrome kills it after ~30 seconds of inactivity), requiring re-unlock.
 
 ---
 
-## Dependencies
+## Extending This Starter
 
-| Package | Purpose |
-|---------|---------|
-| `@tetherto/wdk-wallet-solana` | BIP-39 key derivation, SLIP-0010, SPL token transfers |
-| `vite` | Build bundler |
-| `vite-plugin-node-polyfills` | `Buffer` / `process` polyfills for browser context |
+### Add a new EVM network
 
-The WDK package uses `sodium-universal` (libsodium) for secure memory zeroing of private keys (`sodium_memzero`). In browser, it automatically uses the pure-JS libsodium implementation.
+Add an entry to `NETWORKS` in `service-worker.js`:
+
+```js
+base: {
+  id: 'base', name: 'Base', symbol: 'ETH', nativeDecimals: 18,
+  usdt: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', usdtDecimals: 6,
+  defaultRpc: 'https://mainnet.base.org',
+  type: 'evm'
+}
+```
+
+Then add a pill in `index.html`:
+
+```html
+<button class="net-pill" data-network="base">BASE</button>
+```
+
+And register it in `NET_META` in `app.js`:
+
+```js
+base: { name: 'Base', symbol: 'ETH', hasUsdt: true, type: 'evm' }
+```
+
+### Add a custom RPC per network
+
+The extension Settings tab lets users override the RPC per network. Programmatically:
+
+```js
+await chrome.runtime.sendMessage({ type: 'RPC_SET', networkId: 'solana', rpcUrl: 'https://my-rpc.com' })
+```
+
+### Use multiple accounts
+
+The service worker exposes `getAccount(index)` internally. To add account switching, send the desired index:
+
+```js
+// Extend the protocol:
+WALLET_ACCOUNT_SET → { index } → { address }
+```
 
 ---
 
-## USDt Token Address
+## WDK Packages Used
 
-`Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` — Tether USD on Solana mainnet.
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `@tetherto/wdk-wallet` | ^1.0.0-beta | BIP-39 seed phrase utils |
+| `@tetherto/wdk-wallet-solana` | ^1.0.0-beta | Solana accounts |
+| `@tetherto/wdk-wallet-evm` | ^1.0.0-beta | EVM accounts (ETH/Polygon/Arbitrum) |
+| `@tetherto/wdk-wallet-btc` | ^1.0.0-beta | Bitcoin accounts |
+| `@tetherto/wdk-wallet-spark` | ^1.0.0-beta | Lightning (Spark) accounts |
+
+Full WDK documentation: [docs.wdk.tether.io](https://docs.wdk.tether.io)
+
+---
+
+## Known Limitations
+
+- **Bitcoin TCP Electrum** — raw TCP is not available in browsers. This starter uses WebSocket Electrum (`wss://electrum.blockstream.info:50004`). For production, run your own Electrum server.
+- **Plasma RPC** — `https://rpc.plasma.finance` is the configured endpoint. Verify the current Plasma mainnet RPC before production use.
+- **Large bundle** — all 7 chain SDKs are bundled together (~8MB). For production, consider lazy-loading per-network bundles via dynamic `import()`.
+- **Service worker sleep** — Chrome kills the MV3 service worker after inactivity. Users must re-unlock. Use `chrome.storage.session` (Chrome 102+) to persist the session across service worker restarts within the same browser session.
 
 ---
 
 ## License
 
-Apache-2.0 © Clawdrop <info@hfsp.xyz>
+Apache-2.0

@@ -6,10 +6,10 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  base: '',   // relative paths required for Chrome extension file:// context
+  base: '',
   plugins: [
     nodePolyfills({
-      include: ['buffer', 'process', 'util']
+      include: ['buffer', 'process', 'util', 'stream']
     })
   ],
   build: {
@@ -18,6 +18,7 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: false,
     minify: true,
+    chunkSizeWarningLimit: 10000,
     rollupOptions: {
       input: {
         background: resolve(__dirname, 'src/background/service-worker.js'),

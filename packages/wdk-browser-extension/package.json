@@ -1,8 +1,23 @@
 {
-  "name": "@clawdrop/wdk-browser-extension-solana",
+  "name": "@clawdrop/wdk-browser-extension",
   "version": "1.0.0-beta.1",
-  "description": "WDK community module — Solana browser extension wallet with USDt support (Chrome/Brave MV3).",
-  "keywords": ["wdk", "wallet", "solana", "usdt", "browser-extension", "chrome", "mv3"],
+  "description": "WDK community module \u2014 Multi-chain browser extension wallet (Chrome/Brave MV3). Supports Solana, Ethereum, Polygon, Arbitrum, Plasma, Bitcoin, and Lightning via Tether WDK.",
+  "keywords": [
+    "wdk",
+    "wallet",
+    "solana",
+    "ethereum",
+    "bitcoin",
+    "lightning",
+    "spark",
+    "polygon",
+    "arbitrum",
+    "usdt",
+    "browser-extension",
+    "chrome",
+    "mv3",
+    "multi-chain"
+  ],
   "author": "Clawdrop <info@hfsp.xyz>",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,9 +28,13 @@
     "gen:icons": "node scripts/gen-icons.js"
   },
   "dependencies": {
-    "@tetherto/wdk-wallet-solana": "^1.0.0-beta.9"
+    "@tetherto/wdk-wallet-btc": "^1.0.0-beta.9",
+    "@tetherto/wdk-wallet-evm": "^1.0.0-beta.13",
+    "@tetherto/wdk-wallet-solana": "^1.0.0-beta.9",
+    "@tetherto/wdk-wallet-spark": "^1.0.0-beta.19"
   },
   "devDependencies": {
+    "@noble/hashes": "^1.8.0",
     "vite": "^5.0.0",
     "vite-plugin-node-polyfills": "^0.22.0"
   }

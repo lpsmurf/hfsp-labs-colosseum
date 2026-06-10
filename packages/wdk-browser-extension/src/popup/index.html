@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WDK Solana Wallet</title>
+  <title>WDK Multi-Chain Wallet</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -18,18 +18,15 @@
         <path d="M18 26c0-4.4 3.6-8 8-8s8 3.6 8 8-3.6 8-8 8-8-3.6-8-8z" fill="#14b89a"/>
         <path d="M23 26l2 2 4-4" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <h1>WDK Solana Wallet</h1>
-      <p>USDt on Solana · Powered by Tether WDK</p>
+      <h1>WDK Multi-Chain Wallet</h1>
+      <p>BTC · ETH · SOL · Lightning · Powered by Tether WDK</p>
     </div>
-
     <div id="setup-main">
       <div class="btn-row">
         <button class="btn-primary" id="btn-create-new">Create Wallet</button>
         <button class="btn-secondary" id="btn-import-wallet">Import</button>
       </div>
     </div>
-
-    <!-- Create: set password -->
     <div id="setup-create" style="display:none">
       <div class="form-group">
         <label>New Password</label>
@@ -42,16 +39,12 @@
       <button class="btn-primary" id="btn-create-confirm">Generate Wallet</button>
       <div id="create-error" class="error-msg"></div>
     </div>
-
-    <!-- Create: show mnemonic -->
     <div id="setup-mnemonic" style="display:none">
-      <p style="color:var(--text-muted);font-size:13px;margin-bottom:10px">Write down your 12-word recovery phrase. Store it somewhere safe — it's the only way to recover your wallet.</p>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:10px">Write down your 12-word recovery phrase. It works across all networks.</p>
       <div class="warning-box">⚠ Never share your seed phrase with anyone.</div>
       <div class="mnemonic-grid" id="mnemonic-grid"></div>
       <button class="btn-primary" id="btn-mnemonic-done" style="margin-top:8px">I've written it down →</button>
     </div>
-
-    <!-- Import wallet -->
     <div id="setup-import" style="display:none">
       <div class="form-group">
         <label>Seed Phrase (12 words)</label>
@@ -77,7 +70,7 @@
   <div class="header">
     <div class="header-title">
       <svg class="logo" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="#14b89a" opacity="0.15"/><circle cx="11" cy="11" r="6" fill="#14b89a"/></svg>
-      WDK Solana Wallet
+      WDK Wallet
     </div>
   </div>
   <div class="content">
@@ -98,18 +91,30 @@
   <div class="header">
     <div class="header-title">
       <svg class="logo" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="#14b89a" opacity="0.15"/><circle cx="11" cy="11" r="6" fill="#14b89a"/></svg>
-      Solana Wallet
+      <span id="home-network-name">Wallet</span>
     </div>
     <div style="display:flex;gap:6px">
       <button class="btn-icon" id="btn-settings" title="Settings">⚙</button>
       <button class="btn-icon" id="btn-lock" title="Lock wallet">🔒</button>
     </div>
   </div>
+
+  <!-- Network pills -->
+  <div class="network-bar">
+    <button class="net-pill" data-network="solana">SOL</button>
+    <button class="net-pill" data-network="ethereum">ETH</button>
+    <button class="net-pill" data-network="polygon">POL</button>
+    <button class="net-pill" data-network="arbitrum">ARB</button>
+    <button class="net-pill" data-network="plasma">PLS</button>
+    <button class="net-pill" data-network="bitcoin">BTC</button>
+    <button class="net-pill" data-network="spark">⚡</button>
+  </div>
+
   <div class="content">
     <div class="card balance-card">
-      <div class="balance-usdt" id="balance-usdt">— USDt</div>
-      <div class="balance-sol" id="balance-sol">— SOL</div>
-      <div class="balance-token" style="margin-top:8px;font-size:11px" id="home-address"></div>
+      <div class="balance-usdt" id="balance-usdt" style="display:none">— USDt</div>
+      <div class="balance-sol" id="balance-native">—</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-muted)" id="home-address"></div>
     </div>
     <div class="action-grid">
       <button class="action-btn" id="btn-go-send">
@@ -119,6 +124,10 @@
       <button class="action-btn" id="btn-go-receive">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M18 11H4M9 16l-5-5 5-5" stroke="#14b89a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Receive</span>
+      </button>
+      <button class="action-btn" id="btn-go-sign">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M5 17l2-1 9-9-2-2-9 9-1 2zm11-11l1-1a1.4 1.4 0 00-2-2l-1 1 2 2z" fill="#14b89a"/></svg>
+        <span>Sign</span>
       </button>
     </div>
     <div id="home-status" class="status-row">
@@ -132,17 +141,24 @@
 <div id="screen-send" class="screen">
   <div class="header">
     <button class="back-btn" id="btn-send-back">←</button>
-    <div class="header-title">Send USDt</div>
+    <div class="header-title" id="send-title">Send</div>
     <div style="width:28px"></div>
   </div>
   <div class="content">
-    <div class="form-group">
-      <label>Recipient Address</label>
-      <input type="text" id="send-to" placeholder="Solana address" autocomplete="off" />
+    <!-- Asset selector (USDt vs native) — hidden on BTC/Spark -->
+    <div id="send-asset-row" class="form-group" style="margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <button class="asset-pill active" data-asset="usdt" id="asset-usdt">USDt</button>
+        <button class="asset-pill" data-asset="native" id="asset-native" id="asset-native-btn">—</button>
+      </div>
     </div>
     <div class="form-group">
-      <label>Amount (USDt)</label>
-      <input type="number" id="send-amount" placeholder="0.00" min="0" step="0.000001" />
+      <label>Recipient Address</label>
+      <input type="text" id="send-to" placeholder="Address" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label id="send-amount-label">Amount</label>
+      <input type="number" id="send-amount" placeholder="0.00" min="0" step="any" />
       <div style="display:flex;justify-content:flex-end;margin-top:4px">
         <button id="btn-send-max" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer">MAX</button>
       </div>
@@ -157,17 +173,17 @@
 <div id="screen-receive" class="screen">
   <div class="header">
     <button class="back-btn" id="btn-receive-back">←</button>
-    <div class="header-title">Receive USDt</div>
+    <div class="header-title" id="receive-title">Receive</div>
     <div style="width:28px"></div>
   </div>
   <div class="content">
-    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Share your Solana address to receive USDt or SOL.</p>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Share your address to receive funds on this network.</p>
     <div class="card" style="margin-bottom:14px">
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Your address</div>
       <div class="address-box" id="receive-address"></div>
       <button class="copy-btn" id="btn-copy-address">Copy Address</button>
     </div>
-    <div class="warning-box" style="font-size:12px">Only send <strong>Solana (SOL)</strong> or <strong>SPL tokens</strong> to this address. Sending assets from other networks will result in permanent loss.</div>
+    <div class="warning-box" id="receive-warning" style="font-size:12px">Only send assets on the correct network.</div>
   </div>
 </div>
 
@@ -181,23 +197,43 @@
   <div class="content">
     <div class="card" style="margin-bottom:16px">
       <div class="settings-row">
-        <span class="settings-label">Network</span>
-        <span class="settings-value">Solana Mainnet</span>
-      </div>
-      <div class="settings-row">
-        <span class="settings-label">Token</span>
-        <span class="settings-value">USDt (Tether)</span>
+        <span class="settings-label">Active Network</span>
+        <span class="settings-value" id="settings-network-name">—</span>
       </div>
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="form-group" style="margin-bottom:10px">
-        <label>RPC Endpoint</label>
-        <input type="url" id="settings-rpc" placeholder="https://api.mainnet-beta.solana.com" />
+        <label>Custom RPC (current network)</label>
+        <input type="url" id="settings-rpc" placeholder="https://…" />
       </div>
       <button class="btn-secondary" id="btn-settings-rpc-save">Save RPC</button>
       <div id="rpc-status" class="success-msg" style="display:none"></div>
     </div>
     <button class="btn-secondary" id="btn-reset-wallet" style="color:var(--red);border-color:var(--red)">Reset Wallet (Danger)</button>
+  </div>
+</div>
+
+
+<!-- ── Sign screen ───────────────────────────────────────────────── -->
+<div id="screen-sign" class="screen">
+  <div class="header">
+    <button class="back-btn" id="btn-sign-back">←</button>
+    <div class="header-title">Sign Message</div>
+    <div style="width:28px"></div>
+  </div>
+  <div class="content">
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">Sign an arbitrary message with your wallet key. Used to prove ownership without sending a transaction.</p>
+    <div class="form-group">
+      <label>Message</label>
+      <textarea id="sign-message" rows="4" placeholder="Enter message to sign…" style="font-family:monospace;font-size:12px"></textarea>
+    </div>
+    <button class="btn-primary" id="btn-sign-confirm">Sign Message</button>
+    <div id="sign-error" class="error-msg"></div>
+    <div id="sign-result" style="display:none;margin-top:14px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Signature</div>
+      <div id="sign-output" class="address-box" style="font-size:10px;word-break:break-all;user-select:all"></div>
+      <button class="copy-btn" id="btn-copy-sig" style="margin-top:8px">Copy Signature</button>
+    </div>
   </div>
 </div>
 

@@ -313,3 +313,45 @@ textarea { resize: none; font-size: 13px; }
 }
 
 .back-btn:hover { color: var(--text); }
+
+/* ── Network bar ── */
+.network-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.network-bar::-webkit-scrollbar { display: none; }
+
+.net-pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+.net-pill:hover { border-color: var(--accent); color: var(--accent); }
+.net-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.net-pill:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Asset pills (send screen) ── */
+.asset-pill {
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.asset-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
