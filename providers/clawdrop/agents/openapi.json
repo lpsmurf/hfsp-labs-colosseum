@@ -1,11 +1,11 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Openclaw Platform API",
+    "title": "Clawdrop Platform API",
     "description": "Deploy and manage autonomous Solana AI agents. Subscription management, payments, agent orchestration, and token usage tracking.",
     "version": "0.1.0",
     "contact": {
-      "name": "Openclaw",
+      "name": "Clawdrop",
       "url": "https://clawdrop.live"
     }
   },

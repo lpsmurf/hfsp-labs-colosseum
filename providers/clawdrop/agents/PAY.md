@@ -1,15 +1,15 @@
 ---
 name: agents
-title: "Openclaw"
+title: "Clawdrop"
 description: "Deploy and manage private 24/7 autonomous Solana AI agents with built-in wallet tools, token monitoring, and DeFi capabilities. Supports Poly-managed keys or BYOK. Agents connect via MCP and run on Solana mainnet."
-use_case: "Use to deploy a personal autonomous Solana agent, check agent status, list running agents, or stop an agent. Requires an active Openclaw subscription paid in SOL, USDC, or USDT."
+use_case: "Use to deploy a personal autonomous Solana agent, check agent status, list running agents, or stop an agent. Requires an active Clawdrop subscription paid in SOL, USDC, or USDT."
 category: ai_ml
 service_url: https://clawdrop.live/api/platform
 openapi:
   url: https://clawdrop.live/api/platform/openapi.json
 ---
 
-Openclaw provisions isolated MCP server + autonomous agent containers per user on Solana.
+Clawdrop provisions isolated MCP server + autonomous agent containers per user on Solana.
 Agents have access to token prices, wallet balances, recent transactions, token safety checks,
 and DeFi tools via Agent Kit.
 
