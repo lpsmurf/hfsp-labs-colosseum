@@ -60,6 +60,7 @@ const NET_META = {
 let state = {
   address: null,
   networkId: 'solana',
+  accountIndex: 0,
   native: '0',
   usdt: '0',
   sendAsset: 'usdt' // 'usdt' | 'native'
@@ -148,12 +149,50 @@ document.querySelectorAll('.asset-pill').forEach((pill) => {
   })
 })
 
+
+// ── Account switcher ──────────────────────────────────────────────────────────
+
+function updateAccountLabel () {
+  const el = document.getElementById('account-label')
+  if (el) el.textContent = `Account ${state.accountIndex}`
+}
+
+async function switchAccount (delta) {
+  const newIndex = Math.max(0, Math.min(9, state.accountIndex + delta))
+  if (newIndex === state.accountIndex) return
+  const prevBtn = document.getElementById('btn-account-prev')
+  const nextBtn = document.getElementById('btn-account-next')
+  if (prevBtn) prevBtn.disabled = true
+  if (nextBtn) nextBtn.disabled = true
+  try {
+    const { address, accountIndex } = await send('WALLET_ACCOUNT_SET', { index: newIndex })
+    state.address = address
+    state.accountIndex = accountIndex
+    updateAccountLabel()
+    document.getElementById('home-address').textContent = truncate(address)
+    document.getElementById('balance-native').textContent = '—'
+    document.getElementById('balance-usdt').textContent = '— USDt'
+    document.getElementById('status-text').textContent = 'Fetching balances…'
+    loadHome()
+  } catch (err) {
+    document.getElementById('status-text').textContent = err.message
+  } finally {
+    if (prevBtn) prevBtn.disabled = false
+    if (nextBtn) nextBtn.disabled = false
+  }
+}
+
+document.getElementById('btn-account-prev').addEventListener('click', () => switchAccount(-1))
+document.getElementById('btn-account-next').addEventListener('click', () => switchAccount(1))
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 async function boot () {
   try {
-    const { initialized, unlocked, address, networkId } = await send('WALLET_STATE')
+    const { initialized, unlocked, address, networkId, accountIndex } = await send('WALLET_STATE')
+    state.accountIndex = accountIndex || 0
     applyNetworkToUI(networkId || 'solana')
+    updateAccountLabel()
     if (!initialized) {
       showScreen('setup')
     } else if (unlocked) {
@@ -252,8 +291,10 @@ document.getElementById('btn-unlock').addEventListener('click', async () => {
   if (!pw) return setError('unlock-error', 'Enter your password')
   setDisabled('btn-unlock', true)
   try {
-    const { address, networkId } = await send('WALLET_UNLOCK', { password: pw })
+    const { address, networkId, accountIndex } = await send('WALLET_UNLOCK', { password: pw })
     state.address = address
+    state.accountIndex = accountIndex || 0
+    updateAccountLabel()
     applyNetworkToUI(networkId || 'solana')
     showScreen('home')
     loadHome()
@@ -321,6 +362,7 @@ document.getElementById('btn-go-send').addEventListener('click', () => {
   setSuccess('send-success', '')
   document.getElementById('send-to').value = ''
   document.getElementById('send-amount').value = ''
+  document.getElementById('send-fee-row').style.display = 'none'
   showScreen('send')
 })
 
@@ -338,9 +380,45 @@ document.getElementById('btn-settings').addEventListener('click', async () => {
   showScreen('settings')
 })
 
+
+// ── Fee estimation ────────────────────────────────────────────────────────────
+
+let feeTimer = null
+
+async function updateFeeEstimate () {
+  const to = document.getElementById('send-to').value.trim()
+  const amount = document.getElementById('send-amount').value.trim()
+  const feeRow = document.getElementById('send-fee-row')
+  const feeVal = document.getElementById('send-fee-value')
+  if (!to || !amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+    feeRow.style.display = 'none'
+    return
+  }
+  feeVal.textContent = 'Estimating…'
+  feeRow.style.display = 'block'
+  try {
+    const { fee, feeSymbol } = await send('WALLET_QUOTE', { to, amount, asset: state.sendAsset })
+    if (fee !== null) {
+      feeVal.textContent = `${fee} ${feeSymbol}`
+    } else {
+      feeRow.style.display = 'none'
+    }
+  } catch {
+    feeRow.style.display = 'none'
+  }
+}
+
+function scheduleFeeEstimate () {
+  clearTimeout(feeTimer)
+  feeTimer = setTimeout(updateFeeEstimate, 600)
+}
+
 // ── Send screen ───────────────────────────────────────────────────────────────
 
 document.getElementById('btn-send-back').addEventListener('click', () => showScreen('home'))
+
+document.getElementById('send-to').addEventListener('input', scheduleFeeEstimate)
+document.getElementById('send-amount').addEventListener('input', scheduleFeeEstimate)
 
 document.getElementById('btn-send-max').addEventListener('click', () => {
   document.getElementById('send-amount').value =

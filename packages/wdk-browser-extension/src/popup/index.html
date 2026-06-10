@@ -110,6 +110,14 @@
     <button class="net-pill" data-network="spark">⚡</button>
   </div>
 
+
+  <!-- Account switcher -->
+  <div class="account-bar">
+    <button class="btn-icon" id="btn-account-prev" title="Previous account">‹</button>
+    <span id="account-label" style="font-size:12px;color:var(--text-muted)">Account 0</span>
+    <button class="btn-icon" id="btn-account-next" title="Next account">›</button>
+  </div>
+
   <div class="content">
     <div class="card balance-card">
       <div class="balance-usdt" id="balance-usdt" style="display:none">— USDt</div>
@@ -149,7 +157,7 @@
     <div id="send-asset-row" class="form-group" style="margin-bottom:10px">
       <div style="display:flex;gap:8px">
         <button class="asset-pill active" data-asset="usdt" id="asset-usdt">USDt</button>
-        <button class="asset-pill" data-asset="native" id="asset-native" id="asset-native-btn">—</button>
+        <button class="asset-pill" data-asset="native" id="asset-native">—</button>
       </div>
     </div>
     <div class="form-group">
@@ -162,6 +170,10 @@
       <div style="display:flex;justify-content:flex-end;margin-top:4px">
         <button id="btn-send-max" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer">MAX</button>
       </div>
+    </div>
+
+    <div id="send-fee-row" style="display:none;margin-bottom:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius);font-size:12px;color:var(--text-muted)">
+      Estimated fee: <strong id="send-fee-value">—</strong>
     </div>
     <button class="btn-primary" id="btn-send-confirm">Send</button>
     <div id="send-error" class="error-msg"></div>

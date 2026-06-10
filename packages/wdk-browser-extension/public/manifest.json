@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WDK Solana Wallet",
+  "name": "WDK Multi-Chain Wallet",
   "version": "1.0.0",
-  "description": "Solana wallet with USDt support — powered by Tether WDK",
+  "description": "Non-custodial multi-chain wallet — Solana, Ethereum, Polygon, Arbitrum, Plasma, Bitcoin, Lightning. Powered by Tether WDK.",
   "permissions": ["storage"],
   "background": {
     "service_worker": "background.js",
@@ -10,7 +10,7 @@
   },
   "action": {
     "default_popup": "src/popup/index.html",
-    "default_title": "WDK Solana Wallet",
+    "default_title": "WDK Multi-Chain Wallet",
     "default_icon": {
       "16":  "icons/icon16.png",
       "48":  "icons/icon48.png",

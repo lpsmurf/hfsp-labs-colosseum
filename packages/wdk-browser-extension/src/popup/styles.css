@@ -355,3 +355,14 @@ textarea { resize: none; font-size: 13px; }
   cursor: pointer;
 }
 .asset-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Account bar ── */
+.account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
