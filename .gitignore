@@ -117,3 +117,7 @@ scripts/session-closer/
 **/*-keypair.json
 packages/oobe-bounty/data/*.db
 packages/oobe-bounty/wallet-pubkey.txt
+
+# Internal orchestration artifacts
+**/.kimi-heartbeat/
+packages/agent-provisioning/tenant-runtime-image/OPENCLAW_VERSION
