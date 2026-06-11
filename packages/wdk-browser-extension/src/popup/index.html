@@ -137,6 +137,10 @@
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M5 17l2-1 9-9-2-2-9 9-1 2zm11-11l1-1a1.4 1.4 0 00-2-2l-1 1 2 2z" fill="#14b89a"/></svg>
         <span>Sign</span>
       </button>
+      <button class="action-btn" id="btn-go-history">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="7" stroke="#14b89a" stroke-width="1.8"/><path d="M11 8v3.5l2 2" stroke="#14b89a" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>History</span>
+      </button>
     </div>
     <div id="home-status" class="status-row">
       <span class="dot" id="status-dot"></span>
@@ -246,6 +250,22 @@
       <div id="sign-output" class="address-box" style="font-size:10px;word-break:break-all;user-select:all"></div>
       <button class="copy-btn" id="btn-copy-sig" style="margin-top:8px">Copy Signature</button>
     </div>
+  </div>
+</div>
+
+
+<!-- ── History screen ───────────────────────────────────────────── -->
+<div id="screen-history" class="screen">
+  <div class="header">
+    <button class="back-btn" id="btn-history-back">←</button>
+    <div class="header-title">Transaction History</div>
+    <div style="width:28px"></div>
+  </div>
+  <div class="content">
+    <div id="history-note" style="display:none;font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius)"></div>
+    <div id="history-loading" style="text-align:center;color:var(--text-muted);font-size:13px;padding:24px 0">Loading…</div>
+    <div id="history-list"></div>
+    <div id="history-empty" style="display:none;text-align:center;color:var(--text-muted);font-size:13px;padding:24px 0">No transactions found</div>
   </div>
 </div>
 

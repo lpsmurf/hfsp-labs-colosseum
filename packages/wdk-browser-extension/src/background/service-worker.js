@@ -49,8 +49,9 @@ const NETWORKS = {
   plasma: {
     id: 'plasma', name: 'Plasma', symbol: 'ETH', nativeDecimals: 18,
     usdt: '0xdAC17F958D2ee523a2206206994597C13D831ec7', usdtDecimals: 6,
-    defaultRpc: 'https://rpc.plasma.finance',
-    type: 'evm'
+    defaultRpc: 'https://rpc.plasma.finance', // mainnet RPC not yet public
+    type: 'evm',
+    comingSoon: true
   },
   bitcoin: {
     id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', nativeDecimals: 8,
@@ -102,6 +103,7 @@ async function getRpcForNetwork (networkId) {
 async function buildSessionForNetwork (mnemonic, networkId, accountIndex = 0) {
   const net = NETWORKS[networkId]
   if (!net) throw new Error(`Unknown network: ${networkId}`)
+  if (net.comingSoon) throw new Error(`${net.name} mainnet is not yet live`)
 
   let manager, account, address
 
@@ -422,6 +424,29 @@ async function handleWalletSign ({ message }) {
   return { signature: sig, address: sess.address, network: networkId }
 }
 
+async function handleWalletHistory ({ limit = 10 }) {
+  const networkId = await getActiveNetworkId()
+  const net = NETWORKS[networkId]
+
+  // Only BTC and Spark support getTransfers natively via WDK
+  if (net.type !== 'btc' && net.type !== 'spark') {
+    return { transfers: [], note: 'Transaction history requires an indexer API for ' + net.name }
+  }
+
+  const sess = await getOrBuildSession(networkId)
+  const raw = await sess.account.getTransfers({ direction: 'all', limit })
+  const transfers = raw.map(t => ({
+    hash:      t.hash || t.txid || t.id || '—',
+    direction: t.direction, // 'incoming' | 'outgoing'
+    value:     (Number(t.value) / 1e8).toFixed(8),
+    symbol:    net.symbol,
+    fee:       t.fee != null ? (Number(t.fee) / 1e8).toFixed(8) : null,
+    block:     t.blockHeight || null
+  }))
+  return { transfers, note: null }
+}
+
+
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -440,6 +465,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     WALLET_SIGN:    () => handleWalletSign(payload),
     WALLET_ACCOUNT_SET: () => handleWalletAccountSet(payload),
     WALLET_QUOTE:       () => handleWalletQuote(payload),
+    WALLET_HISTORY:     () => handleWalletHistory(payload),
     RPC_SET:        () => handleRpcSet(payload)
   }
 

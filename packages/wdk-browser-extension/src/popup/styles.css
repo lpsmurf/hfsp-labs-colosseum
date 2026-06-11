@@ -366,3 +366,34 @@ textarea { resize: none; font-size: 13px; }
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
+
+/* ── Transaction history ── */
+.tx-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tx-row:last-child { border-bottom: none; }
+
+.tx-dir {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.tx-dir.incoming { background: rgba(20,184,154,0.15); color: var(--accent); }
+.tx-dir.outgoing { background: rgba(239,68,68,0.12); color: var(--red); }
+
+.tx-info { flex: 1; min-width: 0; }
+.tx-hash { font-size: 12px; font-family: monospace; color: var(--text); }
+.tx-block { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+.tx-amount { text-align: right; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.tx-amount.incoming { color: var(--accent); }
+.tx-amount.outgoing { color: var(--red); }

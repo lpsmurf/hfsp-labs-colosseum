@@ -116,10 +116,20 @@ function updateSendAmountLabel () {
   document.getElementById('send-amount-label').textContent = label
 }
 
+
+  // Disable coming-soon networks
+  document.querySelectorAll('.net-pill').forEach((pill) => {
+    if (pill.dataset.network === 'plasma') {
+      pill.title = 'Plasma mainnet not yet live'
+      pill.style.opacity = '0.4'
+    }
+  })
+
 // Network pill click
 document.querySelectorAll('.net-pill').forEach((pill) => {
   pill.addEventListener('click', async () => {
     const networkId = pill.dataset.network
+    if (networkId === 'plasma') { document.getElementById('status-text').textContent = 'Plasma mainnet not yet live'; return }
     if (networkId === state.networkId) return
     pill.disabled = true
     try {
@@ -487,6 +497,53 @@ document.getElementById('btn-reset-wallet').addEventListener('click', () => {
   }
 })
 
+
+
+// ── History screen ────────────────────────────────────────────────────────────
+
+document.getElementById('btn-go-history').addEventListener('click', async () => {
+  showScreen('history')
+  document.getElementById('history-loading').style.display = 'block'
+  document.getElementById('history-empty').style.display = 'none'
+  document.getElementById('history-list').innerHTML = ''
+  document.getElementById('history-note').style.display = 'none'
+
+  try {
+    const { transfers, note } = await send('WALLET_HISTORY', { limit: 20 })
+    document.getElementById('history-loading').style.display = 'none'
+
+    if (note) {
+      document.getElementById('history-note').textContent = note
+      document.getElementById('history-note').style.display = 'block'
+    }
+
+    if (!transfers.length) {
+      document.getElementById('history-empty').style.display = 'block'
+      return
+    }
+
+    const list = document.getElementById('history-list')
+    list.innerHTML = transfers.map(t => `
+      <div class="tx-row">
+        <div class="tx-dir ${t.direction}">${t.direction === 'incoming' ? '↓' : '↑'}</div>
+        <div class="tx-info">
+          <div class="tx-hash">${t.hash.slice(0, 12)}…${t.hash.slice(-6)}</div>
+          ${t.block ? `<div class="tx-block">Block ${t.block}</div>` : ''}
+        </div>
+        <div class="tx-amount ${t.direction}">
+          ${t.direction === 'incoming' ? '+' : '-'}${t.value} ${t.symbol}
+          ${t.fee ? `<div style="font-size:10px;color:var(--text-muted)">fee ${t.fee}</div>` : ''}
+        </div>
+      </div>
+    `).join('')
+  } catch (err) {
+    document.getElementById('history-loading').style.display = 'none'
+    document.getElementById('history-note').textContent = err.message
+    document.getElementById('history-note').style.display = 'block'
+  }
+})
+
+document.getElementById('btn-history-back').addEventListener('click', () => showScreen('home'))
 
 // ── Sign screen ───────────────────────────────────────────────────────────────
 
