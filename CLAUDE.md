@@ -143,3 +143,34 @@ When working on anything in `packages/gnosis-circles-miniapp/` or any other Circ
 - Test it at: `https://circles-dev.gnosis.io/playground?url=https://card.hfsp.cloud/circles/`
 - Manifest entry goes in `static/miniapps.json` (category: `"garage"`)
 - PR title: `feat: add hfsp-redeem garage app`
+
+---
+
+## Openclaw community manager integration
+
+Every session has two jobs: (1) dev work as usual, (2) maintain `.openclaw/dev-log.md`.
+
+**On session open** — add a new session block with today's date, status at open, and goal. Do this before writing any code.
+
+**On session close** — when the user says "done", "wrap up", "closing", or similar, fill in what was built, tag each item, write status at close. Do this automatically without being asked. End with: "Anything else to log before I close out?"
+
+**Signal tags:**
+- `[USER-FACING]` — visible to users → high priority for content
+- `[MILESTONE]` — first user, launch, first payment, shipped MVP → always flag
+- `[TECHNICAL]` — internal change, refactor → skip unless genuinely clever
+- `[LEARNING]` — insight, pivot, interesting failure → good for dev content
+- `[IDEA]` — not built yet → do not log
+
+**Never log:** secrets, keys, credentials, IPs, package installs, typo fixes, env setup, renames with no behavior change.
+
+**Session open checklist (run silently):**
+1. Read CLAUDE.md
+2. Read `.openclaw/dev-log.md`
+3. Add today's session block
+4. Confirm goal before writing code
+
+**Session close checklist:**
+1. Fill in Built / Changed and Decided / Learned with signal tags
+2. Write status at close
+3. Update Notable features shipped if anything user-facing shipped
+4. Ask "anything else to log before I close out?"

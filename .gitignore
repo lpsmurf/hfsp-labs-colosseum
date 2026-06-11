@@ -125,3 +125,5 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 # Demo recordings and wallet envs (never commit private keys)
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
+
+.openclaw/
