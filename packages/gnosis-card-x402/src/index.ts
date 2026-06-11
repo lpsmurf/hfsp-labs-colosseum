@@ -7,6 +7,7 @@ import { healthRouter } from './routes/health.js';
 import { rpcRouter } from './routes/rpc.js';
 import { safeRouter } from './routes/safe.js';
 import { storeRouter } from './routes/store.js';
+import { circlesRouter } from './routes/circles.js';
 import { config } from './config.js';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/card/safe', safeRouter);
 app.use('/api/card', cardRouter);
 app.use('/api/rpc', rpcRouter);
 app.use('/api/store', storeRouter);
+app.use('/api/circles', circlesRouter);
 
 // 404
 app.use((_req, res) => {
