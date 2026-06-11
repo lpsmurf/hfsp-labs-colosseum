@@ -6,12 +6,27 @@ Human-facing frontend for [gnosis-card-x402](../gnosis-card-x402). Lets a person
 
 ---
 
-## Two tabs
+## Three tabs
 
 | Tab | Status | What it does |
 |-----|--------|--------------|
-| **Top Up** | ✅ Live | Quote → connect wallet → pay USDC → submit proof → poll bridge → done. Hits the real API. |
+| **Top Up** | ✅ Live | Quote → connect wallet → pay USDC → submit proof → poll bridge → done. Includes a **deposit destination switch** (Gnosis Pay card vs standard Safe) and **on-chain address inspection** — reads Gnosis Chain to detect Safe-vs-wallet and show the tokens it holds. |
+| **Redeem** | ✅ Live | Cryptorefills mini-app — browse 800+ brands (gift cards, mobile top-ups, eSIMs), pay Solana USDC via x402, receive the redemption. Proxied through the backend (`/api/store`). |
 | **Get a Card** | 🎨 Preview mockup | Visual prototype of the managed onboarding flow (SIWE → fee → terms → KYC → Safe → card). No logic wired — for design review / future build. |
+
+### Deposit destination switch + address inspection
+
+The Top Up tab lets the user choose **Gnosis Pay card** or **Standard Safe**, and as they paste an address it calls `GET /api/card/safe/inspect`, which reads Gnosis Chain to classify it:
+
+- `gnosispay` — a Safe holding EURe/GBPe/USDC (likely a Pay card account)
+- `safe` — a Gnosis Safe (responds to `VERSION()` / `getThreshold()`)
+- `wallet` — a plain EOA (warns the user, since top-ups should target a Safe)
+
+The toggle auto-aligns with what's detected, and the chip shows the live token balances.
+
+### Redeem (Cryptorefills via x402)
+
+`/api/store/*` proxies the [x402-store](../x402-store) backend (CORS is off in prod, so a same-origin proxy keeps the Phantom flow intact). Checkout is the standard x402 two-phase: phase 1 returns the USDC price (402), the user pays with Phantom, phase 2 submits the tx signature and returns the gift card.
 
 ---
 

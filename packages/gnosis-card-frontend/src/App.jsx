@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import TopUp from './components/TopUp.jsx'
 import Onboard from './components/Onboard.jsx'
+import Redeem from './components/Redeem.jsx'
 
 export default function App () {
   const [tab, setTab] = useState('topup')
@@ -23,6 +24,12 @@ export default function App () {
           Top Up
         </button>
         <button
+          className={`tab ${tab === 'redeem' ? 'active' : ''}`}
+          onClick={() => setTab('redeem')}
+        >
+          Redeem
+        </button>
+        <button
           className={`tab ${tab === 'onboard' ? 'active' : ''}`}
           onClick={() => setTab('onboard')}
         >
@@ -32,7 +39,9 @@ export default function App () {
       </nav>
 
       <main className="main">
-        {tab === 'topup' ? <TopUp /> : <Onboard />}
+        {tab === 'topup' && <TopUp />}
+        {tab === 'redeem' && <Redeem />}
+        {tab === 'onboard' && <Onboard />}
       </main>
 
       <footer className="app-footer">

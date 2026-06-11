@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { CURRENCIES, SOURCE_CHAINS } from '../config.js'
-import { getQuote, submitTopup, getOrderStatus } from '../api.js'
+import { getQuote, submitTopup, getOrderStatus, inspectSafe } from '../api.js'
 import { connectSolana, sendUsdcSolana } from '../wallets/solana.js'
 import { connectEvm, sendUsdcBase } from '../wallets/evm.js'
 
@@ -21,6 +21,12 @@ export default function TopUp () {
   const [safeAddress, setSafeAddress] = useState('')
   const [currency, setCurrency] = useState('USDC')
   const [sourceChain, setSourceChain] = useState('solana')
+  const [destType, setDestType] = useState('gnosispay') // 'gnosispay' | 'safe'
+
+  // address inspection
+  const [inspecting, setInspecting] = useState(false)
+  const [inspection, setInspection] = useState(null)
+  const inspectTimer = useRef(null)
 
   // wallet
   const [account, setAccount] = useState('')
@@ -36,6 +42,29 @@ export default function TopUp () {
   const chainMeta = SOURCE_CHAINS.find(c => c.id === sourceChain)
   const validSafe = /^0x[0-9a-fA-F]{40}$/.test(safeAddress)
   const validAmount = Number(amount) >= 1 && Number(amount) <= 10_000
+
+  // Debounced on-chain inspection of the destination address
+  useEffect(() => {
+    clearTimeout(inspectTimer.current)
+    setInspection(null)
+    if (!validSafe) { setInspecting(false); return }
+    setInspecting(true)
+    inspectTimer.current = setTimeout(async () => {
+      try {
+        const res = await inspectSafe(safeAddress)
+        setInspection(res)
+        // Auto-align the destination toggle with what we detected
+        if (res.kind === 'gnosispay') setDestType('gnosispay')
+        else if (res.kind === 'safe') setDestType('safe')
+      } catch {
+        setInspection({ ok: false })
+      } finally {
+        setInspecting(false)
+      }
+    }, 600)
+    return () => clearTimeout(inspectTimer.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeAddress])
 
   function reset () {
     clearInterval(pollRef.current)
@@ -171,12 +200,35 @@ export default function TopUp () {
           </label>
 
           <label className="field">
-            <span>Your Gnosis Safe address</span>
+            <span>Deposit to</span>
+            <div className="seg">
+              <button
+                type="button"
+                className={`seg-btn ${destType === 'gnosispay' ? 'active' : ''}`}
+                onClick={() => setDestType('gnosispay')}
+              >
+                Gnosis Pay card
+                <small>spendable balance</small>
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${destType === 'safe' ? 'active' : ''}`}
+                onClick={() => setDestType('safe')}
+              >
+                Standard Safe
+                <small>self-custody</small>
+              </button>
+            </div>
+          </label>
+
+          <label className="field">
+            <span>{destType === 'gnosispay' ? 'Your Gnosis Pay card address' : 'Your Gnosis Safe address'}</span>
             <input
               type="text" value={safeAddress}
               onChange={e => setSafeAddress(e.target.value.trim())}
               placeholder="0x…" spellCheck={false}
             />
+            <AddressInsight inspecting={inspecting} inspection={inspection} destType={destType} />
           </label>
 
           <button className="btn primary" type="submit" disabled={!validAmount || !validSafe}>
@@ -293,6 +345,48 @@ function Row ({ k, v, strong, muted }) {
     <div className={`qrow ${strong ? 'strong' : ''} ${muted ? 'muted' : ''}`}>
       <span>{k}</span>
       <span>{v}</span>
+    </div>
+  )
+}
+
+// On-chain read-out of the pasted destination address.
+function AddressInsight ({ inspecting, inspection, destType }) {
+  if (inspecting) {
+    return <div className="insight loading"><span className="spinner small" /> Reading Gnosis Chain…</div>
+  }
+  if (!inspection) return null
+  if (inspection.ok === false) {
+    return <div className="insight warn">Couldn’t read this address on Gnosis Chain.</div>
+  }
+
+  const { kind, safeVersion, balances } = inspection
+  const held = ['USDC', 'EURe', 'GBPe']
+    .map(s => ({ s, v: balances?.[s]?.formatted ?? 0 }))
+    .filter(x => x.v > 0)
+  const heldStr = held.length
+    ? held.map(x => `${x.v} ${x.s}`).join(' · ')
+    : 'no Gnosis tokens yet'
+
+  if (kind === 'gnosispay') {
+    return (
+      <div className="insight ok">
+        <strong>✓ Gnosis Pay account</strong> detected (Safe {safeVersion}). Holds {heldStr}.
+      </div>
+    )
+  }
+  if (kind === 'safe') {
+    return (
+      <div className={`insight ${destType === 'gnosispay' ? 'warn' : 'ok'}`}>
+        <strong>✓ Gnosis Safe</strong> (v{safeVersion}). Holds {heldStr}.
+        {destType === 'gnosispay' && <> No card tokens here yet — confirm this is your Pay card.</>}
+      </div>
+    )
+  }
+  // wallet / EOA
+  return (
+    <div className="insight warn">
+      <strong>⚠ Looks like a regular wallet</strong>, not a Safe. Top-ups should go to a Gnosis
+      Safe / Pay card address — double-check before paying. Holds {heldStr}.
     </div>
   )
 }

@@ -244,6 +244,90 @@ input:focus { border-color: var(--accent); }
 .cv-foot { font-size: 11px; opacity: 0.85; letter-spacing: 1px; }
 .onboard-actions { display: flex; gap: 10px; margin-top: 22px; }
 
+/* ── Address insight chip ── */
+.insight {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.insight strong { color: var(--text); font-weight: 600; }
+.insight.ok { border-color: rgba(20,184,154,0.35); background: rgba(20,184,154,0.07); }
+.insight.ok strong { color: var(--accent); }
+.insight.warn { border-color: rgba(236,201,75,0.3); background: rgba(236,201,75,0.07); color: #e9d27a; }
+.insight.warn strong { color: #ecc94b; }
+.insight.loading { color: var(--muted); }
+
+/* ── Redeem mini-app ── */
+.redeem-controls { display: flex; gap: 10px; margin-bottom: 16px; }
+.select, .redeem-search {
+  padding: 11px 12px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-family: var(--font); font-size: 14px; outline: none;
+}
+.select { flex: 0 0 auto; }
+.redeem-search { flex: 1; }
+.select:focus, .redeem-search:focus { border-color: var(--accent); }
+
+.brand-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  max-height: 380px; overflow-y: auto; padding: 2px;
+}
+.brand-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 8px; min-height: 92px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.brand-tile:hover { border-color: var(--accent); background: var(--surface2); }
+.brand-tile img { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; background: #fff; }
+.brand-initial {
+  width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface2); color: var(--accent); font-weight: 700; font-size: 18px;
+}
+.brand-name { font-size: 12px; color: var(--text); text-align: center; line-height: 1.2; }
+
+.back-inline { width: auto; padding: 6px 0; margin-bottom: 10px; text-align: left; }
+.brand-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.brand-head-logo { width: 36px; height: 36px; object-fit: contain; border-radius: 8px; background: #fff; }
+.brand-head h2 { font-size: 18px; }
+
+.product-list { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; }
+.product-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 15px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.product-row:hover { border-color: var(--accent); background: var(--surface2); }
+.product-name { font-size: 14px; color: var(--text); }
+.product-price { font-size: 13px; color: var(--accent); font-weight: 600; }
+
+.checkout { display: flex; flex-direction: column; gap: 16px; }
+.checkout-summary {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 14px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+}
+.checkout-summary strong { font-size: 16px; }
+.checkout-summary > span:first-child { font-size: 12px; color: var(--muted); }
+
+.redeem-codes { display: flex; flex-direction: column; gap: 10px; width: 100%; margin: 6px 0; }
+.code-box {
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+  padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; width: 100%;
+}
+.code-box code {
+  font-family: monospace; font-size: 15px; color: var(--accent);
+  background: var(--surface2); padding: 6px 10px; border-radius: 6px; display: inline-block; margin-top: 2px;
+}
+.code-box .btn { width: auto; padding: 8px 16px; }
+
 /* ── Footer ── */
 .app-footer {
   margin-top: 24px; display: flex; flex-direction: column; gap: 4px;

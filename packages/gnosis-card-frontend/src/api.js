@@ -53,3 +53,49 @@ export function submitTopup ({ amount, safeAddress, currency, sourceChain, signa
 export function getOrderStatus (orderId) {
   return req(`/api/card/topup/${encodeURIComponent(orderId)}`)
 }
+
+/**
+ * GET /api/card/safe/inspect — classify a destination address on Gnosis Chain.
+ * @returns { kind: 'gnosispay'|'safe'|'wallet', isSafe, safeVersion, balances }
+ */
+export function inspectSafe (address) {
+  return req(`/api/card/safe/inspect?address=${encodeURIComponent(address)}`)
+}
+
+// ─── Cryptorefills store (proxied via /api/store) ──────────────────────────────
+
+export function storeBrands (countryCode = 'us') {
+  return req(`/api/store/brands?country_code=${encodeURIComponent(countryCode)}`)
+}
+
+export function storeCatalog (countryCode, brandName) {
+  const params = new URLSearchParams({ country_code: countryCode, brand_name: brandName })
+  return req(`/api/store/catalog?${params}`)
+}
+
+/**
+ * POST /api/store/orders — x402.
+ * Phase 1 (no txSig): backend replies HTTP 402 with the price. We surface that as
+ *   { paymentRequired: true, pay } instead of throwing.
+ * Phase 2 (txSig): returns { ok, data } with the redeemed gift card.
+ */
+export async function storeOrder ({ email, items, txSig }) {
+  const headers = txSig ? { 'X-Solana-Tx': txSig } : {}
+  try {
+    const data = await req('/api/store/orders', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email, items })
+    })
+    return { paymentRequired: false, ...data }
+  } catch (err) {
+    if (err.status === 402 && err.body?.pay) {
+      return { paymentRequired: true, pay: err.body.pay }
+    }
+    throw err
+  }
+}
+
+export function storeOrderStatus (id) {
+  return req(`/api/store/orders/${encodeURIComponent(id)}`)
+}
