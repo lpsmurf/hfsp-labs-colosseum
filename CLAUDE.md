@@ -32,6 +32,7 @@ packages/
 ├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet USDC, Helius verification
 ├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator
 ├── gnosis-card-x402          Gnosis Card x402 payment integration
+├── gnosis-card-frontend      Gnosis Card human frontend — top up Safe from Solana/Base (React+Vite)
 ├── gnosis-card-contracts     Gnosis Card Solidity contracts
 ├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
 ├── wdk-browser-extension     WDK community module — Solana browser extension wallet (Chrome/Brave MV3)
