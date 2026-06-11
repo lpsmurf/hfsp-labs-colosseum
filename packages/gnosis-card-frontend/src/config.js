@@ -2,8 +2,12 @@
 
 export const API_BASE = import.meta.env.VITE_API_BASE || '' // '' = same origin / vite proxy
 
-// Solana
-export const SOLANA_RPC = import.meta.env.VITE_SOLANA_RPC || 'https://api.mainnet-beta.solana.com'
+// Solana — defaults to the backend's server-side RPC proxy (keeps the Helius
+// key off the client). Override with VITE_SOLANA_RPC only for local testing.
+// web3.js Connection requires an absolute URL, so resolve against the origin.
+const RPC_PROXY_PATH = '/api/rpc/solana'
+const rpcBase = API_BASE || (typeof window !== 'undefined' ? window.location.origin : '')
+export const SOLANA_RPC = import.meta.env.VITE_SOLANA_RPC || `${rpcBase}${RPC_PROXY_PATH}`
 export const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
 // Base

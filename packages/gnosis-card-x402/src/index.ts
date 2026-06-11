@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { noLogs } from './middleware/noLogs.js';
 import { cardRouter } from './routes/card.js';
 import { healthRouter } from './routes/health.js';
+import { rpcRouter } from './routes/rpc.js';
 import { config } from './config.js';
 
 const app = express();
@@ -34,6 +35,7 @@ app.set('trust proxy', 1);
 
 app.use('/health', healthRouter);
 app.use('/api/card', cardRouter);
+app.use('/api/rpc', rpcRouter);
 
 // 404
 app.use((_req, res) => {
