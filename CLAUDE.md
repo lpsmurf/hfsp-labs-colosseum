@@ -123,3 +123,23 @@ npm run dev
 ---
 
 **Questions?** Check the docs or open an issue.
+
+---
+
+## Circles Mini Apps (Context7)
+
+When working on anything in `packages/gnosis-circles-miniapp/` or any other Circles integration:
+
+- **Always** use Context7 to fetch live Circles docs before writing code — never rely on training data alone
+- Use the slash syntax: `use library /aboutcircles/sdk` or `use library /aboutcircles/circles-docs`
+- The current SDK is `@aboutcircles/sdk` (not the deprecated `@circles-sdk/*`)
+- Use `@aboutcircles/miniapp-sdk` for Garage/embedded mini apps (wallet connection, `sendTransactions`, `signMessage`)
+- Gnosis Chain is chainId 100; all config comes from `circlesConfig[100]`
+- Token amounts are BigInt in atto-CRC (10^18 per CRC)
+- Use viem, not ethers, for Circles SDK v2 contracts
+
+**Circles Garage app submission** (PR to `aboutcircles/CirclesMiniapps`):
+- Mini app URL: `https://card.hfsp.cloud/circles/`
+- Test it at: `https://circles-dev.gnosis.io/playground?url=https://card.hfsp.cloud/circles/`
+- Manifest entry goes in `static/miniapps.json` (category: `"garage"`)
+- PR title: `feat: add hfsp-redeem garage app`
