@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1f2e"/>
+      <stop offset="100%" style="stop-color:#0d1117"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#21262d"/>
+      <stop offset="100%" style="stop-color:#161b22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+
+  <!-- Gift card body -->
+  <rect x="30" y="62" width="140" height="95" rx="10" ry="10" fill="url(#card)" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Card stripe (top band) -->
+  <rect x="30" y="62" width="140" height="28" rx="10" ry="10" fill="url(#accent)"/>
+  <!-- Cover bottom corners of stripe so only top corners are rounded -->
+  <rect x="30" y="80" width="140" height="10" fill="url(#accent)"/>
+
+  <!-- Ribbon vertical -->
+  <rect x="92" y="62" width="16" height="95" rx="2" fill="rgba(255,255,255,0.12)"/>
+
+  <!-- Ribbon bow: left loop -->
+  <ellipse cx="84" cy="62" rx="16" ry="11" fill="url(#accent)" opacity="0.9"/>
+  <!-- Ribbon bow: right loop -->
+  <ellipse cx="116" cy="62" rx="16" ry="11" fill="url(#accent)" opacity="0.9"/>
+  <!-- Ribbon bow: center knot -->
+  <circle cx="100" cy="62" r="8" fill="#8b5cf6"/>
+
+  <!-- x402 text on card -->
+  <text x="100" y="133" text-anchor="middle" font-family="-apple-system, 'SF Pro Display', 'Segoe UI', sans-serif"
+    font-size="18" font-weight="700" fill="#e6edf3" letter-spacing="1">x402</text>
+
+  <!-- Small dots bottom right (Gnosis/chain indicator) -->
+  <circle cx="142" cy="148" r="3" fill="#6366f1" opacity="0.8"/>
+  <circle cx="154" cy="148" r="3" fill="#8b5cf6" opacity="0.6"/>
+  <circle cx="166" cy="148" r="3" fill="#a78bfa" opacity="0.4"/>
+</svg>
