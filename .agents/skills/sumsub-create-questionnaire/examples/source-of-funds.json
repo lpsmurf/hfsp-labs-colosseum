@@ -1,0 +1,73 @@
+{
+  "id": "source-of-funds-example",
+  "title": "Source of Funds (example)",
+  "desc": "Captures the origin, purpose and supporting evidence for the applicant's source of funds.",
+  "showTitleAsStepName": true,
+  "sections": [
+    {
+      "id": "primary",
+      "title": "Primary Source",
+      "items": [
+        {
+          "id": "main",
+          "title": "What is the main source of your funds?",
+          "type": "select",
+          "required": true,
+          "options": [
+            ["salary", "Salary / Employment"],
+            ["business", "Business income"],
+            ["investments", "Investments"],
+            ["saleOfAssets", "Sale of assets"],
+            ["inheritance", "Inheritance / Gift"],
+            ["loan", "Loan / Financing"],
+            ["other", "Other (please specify)"]
+          ]
+        },
+        {
+          "id": "other",
+          "title": "Please specify",
+          "type": "text",
+          "condition": "primary.main = other"
+        },
+        {
+          "id": "description",
+          "title": "Briefly describe how these funds were obtained.",
+          "type": "textArea",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "employment",
+      "title": "Employment / Business Details",
+      "desc": "Complete this section if your main source of funds is salary or business income.",
+      "condition": "primary.main = salary OR primary.main = business",
+      "items": [
+        {"id": "occupation", "title": "Current occupation", "type": "text", "required": true},
+        {"id": "employer", "title": "Employer or business name", "type": "text", "required": true},
+        {"id": "industry", "title": "Industry", "type": "text", "required": true},
+        {"id": "duration", "title": "How long employed / operating", "type": "text", "required": true,
+         "placeholder": "e.g. 3 years"},
+        {"id": "incomeRange", "title": "Approximate annual income range",
+         "type": "selectDropdown", "required": true,
+         "options": [
+           ["lt25k", "Less than 25,000"],
+           ["25_50k", "25,000 - 50,000"],
+           ["50_100k", "50,000 - 100,000"],
+           ["100_250k", "100,000 - 250,000"],
+           ["gt250k", "More than 250,000"]
+         ]}
+      ]
+    },
+    {
+      "id": "compliance",
+      "title": "Risk & Compliance",
+      "items": [
+        {"id": "ownBehalf", "title": "Are you acting on your own behalf?", "type": "bool", "required": true},
+        {"id": "isPep", "title": "Are you a politically exposed person (PEP) or related to one?", "type": "bool", "required": true},
+        {"id": "highRisk", "title": "Have funds originated from any high-risk or sanctioned jurisdictions?", "type": "bool", "required": true},
+        {"id": "accurate", "title": "Do you confirm the information is accurate and complete?", "type": "bool", "required": true}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "EU PoA — bank-friendly (example)",
+  "desc": "EU-only preset: 6-month default, bank statements valid for 12 months, POI-as-POA accepted for 3 months.",
+  "includedCountries": ["DEU", "FRA", "ESP", "ITA", "NLD", "BEL", "AUT", "PRT", "IRL", "FIN", "SWE", "DNK", "POL", "CZE", "GBR"],
+  "settings": {
+    "acceptMultiplePages": true,
+    "acceptDocScreenshot": true,
+    "validMonths": 6,
+    "addressTypes": ["dwelling", "poBox"],
+    "acceptableLanguages": ["en", "de", "fr", "es", "it", "nl", "pt"],
+    "providers": {
+      "bank": {
+        "validMonths": 12,
+        "subTypes": ["bankStatement", "bankLetter", "other"]
+      },
+      "utilityProvider": {
+        "subTypes": ["telecom", "utilityBill", "other"]
+      },
+      "governmentOrganization": {
+        "subTypes": ["statement", "voterRegistration", "taxBill", "other"]
+      },
+      "mobileOperator": {},
+      "other": {
+        "subTypes": ["lease", "other", "universityLetter"]
+      }
+    },
+    "poiAsPoa": {
+      "enabled": true,
+      "sameDoc": false,
+      "validMonths": 3,
+      "allowedTypes": ["PASSPORT", "ID_CARD", "RESIDENCE_PERMIT", "DRIVERS"]
+    },
+    "crossValidator": {
+      "nameMode": "weakContainment",
+      "addressMode": "fuzzy",
+      "fuzzyThreshold": 0.75,
+      "ignoreMiddleName": false,
+      "ignoreFixedInfo": false
+    },
+    "requireCountryMatch": false,
+    "useIssueDateForExpiry": false
+  }
+}

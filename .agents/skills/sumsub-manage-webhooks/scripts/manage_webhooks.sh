@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Manage Sumsub clientWebhooks: list / get / create / update / disable / enable.
+#
+# Talks to the public API resource (ClientWebhookApiResource), which exposes
+# only GET (list, oldest 50) and POST (upsert) under /resources/clientWebhooks.
+# Delete and per-webhook delivery stats have no public-API equivalent and
+# must be handled in the Sumsub dashboard UI; they are not implemented here.
+#
+# Authenticates via App Token + secret (HMAC-SHA256) per
+# https://docs.sumsub.com/reference/authentication.
+#
+# Usage:
+#   SUMSUB_APP_TOKEN=sbx:...  \
+#   SUMSUB_SECRET_KEY=...     \
+#     manage_webhooks.sh list [--json]
+#   manage_webhooks.sh get    <id>
+#   manage_webhooks.sh create <spec.json>
+#   manage_webhooks.sh update <spec.json>     # spec must include id
+#   manage_webhooks.sh disable <id>
+#   manage_webhooks.sh enable  <id>
+#
+# Refuses non-sandbox tokens unless SUMSUB_ALLOW_PROD=1.
+# Override SUMSUB_BASE only for testing; default is https://api.sumsub.com.
+set -euo pipefail
+
+: "${SUMSUB_APP_TOKEN:?SUMSUB_APP_TOKEN is required (sandbox App Token, 'sbx:' prefix)}"
+: "${SUMSUB_SECRET_KEY:?SUMSUB_SECRET_KEY is required (paired secret key)}"
+BASE="${SUMSUB_BASE:-https://api.sumsub.com}"
+
+if [[ "${SUMSUB_APP_TOKEN}" != sbx:* && "${SUMSUB_ALLOW_PROD:-0}" != "1" ]]; then
+  echo "error: SUMSUB_APP_TOKEN does not look like a sandbox token (expected 'sbx:' prefix)." >&2
+  echo "       Production credentials must not be shared with this skill." >&2
+  exit 3
+fi
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ENDPOINT_PATH="/resources/clientWebhooks"
+
+if [[ $# -lt 1 ]]; then
+  sed -n '4,23p' "$0" >&2; exit 2
+fi
+CMD="$1"; shift || true
+
+# sumsub_request METHOD PATH_QUERY [BODY_FILE]
+# Signs and sends; echoes response body to stdout. PATH_QUERY must start with '/'.
+sumsub_request() {
+  local method="$1" path_q="$2" body_file="${3-}"
+  local ts sig
+  ts="$(date -u +%s)"
+  if [[ -n "${body_file}" ]]; then
+    sig="$(
+      { printf '%s%s%s' "${ts}" "${method}" "${path_q}"; cat "${body_file}"; } \
+        | openssl dgst -sha256 -hmac "${SUMSUB_SECRET_KEY}" -hex \
+        | awk '{print $NF}'
+    )"
+  else
+    sig="$(
+      printf '%s%s%s' "${ts}" "${method}" "${path_q}" \
+        | openssl dgst -sha256 -hmac "${SUMSUB_SECRET_KEY}" -hex \
+        | awk '{print $NF}'
+    )"
+  fi
+  local args=(
+    -sS -X "${method}"
+    -H "X-App-Token: ${SUMSUB_APP_TOKEN}"
+    -H "X-App-Access-Ts: ${ts}"
+    -H "X-App-Access-Sig: ${sig}"
+    -H "X-Agent-Source: sumsub-skills"
+    -H "X-Agent-Source-Ver: 1.0.1"
+    -H "Accept: application/json"
+  )
+  if [[ -n "${body_file}" ]]; then
+    args+=(-H "Content-Type: application/json" --data-binary "@${body_file}")
+  fi
+  curl "${args[@]}" "${BASE%/}${path_q}"
+}
+
+fmt_list() {
+  local body
+  body=$(cat)
+  BODY="$body" python3 - <<'PY'
+import json, os, sys
+raw = os.environ["BODY"]
+try:
+    d = json.loads(raw)
+except json.JSONDecodeError as e:
+    print(f"  (response was not JSON: {e})", file=sys.stderr)
+    # Do not echo the raw body — a webhook list can contain secretKey values.
+    print(f"  (response length: {len(raw)} chars; suppressed to avoid leaking secrets)", file=sys.stderr)
+    sys.exit(1)
+items = (d.get("list") or {}).get("items") or (d if isinstance(d, list) else [])
+if not items:
+    print("(no webhooks)")
+    sys.exit(0)
+print(f"{'id':24}  {'name':28.28}  {'target':40.40}  {'disabled':8}  {'types':20.20}  applicantType")
+print("-"*150)
+for w in items:
+    types = ", ".join(w.get("types") or [])
+    print(f"{w.get('id','?'):24}  {(w.get('name') or '?'):28.28}  {(w.get('target') or '?'):40.40}  "
+          f"{str(w.get('disabled')):8}  {types[:20]:20}  {w.get('applicantType') or '-'}")
+print(f"\ntotal: {len(items)}")
+PY
+}
+
+case "$CMD" in
+  list)
+    json_only="false"
+    if [[ "${1:-}" == "--json" ]]; then json_only="true"; fi
+    body="$(sumsub_request GET "${ENDPOINT_PATH}")"
+    if [[ "$json_only" == "true" ]]; then
+      echo "$body"
+    else
+      echo "$body" | fmt_list
+    fi
+    ;;
+
+  get)
+    [[ $# -ge 1 ]] || { echo "usage: get <id>" >&2; exit 2; }
+    id="$1"
+    sumsub_request GET "${ENDPOINT_PATH}" \
+      | python3 -c "
+import json, sys
+target=sys.argv[1]
+d=json.load(sys.stdin)
+items=(d.get('list') or {}).get('items') or []
+for w in items:
+    if w.get('id')==target:
+        if 'secretKey' in w and w['secretKey']:
+            w['secretKey']='<redacted>'
+        print(json.dumps(w, indent=2))
+        sys.exit(0)
+print(f'no webhook with id={target!r} (checked {len(items)})', file=sys.stderr)
+sys.exit(1)
+" "$id"
+    ;;
+
+  create|update)
+    [[ $# -ge 1 ]] || { echo "usage: $CMD <spec.json>" >&2; exit 2; }
+    spec="$1"
+    [[ -f "$spec" ]] || { echo "spec file not found: $spec" >&2; exit 2; }
+    payload="$(mktemp)"
+    trap 'rm -f "$payload"' EXIT
+    python3 "${HERE}/build_webhook_payload.py" < "$spec" > "$payload"
+    has_id="$(python3 -c "import json,sys; print('yes' if json.load(open(sys.argv[1])).get('id') else 'no')" "$payload")"
+    if [[ "$CMD" == "create" && "$has_id" == "yes" ]]; then
+      echo "warning: spec for 'create' contains id=... — this will UPDATE that webhook instead" >&2
+    fi
+    if [[ "$CMD" == "update" && "$has_id" == "no" ]]; then
+      echo "error: 'update' requires id in the spec" >&2; exit 2
+    fi
+    resp="$(sumsub_request POST "${ENDPOINT_PATH}" "$payload")"
+    echo "$resp" | python3 -c "
+import json, sys
+w=json.load(sys.stdin)
+if w.get('code'):
+    print('ERROR:', w); sys.exit(1)
+print('persisted webhook:')
+print(f\"  id:            {w.get('id')}\")
+print(f\"  name:          {w.get('name')!r}\")
+print(f\"  target:        {w.get('target')!r}\")
+print(f\"  targetType:    {w.get('targetType')}\")
+print(f\"  applicantType: {w.get('applicantType')}\")
+print(f\"  signing:       {w.get('signatureAlgorithm')}\")
+print(f\"  disabled:      {w.get('disabled')}\")
+print(f\"  types:         {w.get('types')}\")
+"
+    ;;
+
+  disable|enable)
+    [[ $# -ge 1 ]] || { echo "usage: $CMD <id>" >&2; exit 2; }
+    id="$1"
+    new_state="$([ "$CMD" = "disable" ] && echo true || echo false)"
+    body="$(sumsub_request GET "${ENDPOINT_PATH}")"
+    current="$(python3 -c "
+import json, sys
+d=json.loads(sys.argv[1]); items=(d.get('list') or {}).get('items') or []
+for w in items:
+    if w.get('id')==sys.argv[2]: print(json.dumps(w)); sys.exit(0)
+print(''); sys.exit(0)
+" "$body" "$id")"
+    if [[ -z "$current" ]]; then
+      echo "no webhook with id=$id" >&2; exit 1
+    fi
+    new_payload="$(mktemp)"
+    trap 'rm -f "$new_payload"' EXIT
+    python3 -c "
+import json, sys
+w=json.loads(sys.argv[1])
+w['disabled']=(sys.argv[2]=='true')
+print(json.dumps(w))
+" "$current" "$new_state" > "$new_payload"
+    resp="$(sumsub_request POST "${ENDPOINT_PATH}" "$new_payload")"
+    echo "$resp" | python3 -c "
+import json, sys
+w=json.load(sys.stdin)
+if w.get('code'):
+    print('ERROR:', w); sys.exit(1)
+print(f\"webhook {w.get('id')}  disabled={w.get('disabled')}\")
+"
+    ;;
+
+  *)
+    echo "unknown command: $CMD" >&2
+    sed -n '4,23p' "$0" >&2
+    exit 2
+    ;;
+esac

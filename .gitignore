@@ -127,3 +127,6 @@ packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
 
 .openclaw/
+
+# Skill-installer symlinks (point into .agents/skills)
+data/skills/
