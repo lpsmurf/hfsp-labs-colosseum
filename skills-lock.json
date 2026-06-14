@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "skills": {
+    "sumsub-analyze-regulation": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-analyze-regulation/SKILL.md",
+      "computedHash": "609e002d70f2ac9a7e248ade2c3ec0b72facfab244518d9ddf79abed97908b84"
+    },
+    "sumsub-api-auth": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-api-auth/SKILL.md",
+      "computedHash": "1087728c2085a95d0a27d3c12ff6dc290738ebcf163df138890faa2e2f4e27b5"
+    },
+    "sumsub-api-generic": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-api-generic/SKILL.md",
+      "computedHash": "141e5f51036fa3464f36dd0adad6a281828ee751eca0f0366c42d504a79310c3"
+    },
+    "sumsub-check-permissions": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-check-permissions/SKILL.md",
+      "computedHash": "34f4ca3891069535bba326cd84dce8f1e79482522f8d6217f108bd964a8508d3"
+    },
+    "sumsub-check-skills-version": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-check-skills-version/SKILL.md",
+      "computedHash": "519c7dd7372caf911c960ad44cabfe778b573efeb3754cc78167566d789d5e97"
+    },
+    "sumsub-create-cross-check-preset": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-create-cross-check-preset/SKILL.md",
+      "computedHash": "f484885912a9fcea92331e41264acb1e7e626f12df721000ebac839ed830dbf0"
+    },
+    "sumsub-create-level": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-create-level/SKILL.md",
+      "computedHash": "c3d6d2bd991e77eacfe502364dc754afa4aff04999c961bed5f714567829df36"
+    },
+    "sumsub-create-poa-preset": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-create-poa-preset/SKILL.md",
+      "computedHash": "6cb0eb4ad685f5c42784fe4b401d0ca8a74e39514449c0c5bb607fc4b6192568"
+    },
+    "sumsub-create-questionnaire": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-create-questionnaire/SKILL.md",
+      "computedHash": "18758cbbcccea192c0fd4d44c6b9056ace2a34f26a2008eef2557f0563d05dd7"
+    },
+    "sumsub-create-transaction": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-create-transaction/SKILL.md",
+      "computedHash": "481731ea933b89ab64f1f75faa548660d66c25e8d2b59144af9d3a0f16c5defe"
+    },
+    "sumsub-create-workflow": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-create-workflow/SKILL.md",
+      "computedHash": "709dc2307b8282de1ac67aecc945eb3ad9db61d708b837f0ba90a9635de0c5a6"
+    },
+    "sumsub-integrate-websdk": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-integrate-websdk/SKILL.md",
+      "computedHash": "520744138eddaff134014f554c016a5024ecc67c32c995e63e6570ae9f7e937f"
+    },
+    "sumsub-manage-webhooks": {
+      "source": "SumSubstance/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sumsub-manage-webhooks/SKILL.md",
+      "computedHash": "d61ab0c1047388967e1238adcdc938437dd14e53512c4b33d67898a66cef1af7"
+    }
+  }
+}

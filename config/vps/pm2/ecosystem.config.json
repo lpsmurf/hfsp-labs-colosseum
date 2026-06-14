@@ -1,6 +1,48 @@
 {
   "apps": [
     {
+      "name": "x402-xstocks-feed",
+      "script": "packages/x402-xstocks-feed/dist/index.js",
+      "cwd": "/opt/hfsp-labs",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": "3015"
+      },
+      "instances": 1,
+      "exec_mode": "fork",
+      "watch": false,
+      "max_memory_restart": "128M",
+      "restart_delay": 3000,
+      "max_restarts": 5,
+      "min_uptime": "10s",
+      "log_file": "./logs/x402-xstocks-feed.log",
+      "out_file": "./logs/x402-xstocks-feed-out.log",
+      "err_file": "./logs/x402-xstocks-feed-err.log",
+      "merge_logs": true,
+      "time": true
+    },
+    {
+      "name": "x402-demo",
+      "script": "packages/x402-demo/dist/index.js",
+      "cwd": "/opt/hfsp-labs",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": "3011"
+      },
+      "instances": 1,
+      "exec_mode": "fork",
+      "watch": false,
+      "max_memory_restart": "256M",
+      "restart_delay": 3000,
+      "max_restarts": 5,
+      "min_uptime": "10s",
+      "log_file": "./logs/x402-demo.log",
+      "out_file": "./logs/x402-demo-out.log",
+      "err_file": "./logs/x402-demo-err.log",
+      "merge_logs": true,
+      "time": true
+    },
+    {
       "name": "trial-api",
       "script": "packages/trial-api/dist/server.js",
       "cwd": "/opt/hfsp-labs",
