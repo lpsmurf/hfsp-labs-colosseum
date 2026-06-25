@@ -1,0 +1,30 @@
+{
+  "name": "@hfsp/x402-polymarket-edge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev":   "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "scan":  "tsx src/cli.ts",
+    "test":  "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hfsp/x402-sdk": "file:../x402-sdk",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

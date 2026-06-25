@@ -130,3 +130,6 @@ packages/x402-vpn-vps/.env.demo
 
 # Skill-installer symlinks (point into .agents/skills)
 data/skills/
+
+# polysharp paper-trading ledger (runtime)
+data/polysharp-paper.json
