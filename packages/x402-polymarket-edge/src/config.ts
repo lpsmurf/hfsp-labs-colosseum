@@ -34,6 +34,8 @@ export const config = {
   clobUrl:     process.env.CLOB_API_URL  ?? "https://clob.polymarket.com",
   oddsApiBase: process.env.ODDS_API_BASE ?? "https://api.oddspapi.io/v4",
   oddsApiKey:  process.env.ODDS_API_KEY  ?? "",
+  // Preferred sharp bookmaker for fair value; falls back to any active book if absent.
+  oddsBookmaker: process.env.ODDS_BOOKMAKER ?? "pinnacle",
 
   // universe + costs
   universe: {

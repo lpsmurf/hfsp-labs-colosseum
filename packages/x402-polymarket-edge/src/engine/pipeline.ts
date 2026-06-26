@@ -22,6 +22,7 @@ export interface PipelineResult {
  */
 export async function runPipeline(): Promise<PipelineResult> {
   const [markets, fixtures] = await Promise.all([scanMarkets(), getFixtures()]);
+  const fixtureById = new Map(fixtures.map((f) => [f.fixtureId, f]));
 
   const signals: EdgeSignal[] = [];
   let matched = 0;
@@ -31,7 +32,9 @@ export async function runPipeline(): Promise<PipelineResult> {
     if (!match) continue;
     matched++;
 
-    const probs = await getFairProbs(match.fixtureId);
+    const fixture = fixtureById.get(match.fixtureId);
+    if (!fixture) continue;
+    const probs = await getFairProbs(fixture);
     if (!probs) continue; // no sharp price → skip
 
     // Map each de-vigged participant probability to the Poly outcome tokenId.
