@@ -98,6 +98,12 @@ oracle (x402-paid)         dashboard (x402/Bazaar)  fan game (Solana + POH)
   TxODDS Merkle proof and posts the verified result; markets settle trustlessly.
   This is the literal title and almost no one else will use the Merkle proofs.
 - Need: settlement-oracle Solana program + proof-verification path.
+- **Status: scaffolded.** `settlement-oracle/` has the design (`DESIGN.md`), a
+  runnable reference verifier (`verify.ts` — `npm run verify`, keccak256 leaves +
+  sorted-pair fold, self-test proves good proofs verify and tampered/garbage are
+  rejected), and the matching Anchor program (`programs/.../lib.rs`:
+  `initialize` / `commit_root` / `resolve`). One open item: confirm TxODDS's exact
+  leaf encoding (Telegram Q2), then swap `buildLeaf` + `leaf_hash`.
 
 ### 🥇 Bounty 3 — Trading Tools & Agents (16k)
 - **Autonomous agent** that pulls TxLine odds, finds edges, sizes via fractional
