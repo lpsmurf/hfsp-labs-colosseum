@@ -84,6 +84,38 @@ const gate = x402({
 
 ---
 
+## Hardening: freshness + resource binding
+
+Replay protection alone is necessary but not sufficient. Two further x402
+invariants — formalized in the 2026 literature (arXiv:2605.30998 §4.2/4.3,
+arXiv:2605.11781) — are enforced here:
+
+- **Freshness window** (default **300 s**, on by default). A payment whose
+  on-chain `blockTime` is older than the window is rejected, so a stale
+  signature can't be redeemed after an instance restart clears the replay store.
+  Tune or disable per route:
+
+  ```ts
+  x402({ amount: 500_000n, payTo, rpcUrl, maxAgeSeconds: 120 }); // 0 disables
+  ```
+
+- **Resource binding** (opt-in). Without it, a payment to `payTo` for amount *X*
+  unlocks **any** route of the same price ("pay A, get B"). Set `resourceId` and
+  the seller requires an SPL-Memo equal to it; the `@hfsp` client attaches the
+  memo automatically when the challenge advertises it:
+
+  ```ts
+  app.post('/api/analyze', x402({
+    amount: 500_000n, payTo, rpcUrl,
+    resourceId: '/api/analyze',   // payment must carry this memo
+  }), handler);
+  ```
+
+Paid responses are also served `Cache-Control: no-store, private` so a proxy or
+CDN can't leak a paid result to an unpaid caller (handlers may override).
+
+---
+
 ## Payment amounts
 
 USDC has 6 decimals. Amounts are `bigint` in atomic units:

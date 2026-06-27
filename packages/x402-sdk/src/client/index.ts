@@ -3,6 +3,7 @@ import {
   PublicKey,
   Keypair,
   Transaction,
+  TransactionInstruction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
@@ -13,7 +14,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import type { X402Challenge } from "../types.js";
-import { USDC_MAINNET } from "../types.js";
+import { USDC_MAINNET, MEMO_PROGRAM_ID } from "../types.js";
 
 export interface X402ClientConfig {
   /** Keypair used to sign and pay for transactions */
@@ -26,6 +27,8 @@ interface ParsedChallenge {
   payTo:  string;
   amount: bigint;
   mint:   string;
+  /** Memo the seller requires for resource binding (R2), if advertised. */
+  memo?:  string;
 }
 
 /**
@@ -107,7 +110,8 @@ export class X402Client {
         const challenge = JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as X402Challenge;
         const accept    = challenge.accepts.find(a => a.scheme === "exact");
         if (accept) {
-          return { payTo: accept.payTo, amount: BigInt(accept.amount), mint: accept.asset };
+          const memo = typeof accept.extra?.memo === "string" ? accept.extra.memo : undefined;
+          return { payTo: accept.payTo, amount: BigInt(accept.amount), mint: accept.asset, memo };
         }
       } catch { /* fall through to body parse */ }
     }
@@ -153,6 +157,16 @@ export class X402Client {
         TOKEN_PROGRAM_ID,
       ),
     );
+
+    // Resource binding (R2): if the seller advertised a required memo, attach it
+    // so the payment is cryptographically tied to this resource.
+    if (challenge.memo) {
+      tx.add(new TransactionInstruction({
+        keys:      [],
+        programId: new PublicKey(MEMO_PROGRAM_ID),
+        data:      Buffer.from(challenge.memo, "utf8"),
+      }));
+    }
 
     const sig = await sendAndConfirmTransaction(connection, tx, [wallet]);
     return sig;

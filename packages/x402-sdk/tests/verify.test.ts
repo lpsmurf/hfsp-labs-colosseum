@@ -14,6 +14,7 @@ function makeTxResponse(options: {
   const { mint = USDC, owner = PAY_TO, preAmt = "0", postAmt = "500000", onChainErr } = options;
   return {
     result: {
+      blockTime: Math.floor(Date.now() / 1000), // recent — passes the freshness window
       meta: {
         err:               onChainErr ?? null,
         preTokenBalances:  [{ accountIndex: 0, mint, owner: "sender", uiTokenAmount: { amount: preAmt } }],

@@ -2,6 +2,8 @@ export const SOLANA_MAINNET = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" as const
 export const SOLANA_DEVNET  = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" as const;
 export const USDC_MAINNET   = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as const;
 export const USDC_DEVNET    = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU" as const;
+/** SPL Memo program — used to bind a payment to a specific resource (R2). */
+export const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr" as const;
 
 export type SolanaNetwork = typeof SOLANA_MAINNET | typeof SOLANA_DEVNET;
 
@@ -25,6 +27,20 @@ export interface PaymentConfig {
   replayStore?: ReplayStore;
   /** Bazaar discovery extension — enables listing on agentic.market and x402.org/discovery */
   bazaar?: BazaarConfig;
+  /**
+   * Freshness window (seconds). A payment whose on-chain blockTime is older than
+   * this is rejected, binding payment to recent intent (x402 invariant: no stale
+   * replay across instance restarts). Defaults to 300s. Set 0 to disable.
+   */
+  maxAgeSeconds?: number;
+  /**
+   * Resource binding (R2 / Context-Binding I3). When set, the payment tx MUST
+   * carry an SPL Memo equal to this id, so a payment for one route cannot unlock
+   * another route at the same price. Opt-in — the @hfsp client attaches the memo
+   * automatically when the challenge advertises it. A stable per-route string
+   * (e.g. the resource path) is the natural choice.
+   */
+  resourceId?: string;
 }
 
 export interface VerifyResult {

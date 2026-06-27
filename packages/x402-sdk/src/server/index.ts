@@ -105,8 +105,10 @@ export function x402(config: PaymentConfig) {
           amount:            config.amount.toString(),
           asset:             mint,
           payTo:             config.payTo,
-          maxTimeoutSeconds: 300,
-          extra:             {},
+          maxTimeoutSeconds: config.maxAgeSeconds ?? 300,
+          // Resource binding (R2): advertise the required memo so compliant
+          // clients attach it; the @hfsp client does this automatically.
+          extra:             config.resourceId ? { memo: config.resourceId } : {},
         }],
         ...(config.bazaar ? { extensions: { bazaar: buildBazaarExtension(config.bazaar) } } : {}),
       };
@@ -140,7 +142,10 @@ export function x402(config: PaymentConfig) {
         return res.status(err.httpStatus).json(err.toBody());
       }
 
-      const result = await verifyTx(config.rpcUrl, txSig, mint, config.payTo, config.amount);
+      const result = await verifyTx(config.rpcUrl, txSig, mint, config.payTo, config.amount, {
+        maxAgeSeconds: config.maxAgeSeconds,
+        resourceId:    config.resourceId,
+      });
 
       if (!result.ok) {
         // Release so the caller can retry with a valid tx
@@ -154,6 +159,9 @@ export function x402(config: PaymentConfig) {
         from:          result.from ?? "",
         agentDiscount: false,
       };
+
+      // R8 — never let a proxy/CDN cache a paid response. Handlers may override.
+      res.setHeader("Cache-Control", "no-store, private");
 
       next();
     } catch (err) {
