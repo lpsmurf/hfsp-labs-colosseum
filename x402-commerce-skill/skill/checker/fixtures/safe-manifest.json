@@ -1,0 +1,22 @@
+{
+  "x402Version": 2,
+  "seller": { "name": "Acme AI", "contact": "info@acme.ai" },
+  "networks": ["solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"],
+  "resources": [
+    {
+      "url": "https://api.acme.ai/score",
+      "description": "Toxicity score for a string",
+      "accepts": [
+        {
+          "scheme": "exact",
+          "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+          "amount": "5000",
+          "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "payTo": "GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY",
+          "maxTimeoutSeconds": 300,
+          "extra": { "method": "POST", "memo": "/score" }
+        }
+      ]
+    }
+  ]
+}
