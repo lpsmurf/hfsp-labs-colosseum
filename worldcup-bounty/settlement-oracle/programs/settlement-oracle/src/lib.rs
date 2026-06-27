@@ -38,7 +38,8 @@ pub mod settlement_oracle {
         c.merkle_root = merkle_root;
         c.committed_at = Clock::get()?.unix_timestamp;
         c.committer = ctx.accounts.committer.key();
-        ctx.accounts.config.batch_count += 1;
+        let cfg = &mut ctx.accounts.config;
+        cfg.batch_count = cfg.batch_count.checked_add(1).ok_or(OracleError::Overflow)?;
         Ok(())
     }
 
@@ -99,6 +100,7 @@ fn process_proof(leaf: [u8; 32], proof: &[[u8; 32]]) -> [u8; 32] {
 // ── Accounts ────────────────────────────────────────────────────────────────────
 
 #[account]
+#[derive(InitSpace)]
 pub struct OracleConfig {
     pub admin: Pubkey,
     pub txodds_signer: Pubkey,
@@ -106,6 +108,7 @@ pub struct OracleConfig {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct RootCommitment {
     pub batch_id: u64,
     pub merkle_root: [u8; 32],
@@ -114,6 +117,7 @@ pub struct RootCommitment {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Resolution {
     pub fixture_id: u64,
     pub outcome: u8,
@@ -125,7 +129,7 @@ pub struct Resolution {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = admin, space = 8 + 32 + 32 + 8, seeds = [b"config"], bump)]
+    #[account(init, payer = admin, space = 8 + OracleConfig::INIT_SPACE, seeds = [b"config"], bump)]
     pub config: Account<'info, OracleConfig>,
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -138,7 +142,7 @@ pub struct CommitRoot<'info> {
     #[account(mut, seeds = [b"config"], bump)]
     pub config: Account<'info, OracleConfig>,
     #[account(
-        init, payer = committer, space = 8 + 8 + 32 + 8 + 32,
+        init, payer = committer, space = 8 + RootCommitment::INIT_SPACE,
         seeds = [b"root", batch_id.to_le_bytes().as_ref()], bump
     )]
     pub root_commitment: Account<'info, RootCommitment>,
@@ -153,7 +157,7 @@ pub struct Resolve<'info> {
     #[account(seeds = [b"root", batch_id.to_le_bytes().as_ref()], bump)]
     pub root_commitment: Account<'info, RootCommitment>,
     #[account(
-        init, payer = settler, space = 8 + 8 + 1 + 2 + 2 + 8 + 8,
+        init, payer = settler, space = 8 + Resolution::INIT_SPACE,
         seeds = [b"res", fixture_id.to_le_bytes().as_ref()], bump
     )]
     pub resolution: Account<'info, Resolution>,
@@ -170,4 +174,6 @@ pub enum OracleError {
     InvalidProof,
     #[msg("Outcome must be 0 (home), 1 (draw) or 2 (away)")]
     BadOutcome,
+    #[msg("Arithmetic overflow")]
+    Overflow,
 }
