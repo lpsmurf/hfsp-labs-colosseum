@@ -1,0 +1,103 @@
+ROLE: You are a senior architect + builder. Prepare a PLAN and a PREP KIT (do not build the
+product yet) for a new project in this monorepo: fully-autonomous, self-funding AI agents that
+act as a "Solana Shopping & Finance Assistant."
+
+MISSION: agents must be FULLY AUTONOMOUS — each agent has its OWN email and OWN Telegram to
+communicate with the user, its OWN Solana wallet, and PAYS FOR ITS OWN COSTS (LLM inference and
+purchases) over x402. No human in the loop for routine operation.
+
+REPO: /Users/luisploennig/Colosseum/hfsp-labs-colosseum  (the "Clawdrop"/HFSP x402 ecosystem).
+Read CLAUDE.md first. Reuse existing assets — do NOT rebuild what we have:
+  - packages/x402-sdk         (@hfsp/x402-sdk — hardened: replay + freshness + resource binding;
+                               this is OUR Solana-USDC x402 gating layer, reuse it)
+  - x402-commerce-skill/      (cross-seller buyer-ranking + manifest linter)
+  - packages/x402-store       (Cryptorefills proxy: gift cards / top-ups / eSIMs, Solana USDC + markup)
+  - packages/x402-wallet      (x402 wallet UI + agent dashboard)
+  - packages/clawdrop-agent-runtime + clawdrop-mcp-server (per-user agent + Telegram + MCP, SendAI Agent Kit)
+  - the Sumsub skills under .claude/skills/sumsub-* (KYC/KYB tooling if onboarding is needed)
+
+AGENT AUTONOMY INFRASTRUCTURE (the autonomy layer — research live docs, verify, don't assume):
+  - OWN EMAIL: AgentMail (https://docs.agentmail.to/introduction). Programmatic inbox-per-agent,
+    two-way threaded email, inbound via webhooks/websockets, native MCP server, Node/Python SDKs,
+    volume-based pricing. Each agent provisions its own inbox on creation and acts on inbound mail.
+  - OWN TELEGRAM: reuse clawdrop-agent-runtime's existing Telegram interface (already built).
+  - OWN WALLET + SELF-FUNDING LLM (DECISION LOCKED — build ON Franklin/BlockRun, do NOT reinvent):
+      Substrate = Franklin (https://github.com/BlockRunAI/Franklin , @blockrun/franklin): "the AI agent
+      with a wallet" — holds USDC, picks best model per task, pays per OUTCOME via x402, no keys/account,
+      wallet-as-identity, Apache-2.0 TS, one npm package, Smart Router. Build our shopping + email agent
+      ON TOP of it.
+      Model calls = BlockRun (https://blockrun.ai , https://github.com/BlockRunAI): OpenAI-compatible,
+      41-80+ models, pure x402 pay-per-request (NO API keys), from ~$0.0002/req. USE the native
+      SolanaLLMClient (Solana USDC) so inference settles on Solana — same rail as everything else, no
+      chain split. SDKs: @blockrun/llm (TS), blockrun-llm (Py); blockrun-mcp for live data via x402.
+      Do NOT use Router402 (Base-only) and do NOT build our own LLM proxy — Franklin/BlockRun ship it.
+  - SELF-FUNDING ECONOMICS: define the agent budget model — user tops up the agent's USDC wallet;
+    agent spends on inference (x402) + purchases (x402/Crossmint); spend caps + low-balance alerts
+    (it emails/Telegrams the user when funds run low). Reuse x402-wallet for the dashboard.
+
+PRODUCT VISION (two arms — scope Arm A first, Arm B as roadmap):
+
+  ARM A — Shopping ("find it, pay in crypto, done"). BUILD-READY, this is the priority.
+    A conversational agent that: finds items on Amazon + gift cards, monitors prices, and
+    processes purchases on the user's behalf paying in Solana USDC.
+    Rails (DECISIONS LOCKED — validate the API shapes against live docs, but use these):
+      - Price data/monitoring = Keepa API (price history + drop alerts). [Rainforest only later if we
+        need richer live product search — not for MVP.]
+      - Order placement + crypto checkout = Crossmint "Purchase on Amazon using crypto" (USDC on Solana,
+        1B+ items, supports x402). [Zinc only later if we need lower-level order control — not for MVP.]
+    Pipeline: Keepa (watch) -> buyer agent (rank/decide, reuse x402-commerce ranking) ->
+              Crossmint/Zinc (buy) -> Solana USDC (pay) -> AgentMail/Telegram receipt to user.
+
+  ARM B — Debt refinancing (NOT "debt consolidation" — be precise and honest). ROADMAP / later.
+    Reframe accurately: DeFi lending is OVERcollateralized — you cannot move unsecured fiat debt
+    on-chain. The only real use case: a user who already holds crypto borrows stablecoins against it
+    at a lower DeFi rate to refinance high-APR fiat debt (avoids selling + lowers rate, adds
+    liquidation risk). Solana rails to survey: Kamino, MarginFi, Save (ex-Solend), Drift, Lulo,
+    and LST staking (Sanctum/Marinade/Jito).
+    Email features (analyze inbox for debts, draft negotiation emails) use the agent's AgentMail
+    inbox but are DRAFT-ONLY and compliance-flagged: debt settlement / credit repair is regulated;
+    do not give individualized financial advice or act as a credit-repair org. Inbox access is
+    privacy-heavy — flag it and require explicit user consent.
+
+HARD CONSTRAINTS:
+  - Honesty over hype: no overclaiming. Mark what's LIVE vs PLANNED vs needs-an-API-key.
+  - x402 / payment flows fail closed (verify-then-deliver; reuse the SDK's replay/freshness/binding).
+  - Flag the Base (Router402) vs Solana (rest of stack) chain split explicitly and recommend a default.
+  - Arm B: surface the overcollateralization + regulatory + liquidation caveats up front, not buried.
+  - Autonomous spend needs guardrails: per-tx + daily spend caps, allowlists, low-balance alerts,
+    and a human-confirm threshold for large purchases. Do not let an agent spend unbounded.
+  - Don't boil the ocean: recommend a tight MVP; flag open decisions instead of guessing.
+
+OUTPUT STRATEGY (DECISION LOCKED — BOTH, in sequence):
+  1) Plan the PRODUCT MVP first (the real autonomous shopping agent).
+  2) Then plan a slim SPINOFF as a Superteam "Solana AI Kit" agent-skill (solanabr/skill-bounty) —
+     cheap marketing for the product. The skill spinoff follows the canonical format:
+     skill/SKILL.md (frontmatter: name/description/license + progressive-disclosure router),
+     numbered reference files, examples/ (RUNNABLE), checker/ (a linter or validator with tests),
+     README/LICENSE/install.sh. Winning entries ship a runnable artifact + proof-it-runs + honest scoping.
+  PLAN.md must cover the product MVP; add a short "bounty-skill spinoff" section mapping which MVP
+  pieces become the submitted skill.
+
+DELIVERABLES (write these as files in the shopping-agent/ directory):
+  1. PLAN.md — phased build plan: MVP scope, milestones, architecture diagram (text), the
+     provider-adapter abstraction (so Keepa/Rainforest, Crossmint/Zinc, and Router402/self-hosted
+     LLM gateway are all swappable), the autonomy loop (provision inbox -> watch email+telegram ->
+     decide -> pay-for-llm -> act -> pay-for-purchase -> report), data flow, and an explicit
+     "decisions to confirm" list.
+  2. PREP-KIT.md — digested API reference for AgentMail + BlockRun/Franklin + Keepa + Crossmint (+ Zinc):
+     auth, key endpoints, request/response shapes, pricing/limits, gotchas; the agent architecture;
+     the self-funding economics + spend-guardrail design; how it reuses our existing packages;
+     setup checklist; and the Arm-B feasibility brief with the caveats.
+  3. Runnable client stubs per chosen provider (e.g. shopping-agent/agentmail-client.ts,
+     llm-x402-client.ts, keepa-client.ts, crossmint-client.ts) that typecheck and demonstrate the
+     call shape; gate live calls behind env keys in a gitignored .env (.env.example committed).
+     Verify endpoints against live docs via Context7/WebFetch — do not hallucinate API shapes.
+  4. package.json + tsconfig.json so install + typecheck + a demo script run clean.
+
+DECISIONS ALREADY LOCKED (do NOT re-ask these): (1) build ON Franklin + BlockRun SolanaLLMClient;
+(2) Crossmint for checkout; (3) Keepa for price monitoring; (4) AgentMail for the agent's email;
+(5) BOTH outputs — product MVP first, then a slim bounty-skill spinoff. Proceed on these.
+
+PROCESS: research live API docs before writing client code; cite the doc URLs in PREP-KIT.md.
+Keep it disciplined — a few excellent, runnable pieces beat a sprawling scaffold. Only surface NEW
+open questions you genuinely discover during research; otherwise produce the plan + prep kit directly.

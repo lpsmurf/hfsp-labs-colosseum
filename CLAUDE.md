@@ -14,7 +14,9 @@ Built on **SendAI Solana Agent Kit** (60+ Solana tools, token/DeFi plugins).
 ## Monorepo Structure
 
 ```
-packages/
+packages/                     All projects live here (npm workspaces = "packages/*")
+
+# — Clawdrop agent platform —
 ├── trial-api                 Trial chatbot backend (Mastra + SendAI Agent Kit)
 ├── trial-frontend            Trial chatbot UI (React + Vite)
 ├── clawdrop-mcp-server       Per-user MCP server (SendAI Agent Kit + x402 payment)
@@ -24,19 +26,39 @@ packages/
 ├── clawdrop-mcp              MCP gateway + CLI wizard + payment protocol
 ├── clawdrop-landing          Landing page (stub — redesign in progress)
 ├── clawdrop-vpn              VPN x402 payment integration (clawdrop HTTP proxy)
-├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
+
+# — x402 suite —
+├── x402-sdk                  Node.js middleware for Solana x402 payments (payment-gated APIs in <10 lines)
+├── x402-demo                 Live demo for x402-sdk — the 402 flow at demo.hfsp.cloud
 ├── x402-audit-api            x402 ecosystem security audit API ($0.99 USDC, Base + Solana)
 ├── x402-donate               x402-gated donation router (Base, Endaoment integration)
-├── x402-store                x402 Cryptorefills proxy — gift cards/top-ups/eSIMs, commission markup (Solana USDC)
+├── x402-store                x402 Cryptorefills proxy — gift cards/top-ups/eSIMs (Solana USDC)
 ├── x402-wallet               x402 wallet UI + agent dashboard
 ├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet USDC, Helius verification
 ├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator
+├── x402-polymarket-edge      Non-custodial Polymarket edge-signals API (x402-gated)
+├── x402-commerce-skill       Solana AI Kit skill — ship a paid API agents discover & buy over x402
+├── x402-xstocks              xStocks KYC gateway — Sumsub verification + xChange quote proxy (x402)
+├── x402-xstocks-feed         x402-gated xStocks price feed
+
+# — Gnosis Card / Circles —
 ├── gnosis-card-x402          Gnosis Card x402 payment integration
 ├── gnosis-card-frontend      Gnosis Card human frontend — top up Safe from Solana/Base (React+Vite)
 ├── gnosis-card-contracts     Gnosis Card Solidity contracts
+├── gnosis-circles-miniapp    Circles Garage mini app — gift card redemption
+├── circles-swap-miniapp      Bidirectional USDC bridge (Solana ↔ Gnosis)
+
+# — WDK community modules —
 ├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
 ├── wdk-browser-extension     WDK community module — Solana browser extension wallet (Chrome/Brave MV3)
-└── wdk-tron-swap             WDK community module — SunSwap on Tron
+├── wdk-tron-swap             WDK community module — SunSwap on Tron
+
+# — Bounties & agents —
+├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
+├── worldcup-bounty           World Cup bounty — settlement oracle + TxODDS hackathon prep kit
+├── shopping-agent            Self-funding Solana shopping agent (AgentMail + Keepa + Crossmint over x402)
+
+└── x402-audit               Security audit findings (findings/ reports/ archive/) — NOT an npm package
 
 config/                       Deployment infrastructure configs
 ├── vps/                      Server infra (nginx, PM2, systemd) for production VPS
@@ -46,12 +68,12 @@ config/                       Deployment infrastructure configs
 marketplace/                  Marketplace submissions (pay-skills, x402scan, Agentic Market)
 ├── pay-skills/               solana-foundation/pay-skills catalog entries
 └── providers/                Other provider marketplace entries (OpenClaw, etc.)
-
-x402-audit/                   Security audit findings for the x402 ecosystem
-├── findings/                 Vulnerability disclosures (CRITICAL → INFO)
-├── reports/                  Raw sweep data (JSON)
-└── archive/                  Historical probe data
 ```
+
+> Note: every project lives under `packages/`. The npm `workspaces` field uses the
+> glob `"packages/*"`, so new packages are picked up automatically — keep this list
+> in sync when you add one. `packages/x402-audit` has no `package.json` (findings/
+> reports only) and is silently skipped by the workspace glob.
 
 ---
 

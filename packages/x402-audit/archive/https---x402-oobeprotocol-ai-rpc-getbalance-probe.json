@@ -1,0 +1,12 @@
+{
+  "url": "https://x402.oobeprotocol.ai/rpc/getBalance",
+  "method": "POST",
+  "timestamp": "2026-06-06T14:05:11.300Z",
+  "statusCode": 0,
+  "is402": false,
+  "responseHeaders": {},
+  "rawBody": "",
+  "specIssues": [
+    "Request failed: fetch failed"
+  ]
+}

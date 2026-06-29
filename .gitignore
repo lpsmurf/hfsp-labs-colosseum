@@ -134,6 +134,6 @@ data/skills/
 # polysharp paper-trading ledger (runtime)
 data/polysharp-paper.json
 
-# prep-kit local env
-worldcup-bounty/.env
-worldcup-bounty/node_modules/
+# prep-kit local env (moved under packages/)
+packages/worldcup-bounty/.env
+packages/worldcup-bounty/node_modules/
