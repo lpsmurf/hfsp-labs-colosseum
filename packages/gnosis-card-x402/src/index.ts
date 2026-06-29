@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { noLogs } from './middleware/noLogs.js';
 import { cardRouter } from './routes/card.js';
+import { bridgeRouter } from './routes/bridge.js';
 import { healthRouter } from './routes/health.js';
 import { rpcRouter } from './routes/rpc.js';
 import { safeRouter } from './routes/safe.js';
@@ -37,8 +38,10 @@ app.use(express.json({ limit: '64kb' }));
 app.set('trust proxy', 1);
 
 app.use('/health', healthRouter);
+app.use('/api/health', healthRouter);
 app.use('/api/card/safe', safeRouter);
 app.use('/api/card', cardRouter);
+app.use('/api/bridge', bridgeRouter);
 app.use('/api/rpc', rpcRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/circles', circlesRouter);
