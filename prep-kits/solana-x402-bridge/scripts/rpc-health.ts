@@ -35,8 +35,8 @@ export async function getHealthySolana() {
     .sort((a, b) => a.lag - b.lag || a.latency - b.latency);
 
   if (!eligible.length) throw new Error(`All Solana RPCs stale (> ${maxLag} slots behind)`);
-  const best = eligible[0];
-  return { connection: new Connection(best.url, "confirmed"), slotLag: best.lag, endpoint: best.url };
+  const chosen = selectPreferringPrimary(eligible, endpoints[0]);
+  return { connection: new Connection(chosen.url, "confirmed"), slotLag: chosen.lag, endpoint: chosen.url };
 }
 
 // Back-compat alias used by bridge-safety.
@@ -68,8 +68,17 @@ export async function getHealthyEvmRpc(chain: string) {
     .sort((a, b) => a.lag - b.lag || a.latency - b.latency);
 
   if (!eligible.length) throw new Error(`All ${chain} RPCs stale (> ${maxLag} blocks behind)`);
-  const best = eligible[0];
-  return { endpoint: best.url, blockLag: best.lag, latency: best.latency };
+  const chosen = selectPreferringPrimary(eligible, endpoints[0]);
+  return { endpoint: chosen.url, blockLag: chosen.lag, latency: chosen.latency };
+}
+
+// Prefer the configured primary endpoint when it's healthy AND within lag tolerance — so a
+// reliable (paid) RPC isn't bypassed just because a public node pinged a few ms faster. Only
+// fail over to the best-ranked fallback when the primary is unhealthy/stale. Set
+// RPC_PREFER_PRIMARY=false for pure lowest-lag/latency selection across all endpoints.
+function selectPreferringPrimary<T extends { url: string }>(eligible: T[], primaryUrl: string): T {
+  const preferPrimary = (process.env.RPC_PREFER_PRIMARY ?? "true") !== "false";
+  return (preferPrimary && eligible.find((e) => e.url === primaryUrl)) || eligible[0];
 }
 
 async function evmBlockNumber(url: string): Promise<number> {
