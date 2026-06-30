@@ -1,17 +1,21 @@
-// usage: tsx scripts/bridge-execute.ts <amountUSDC> <destChain> <destToken=usdc>
-// Quote -> safety preflight -> x402 pay -> relayer execute -> poll status.
+// usage: tsx scripts/bridge-execute.ts <srcToken> <amountIn> <destChain> <destToken>
+// Aggregate -> safety preflight (both chains) -> route to best provider -> poll status.
 import { preflight } from "./bridge-safety.js";
+import { aggregate } from "./bridge-aggregator.js";
+import { PROVIDERS } from "./providers.js";
+import type { EvmChain } from "./types.js";
 
-async function execute(amount: number, chain: string, token = "usdc") {
-  const safety = await preflight(amount, chain);
+async function execute(srcToken: string, amountIn: number, chain: EvmChain, destToken: string) {
+  const safety = await preflight(srcToken, amountIn, chain, destToken);
   if (!safety.ok) throw new Error("Safety preflight failed: " + safety.failures.join("; "));
-  // TODO(devin):
-  // 1. pay relayer via x402 (USDC on Solana) — see packages/gnosis-card-x402 X-Payment flow
-  // 2. POST `${X402_RELAYER_URL}/execute` with payment header + {amount, chain, token}
-  // 3. poll `${X402_RELAYER_URL}/status/:id` until settled
-  // 4. return BridgeResult with both explorer links
-  throw new Error("TODO: implement execute (reuse gnosis-card-x402 settlement flow)");
+
+  const { best } = await aggregate(srcToken, amountIn, chain, destToken);
+  if (!best) throw new Error("No eligible route");
+
+  const provider = PROVIDERS[best.provider];
+  // TODO(devin): pay relayer via x402 if routing through HFSP; else execute via provider adapter.
+  return provider.execute(srcToken, amountIn, chain, destToken);
 }
 
-const [amount, chain, token] = process.argv.slice(2);
-execute(Number(amount), chain, token).then((r) => console.log(JSON.stringify(r, null, 2)));
+const [srcToken, amountIn, chain, destToken] = process.argv.slice(2);
+execute(srcToken, Number(amountIn), chain as EvmChain, destToken).then((r) => console.log(JSON.stringify(r, null, 2)));

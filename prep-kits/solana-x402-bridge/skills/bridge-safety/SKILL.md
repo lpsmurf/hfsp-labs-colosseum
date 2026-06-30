@@ -24,3 +24,9 @@ For `kind: "swap"` quotes (different destToken), additionally:
 - Reject if `amountOut < minAmountOut` (slippage tolerance, DEFAULT_SLIPPAGE_BPS).
 - Re-quote right before execute; abort if price drifted beyond tolerance.
 Same-asset bridges (USDC->USDC) have priceImpactBps=0 and skip this.
+
+## RPC health switcher (both chains)
+Backed by `scripts/rpc-health.ts`:
+- **Solana source:** probes `getSlot` across SOLANA_RPC_URL + SOLANA_FALLBACK_RPCS, picks lowest slot-lag healthy endpoint, fails if all > RPC_MAX_SLOT_LAG behind.
+- **EVM destination:** probes `eth_blockNumber` across <CHAIN>_RPC_URL + <CHAIN>_FALLBACK_RPCS, picks freshest/lowest-latency, fails if all > EVM_MAX_BLOCK_LAG behind.
+A failing/lagging RPC on either side blocks execution — agents on a single RPC are fragile; this auto-swaps endpoints before acting.
