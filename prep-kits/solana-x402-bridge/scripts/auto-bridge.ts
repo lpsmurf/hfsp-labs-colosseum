@@ -10,7 +10,7 @@
 //   tsx scripts/auto-bridge.ts USDC 5 polygon USDC --execute  # route real funds via the winning provider
 import "./env.js";
 import { aggregate } from "./bridge-aggregator.js";
-import { preflight } from "./bridge-safety.js";
+import { preflight, requoteGuard } from "./bridge-safety.js";
 import { PROVIDERS } from "./providers.js";
 import type { EvmChain, BridgeResult, SafetyResult } from "./types.js";
 import type { ProviderQuote } from "./providers.js";
@@ -35,8 +35,8 @@ export async function autoBridge(
   const { best, ranked } = await aggregate(srcToken, amountIn, destChain, destToken);
   if (!best) throw new Error(`auto-bridge: no eligible route for ${srcToken} -> ${destToken} on ${destChain}`);
 
-  // 2. Mandatory safety preflight (allowlist, caps, cross-chain RPC freshness). Fail loud.
-  const safety = await preflight(srcToken, amountIn, destChain, destToken);
+  // 2. Mandatory safety preflight (allowlist, caps, cross-chain RPC freshness, swap slippage). Fail loud.
+  const safety = await preflight(srcToken, amountIn, destChain, destToken, best);
   if (!safety.ok) throw new Error("auto-bridge blocked by safety preflight: " + safety.failures.join("; "));
 
   // 3. Dry-run by default — never move funds unless explicitly told to.
@@ -44,7 +44,11 @@ export async function autoBridge(
     return { mode: "dry-run", chosen: best, ranked, safety, note: "dry-run only — pass --execute to route real funds via the winning provider" };
   }
 
-  // 4. Route execution to the winning provider's adapter.
+  // 4. Re-quote right before execute; abort swaps that drifted below the minAmountOut floor.
+  const rq = await requoteGuard(srcToken, amountIn, destChain, destToken, best);
+  if (!rq.ok) throw new Error("auto-bridge blocked by re-quote guard: " + rq.reason);
+
+  // 5. Route execution to the winning provider's adapter.
   const result = await PROVIDERS[best.provider].execute(srcToken, amountIn, destChain, destToken);
   return { mode: "executed", chosen: best, ranked, safety, result };
 }
