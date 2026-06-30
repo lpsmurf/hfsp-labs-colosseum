@@ -7,12 +7,14 @@
   "license": "MIT",
   "scripts": {
     "quote": "tsx scripts/bridge-quote.ts",
+    "auto": "tsx scripts/auto-bridge.ts",
     "execute": "tsx scripts/bridge-execute.ts",
     "targets": "tsx scripts/evm-targets.ts",
     "onramp": "tsx scripts/onramp.ts",
     "polymarket": "tsx scripts/polymarket.ts"
   },
   "dependencies": {
+    "@allbridge/bridge-core-sdk": "3.31.0",
     "@solana/web3.js": "^1.95.0",
     "viem": "^2.21.0"
   },

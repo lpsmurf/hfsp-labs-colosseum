@@ -5,6 +5,7 @@ import type { BridgeQuote, BridgeResult, EvmChain } from "./types.js";
 import { cctp } from "./adapters/cctp.js";
 import { mayan } from "./adapters/mayan.js";
 import { debridge } from "./adapters/debridge.js";
+import { allbridge } from "./adapters/allbridge.js";
 
 export interface ProviderQuote extends BridgeQuote {
   provider: string;
@@ -38,14 +39,7 @@ const wormhole: BridgeProvider = {
   async status() { throw new Error("TODO(devin): Wormhole VAA status"); },
 };
 
-// 5. Allbridge Core — stablecoin pools only (USDC/USDT). No SOL->ETH.
-const allbridge: BridgeProvider = {
-  name: "allbridge",
-  supportsPair: (s, _c, d) => isStable(s) && isStable(d),
-  async quote() { throw new Error("TODO(devin): Allbridge getAmountToBeReceived. PROVIDERS.md #5"); },
-  async execute() { throw new Error("TODO(devin): Allbridge send + sign"); },
-  async status() { throw new Error("TODO(devin): Allbridge status"); },
-};
+// 5. Allbridge Core — stablecoin pools only (USDC/USDT). No SOL->ETH. → adapters/allbridge.ts
 
 // Aggregator pool — exactly 5 external providers.
 // SOL->ETH eligible set resolves to: mayan, debridge (cctp/allbridge/wormhole filtered out).
