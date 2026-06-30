@@ -10,7 +10,7 @@
 //   tsx scripts/auto-bridge.ts USDC 5 polygon USDC --execute  # route real funds via the winning provider
 import "./env.js";
 import { aggregate } from "./bridge-aggregator.js";
-import { preflight, requoteGuard } from "./bridge-safety.js";
+import { preflight, requoteGuard, describeSwapSlippage } from "./bridge-safety.js";
 import { PROVIDERS } from "./providers.js";
 import type { EvmChain, BridgeResult, SafetyResult } from "./types.js";
 import type { ProviderQuote } from "./providers.js";
@@ -63,16 +63,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   autoBridge(srcToken, Number(amountIn), destChain as EvmChain, destToken, { execute, acceptSlippageBps })
     .then((r) => {
-      console.log(`AUTO-BRIDGE [${r.mode}] — chose ${r.chosen.provider} (${r.chosen.kind})`);
-      console.log(JSON.stringify({
-        winner: r.chosen.provider,
-        amountIn: `${r.chosen.amountIn} ${r.chosen.srcToken}`,
-        amountOut: `${r.chosen.amountOut} ${r.chosen.destToken}`,
-        route: r.chosen.route,
-        fee: `${r.chosen.bridgeFeeUSDC} (${r.chosen.bridgeFeeBps.toFixed(1)} bps)`,
-        etaSeconds: r.chosen.etaSeconds,
+      const c = r.chosen;
+      const slip = describeSwapSlippage(c);
+      const summary: Record<string, unknown> = {
+        winner: c.provider,
+        amountIn: `${c.amountIn} ${c.srcToken}`,
+        amountOut: `${c.amountOut} ${c.destToken}`,
+        route: c.route,
+        fee: `${c.bridgeFeeUSDC} (${c.bridgeFeeBps.toFixed(1)} bps)`,
+        etaSeconds: c.etaSeconds,
         safety: { ok: r.safety.ok, usedRpc: r.safety.usedRpc, slotLag: r.safety.rpcSlotLag },
-      }, null, 2));
+      };
+      if (slip.isSwap) {
+        summary.slippageTolerance = `${slip.tolerancePct} (${slip.bps} bps)`;
+        summary.minReceived = `${c.minAmountOut} ${c.destToken} (worst case)`;
+      }
+      console.log(`AUTO-BRIDGE [${r.mode}] — chose ${c.provider} (${c.kind})`);
+      console.log(JSON.stringify(summary, null, 2));
+      if (slip.isSwap && slip.aboveDefaultCap) {
+        console.log(`  ⚠ HIGH slippage: ${slip.tolerancePct} consciously accepted (above the ${slip.defaultCapPct} default cap) — worst case ${c.minAmountOut} ${c.destToken}`);
+      }
       console.log("\nROUTES CONSIDERED (ranked by net amountOut):");
       for (const q of r.ranked)
         console.log(`  ${q.provider.padEnd(10)} out=${q.amountOut} ${q.destToken}  fee=${q.bridgeFeeBps.toFixed(1)}bps  eta=${q.etaSeconds}s`);

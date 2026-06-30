@@ -40,6 +40,19 @@ export function checkSwapSlippage(
   return f;
 }
 
+// Human-readable slippage summary for output (so the tolerance/floor and any override
+// are visible, not buried as raw bps). aboveDefaultCap => an override was needed/used.
+export function describeSwapSlippage(q: Pick<ProviderQuote, "kind" | "slippageBps" | "minAmountOut">) {
+  return {
+    isSwap: q.kind === "swap",
+    bps: q.slippageBps,
+    tolerancePct: (q.slippageBps / 100).toFixed(2) + "%",
+    minAmountOut: q.minAmountOut,
+    aboveDefaultCap: q.slippageBps > MAX_SLIPPAGE_BPS,
+    defaultCapPct: (MAX_SLIPPAGE_BPS / 100).toFixed(0) + "%",
+  };
+}
+
 export async function preflight(
   srcToken: string,
   amountIn: number,
