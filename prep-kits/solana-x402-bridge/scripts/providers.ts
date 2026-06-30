@@ -2,6 +2,9 @@
 // Same-asset bridge (USDC->USDC) AND cross-chain swap (SOL->ETH) supported where the
 // provider allows. Eligibility is decided per-pair by supportsPair().
 import type { BridgeQuote, BridgeResult, EvmChain } from "./types.js";
+import { cctp } from "./adapters/cctp.js";
+import { mayan } from "./adapters/mayan.js";
+import { debridge } from "./adapters/debridge.js";
 
 export interface ProviderQuote extends BridgeQuote {
   provider: string;
@@ -21,32 +24,10 @@ export const SOLANA_DLN_CHAIN_ID = 7565164;
 const isStable = (t: string) => ["usdc", "usdt"].includes(t.toLowerCase());
 const sameAsset = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-// 1. Circle CCTP — USDC->USDC only, native 1:1, no slippage. DEFAULT BENCHMARK.
-const cctp: BridgeProvider = {
-  name: "cctp",
-  supportsPair: (s, _c, d) => s.toLowerCase() === "usdc" && d.toLowerCase() === "usdc",
-  async quote() { throw new Error("TODO(devin): CCTP burn/mint; impact=0. PROVIDERS.md #1"); },
-  async execute() { throw new Error("TODO(devin): CCTP execute"); },
-  async status() { throw new Error("TODO(devin): CCTP Iris status"); },
-};
-
-// 2. Mayan — ANY token -> ANY token (cross-chain swap). Best for SOL->ETH. price-api.mayan.finance/v3/quote
-const mayan: BridgeProvider = {
-  name: "mayan",
-  supportsPair: () => true, // any->any
-  async quote() { throw new Error("TODO(devin): Mayan v3 quote (any->any); include priceImpact + minOut. PROVIDERS.md #2"); },
-  async execute() { throw new Error("TODO(devin): Mayan swapFromSolana"); },
-  async status() { throw new Error("TODO(devin): Mayan tracking"); },
-};
-
-// 3. deBridge DLN — ANY token -> ANY token (intent market). Supports SOL->ETH.
-const debridge: BridgeProvider = {
-  name: "debridge",
-  supportsPair: () => true, // any->any
-  async quote() { throw new Error("TODO(devin): deBridge DLN quote (srcChainId=7565164); include impact. PROVIDERS.md #3"); },
-  async execute() { throw new Error("TODO(devin): deBridge create-tx + sign"); },
-  async status() { throw new Error("TODO(devin): deBridge order status"); },
-};
+// 1. Circle CCTP — USDC->USDC only, native 1:1, no slippage. DEFAULT BENCHMARK. → adapters/cctp.ts
+// 2. Mayan — ANY token -> ANY token (cross-chain swap). Best for SOL->ETH. → adapters/mayan.ts
+// 3. deBridge DLN — ANY token -> ANY token (intent market). Supports SOL->ETH. → adapters/debridge.ts
+// (cctp, mayan, debridge are implemented in scripts/adapters/ and imported above.)
 
 // 4. Wormhole/Portal — same-asset bridge + CCTP route. SOL->ETH only via added swap legs (treat as limited).
 const wormhole: BridgeProvider = {
