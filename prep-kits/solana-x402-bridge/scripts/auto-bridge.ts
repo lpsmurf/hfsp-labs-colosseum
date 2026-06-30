@@ -29,14 +29,14 @@ export async function autoBridge(
   amountIn: number,
   destChain: EvmChain,
   destToken: string,
-  opts: { execute?: boolean } = {},
+  opts: { execute?: boolean; acceptSlippageBps?: number } = {},
 ): Promise<AutoBridgeResult> {
   // 1. Shop every eligible provider, take the best net amount-out.
   const { best, ranked } = await aggregate(srcToken, amountIn, destChain, destToken);
   if (!best) throw new Error(`auto-bridge: no eligible route for ${srcToken} -> ${destToken} on ${destChain}`);
 
   // 2. Mandatory safety preflight (allowlist, caps, cross-chain RPC freshness, swap slippage). Fail loud.
-  const safety = await preflight(srcToken, amountIn, destChain, destToken, best);
+  const safety = await preflight(srcToken, amountIn, destChain, destToken, best, { acceptSlippageBps: opts.acceptSlippageBps });
   if (!safety.ok) throw new Error("auto-bridge blocked by safety preflight: " + safety.failures.join("; "));
 
   // 3. Dry-run by default — never move funds unless explicitly told to.
@@ -57,9 +57,11 @@ export async function autoBridge(
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const execute = args.includes("--execute");
-  const [srcToken, amountIn, destChain, destToken] = args.filter((a) => a !== "--execute");
+  const accArg = args.find((a) => a.startsWith("--accept-slippage="));
+  const acceptSlippageBps = accArg ? Number(accArg.split("=")[1]) : undefined;
+  const [srcToken, amountIn, destChain, destToken] = args.filter((a) => !a.startsWith("--"));
 
-  autoBridge(srcToken, Number(amountIn), destChain as EvmChain, destToken, { execute })
+  autoBridge(srcToken, Number(amountIn), destChain as EvmChain, destToken, { execute, acceptSlippageBps })
     .then((r) => {
       console.log(`AUTO-BRIDGE [${r.mode}] — chose ${r.chosen.provider} (${r.chosen.kind})`);
       console.log(JSON.stringify({
