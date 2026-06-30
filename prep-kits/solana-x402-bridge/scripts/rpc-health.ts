@@ -43,11 +43,22 @@ export async function getHealthySolana() {
 export const getHealthyConnection = getHealthySolana;
 
 // ---------- EVM ----------
+// Reliable keyless public RPC defaults so the skill works out of the box. Any user-configured
+// <CHAIN>_RPC_URL / <CHAIN>_FALLBACK_RPCS is always preferred over these.
+const DEFAULT_EVM_RPCS: Record<string, string[]> = {
+  ethereum: ["https://ethereum-rpc.publicnode.com"],
+  polygon:  ["https://polygon-bor-rpc.publicnode.com"],
+  base:     ["https://base-rpc.publicnode.com"],
+  arbitrum: ["https://arbitrum-one-rpc.publicnode.com"],
+  optimism: ["https://optimism-rpc.publicnode.com"],
+  gnosis:   ["https://gnosis-rpc.publicnode.com"],
+};
+
 // Per-chain fallback RPCs via env, e.g. POLYGON_FALLBACK_RPCS, ETHEREUM_FALLBACK_RPCS.
 export async function getHealthyEvmRpc(chain: string) {
   const primary = process.env[`${chain.toUpperCase()}_RPC_URL`];
   const fallbacks = split(process.env[`${chain.toUpperCase()}_FALLBACK_RPCS`]);
-  const endpoints = [primary, ...fallbacks].filter(Boolean) as string[];
+  const endpoints = [primary, ...fallbacks, ...(DEFAULT_EVM_RPCS[chain.toLowerCase()] ?? [])].filter(Boolean) as string[];
   if (!endpoints.length) throw new Error(`No RPC configured for ${chain}`);
 
   const probes = await Promise.all(endpoints.map(async (url) => {
