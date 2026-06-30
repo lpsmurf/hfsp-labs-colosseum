@@ -1,23 +1,25 @@
 # solana-x402-bridge
 
-**Cross-chain execution for Solana agents.** Move USDC from Solana to any EVM chain via the HFSP x402 relayer, then act on it — bridge, then execute.
+**The Jupiter of cross-chain for Solana agents.** Aggregate every bridge, quote the best rate, optionally fund with fiat, and execute on any EVM chain — all from a Solana wallet.
 
-> One-line pitch: Let a Solana agent reach EVM markets — bridge USDC to any EVM chain and act on it, all from a Solana wallet.
+> One-line pitch: A Solana agent that shops every cross-chain route for the best rate, can be funded by card/bank via Onramper, and executes on EVM (Polymarket betting demo).
 
 ## Why this matters
 
-Solana agents are trapped on Solana. The biggest markets, prediction venues, and liquidity often live on EVM chains. There is **no cross-chain asset-bridge skill** in the Solana AI Kit ecosystem today. This package gives an agent a safe, fee-transparent way to bridge USDC and execute on the other side — with Polymarket betting as the flagship demo.
+Solana agents are trapped on Solana, and the few "bridge" attempts hardcode a single route. There is **no bridge-aggregator skill** in the Solana AI Kit ecosystem. This package shops **multiple bridge providers** (Circle CCTP, Mayan, deBridge, Wormhole, Allbridge, LI.FI, our x402 relayer), returns the best net rate, and proves it on screen — plus an **Onramper** fiat layer for funding and cash-out.
 
-**Solana is always the front door.** Every flow starts from a Solana wallet/agent; EVM is reached through the bridge.
+**Solana is always the front door.** Every flow starts from a Solana wallet/agent.
 
 ## Modules
 
 | Module | Purpose |
 |---|---|
-| `bridge-quote` | Route + transparent fee breakdown + ETA (read-only) |
-| `bridge-execute` | Pay via x402, bridge, return source + dest tx |
+| `bridge-aggregator` | Quote N bridge providers, rank by best net rate (the headline) |
+| `bridge-quote` | Returns the best route + full per-provider comparison |
+| `bridge-execute` | Pay via x402, route to the chosen provider, return source + dest tx |
 | `bridge-safety` | Allowlist, spend caps, slippage, stale-RPC freshness guard, confirmation monitor |
-| `evm-targets` | Supported EVM chains + token + endpoint registry |
+| `evm-targets` | Supported EVM chains + tokens + provider registry |
+| `fiat-onramp` | Fund with fiat / cash out via Onramper (20+ ranked providers) |
 | `polymarket-read` | Read Polymarket markets, odds, positions (demo layer) |
 | `polymarket-bet` | Place / redeem Polymarket bets (demo layer) |
 
@@ -25,14 +27,15 @@ Solana agents are trapped on Solana. The biggest markets, prediction venues, and
 
 ```bash
 # "Bet 5 USDC that <event> resolves YES on Polymarket"
-npx tsx scripts/bridge-quote.ts 5 polygon usdc      # route + fee + ETA
-npx tsx scripts/bridge-execute.ts 5 polygon usdc    # Solana -> Polygon (~45-90s)
+npx tsx scripts/bridge-quote.ts 5 polygon usdc      # aggregates providers -> best + comparison
+npx tsx scripts/bridge-execute.ts 5 polygon usdc    # routes best provider, Solana -> Polygon
 npx tsx scripts/polymarket.ts bet <marketId> YES 5  # bet on real market
+# optional: npx tsx scripts/onramp.ts quote USD 20 solana   # fund with fiat first
 ```
 
 ## Status
 
-This is a **prep kit / scaffold**. See `BUILD-BRIEF.md` for the full implementation spec. Core bridge logic is generalized from `packages/gnosis-card-x402`.
+**Prep kit / scaffold.** Full spec in `BUILD-BRIEF.md` (see §10 for the aggregation + Onramper design). Core bridge logic generalizes from `packages/gnosis-card-x402`.
 
 ## License
 

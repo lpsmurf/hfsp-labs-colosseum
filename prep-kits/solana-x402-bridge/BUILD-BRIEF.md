@@ -145,3 +145,70 @@ Flagship:
 6. README + demo recording.
 
 Stop after step 3 = a valid, winning bridge submission. Steps 4–6 make it spectacular.
+
+---
+
+## 10. UPDATE — Bridge AGGREGATION + Onramper fiat layer
+
+This reframes the product from "a bridge" to **"the Jupiter of cross-chain for agents"**: aggregate multiple bridge providers, quote them all, return the best net rate. Plus an optional **Onramper** fiat layer so an agent can be funded by card/bank and cash out winnings.
+
+### 10.1 Two aggregation layers
+
+```
+ FIAT (card / bank, 130+ methods)
+        │  Onramper (aggregates 20+ onramp providers, ranked)
+        ▼
+ USDC on Solana  ─┐
+                  │  BRIDGE AGGREGATOR (this skill) — quote N providers, pick best net-of-fee
+                  ▼
+ USDC on any EVM chain  →  execute (e.g. Polymarket bet)
+        │
+        ▼ (optional cash-out)
+ Onramper OFFRAMP → fiat
+```
+
+### 10.2 Bridge route aggregator (CORE — the new headline)
+
+New module **`bridge-aggregator`**: query every supported provider in parallel, normalize quotes, rank by **amountOut net of all fees + gas**, subject to ETA + reliability, then add our transparent integrator fee on top. `bridge-quote` now returns the **best** route plus the full per-provider comparison (so the agent — and judges — see we actually shopped the rate).
+
+**Providers to integrate (Solana → EVM capable):**
+| Provider | Why | Notes |
+|---|---|---|
+| **Circle CCTP** | Native 1:1 USDC burn/mint, lowest cost, no slippage | Best for USDC specifically; supports Solana + major EVM. Make it the default benchmark. |
+| **Mayan Finance** | Solana-native cross-chain (Wormhole + Swift/MCTP) | Strong Solana↔EVM coverage |
+| **deBridge (DLN)** | Fast intent-based Solana↔EVM | |
+| **Wormhole / Portal** | Canonical token bridge | fallback / wrapped |
+| **Allbridge** | Stablecoin Solana↔EVM | |
+| **LI.FI** | EVM(+Solana) bridge+DEX aggregator | can act as a meta-provider; useful as a sanity benchmark |
+| **HFSP x402 relayer** | our own route (gnosis-card-x402 generalized) | always quote it too; it carries our fee natively |
+
+**Adapter pattern:** each provider implements a common `BridgeProvider` interface (`quote()`, `execute()`, `status()`). The aggregator iterates adapters. Adding a provider = adding one adapter file. See `scripts/providers.ts`.
+
+**Ranking:** maximize `amountOutUSDC` after provider fee + gas + our integrator fee; filter out providers above `maxEtaSeconds` or below a reliability floor; tie-break on speed. Always return the ranked list, not just the winner.
+
+### 10.3 Onramper fiat layer (BONUS — funnel extension)
+
+New module **`fiat-onramp`** wrapping Onramper (API key + signed requests; widget or pure API):
+- **Onramp:** fiat → USDC delivered on Solana (or directly on the destination EVM chain). Onramper already ranks 20+ providers — we surface its best quote alongside our bridge quote so the agent can choose "fund + bridge" or "fund directly on destination."
+- **Offramp:** USDC → fiat for cashing out winnings.
+- **Quote-first, always disclosed.** Onramper provider fees shown transparently, same rule as bridge fees.
+
+Onramper supports onramp, offramp, and crypto swaps via a unified API with provider ranking/recommendations. Treat it as the fiat aggregator analog to our bridge aggregator.
+
+### 10.4 Updated module list
+Core: `bridge-aggregator` (NEW headline), `bridge-quote` (now returns aggregated best + comparison), `bridge-execute` (routes to the chosen provider's adapter), `bridge-safety`, `evm-targets` (now also provider registry).
+Funnel: `fiat-onramp` (NEW — Onramper).
+Demo: `polymarket-read`, `polymarket-bet`.
+
+### 10.5 Updated build order (24h)
+1. `evm-targets` + provider registry/adapters skeleton (`scripts/providers.ts`).
+2. **CCTP adapter + Mayan adapter + our x402 route** → `bridge-aggregator` ranking → `bridge-quote` returns best + comparison. (3 providers is enough to prove aggregation.)
+3. `bridge-safety` + `rpc-health`.
+4. `bridge-execute` routing to chosen adapter.
+5. `fiat-onramp` (Onramper) — onramp quote first, offramp if time.
+6. `polymarket-read` → `polymarket-bet` (flagship demo).
+
+**MVP to win = steps 1–4 with ≥3 providers aggregated.** That alone is novel (no aggregator bridge skill exists). Onramper + Polymarket make it a complete fiat→bet funnel.
+
+### 10.6 Positioning update
+"The Jupiter of cross-chain for Solana agents — aggregate every bridge, quote the best rate, optionally fund with fiat, and execute on EVM." Lead with aggregation; it's the differentiator and the judge-legible value (you can *prove* best-rate selection on screen).
