@@ -1,6 +1,6 @@
 ---
 name: bridge-aggregator
-description: Aggregate multiple cross-chain bridge providers (Circle CCTP, Mayan, deBridge, Wormhole, Allbridge, LI.FI, HFSP x402) and return the best route for a Solana to EVM USDC transfer, ranked by amount-out net of all fees and gas. The "Jupiter of cross-chain". Use for "best bridge rate", "cheapest way to bridge", "compare bridges", "aggregate bridge quote".
+description: Aggregate multiple cross-chain bridge providers (Circle CCTP, Mayan, deBridge, Wormhole, Allbridge, LI.FI, HFSP x402) and return the best route for a Solana to EVM transfer — same-asset bridge (USDC->USDC) or cross-chain swap (e.g. SOL->ETH), ranked by amount-out net of all fees and gas. The "Jupiter of cross-chain". Use for "best bridge rate", "cheapest way to bridge", "compare bridges", "aggregate bridge quote".
 ---
 
 # bridge-aggregator

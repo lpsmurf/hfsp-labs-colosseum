@@ -212,3 +212,41 @@ Demo: `polymarket-read`, `polymarket-bet`.
 
 ### 10.6 Positioning update
 "The Jupiter of cross-chain for Solana agents — aggregate every bridge, quote the best rate, optionally fund with fiat, and execute on EVM." Lead with aggregation; it's the differentiator and the judge-legible value (you can *prove* best-rate selection on screen).
+
+---
+
+## 11. UPDATE — Any-token transfers (bridge AND cross-chain swap)
+
+The skill now handles two transfer kinds:
+- **bridge** — same asset, e.g. USDC→USDC. 1:1, no slippage.
+- **swap** — different destination token, e.g. **SOL→ETH**. Has slippage + price impact (swap legs on both chains).
+
+### 11.1 Provider capability matrix
+| Provider | USDC→USDC bridge | Any-token swap (SOL→ETH) |
+|---|---|---|
+| CCTP | ✅ native 1:1 | ❌ USDC only |
+| Mayan | ✅ | ✅ core feature (any→any) |
+| deBridge DLN | ✅ | ✅ (intent: sell SOL → receive ETH) |
+| Wormhole | ✅ (CCTP/token bridge) | ⚠️ needs swap legs — treated as same-asset only here |
+| Allbridge | ✅ stables | ❌ stable pools only |
+
+`supportsPair(srcToken, chain, destToken)` on each adapter decides eligibility. For SOL→ETH the aggregator's eligible set automatically becomes **Mayan + deBridge**.
+
+### 11.2 What changes in code
+- Interface is now `(srcToken, amountIn, destChain, destToken)` everywhere (see `types.ts`, `providers.ts`).
+- `BridgeQuote` adds `kind`, `srcToken`, `destToken`, `priceImpactBps`, `slippageBps`, `minAmountOut`.
+- Ranking still = best net `amountOut` (in destToken).
+
+### 11.3 Safety (CRITICAL for swaps)
+Volatile pairs make slippage a loss vector. `bridge-safety` MUST:
+- Enforce `slippageBps` tolerance and reject if quoted `amountOut < minAmountOut`.
+- Re-quote immediately before execute (prices move); abort if drift > tolerance.
+- Keep the stale-RPC freshness guard (never act on lagging price/balance).
+USDC bridges set `priceImpactBps = 0` and skip slippage logic.
+
+### 11.4 Demo vs capability (do not blur)
+- **Primary demo stays USDC → Polymarket** — stable, deterministic, no slippage surprises in a 24h window.
+- **SOL→ETH is a showcased second capability** ("the aggregator also does cross-chain swaps"), demoed with a tiny amount on testnet/small size. Do not make a volatile swap the headline demo.
+
+### 11.5 Build-order impact
+No new step — the same adapters (Mayan, deBridge) deliver both bridge and swap. Implement USDC bridge first (proves aggregation cleanly), then enable any-token quoting on Mayan/deBridge (mostly the same API with different in/out tokens).

@@ -18,3 +18,9 @@ The guard that makes moving funds safe. ALWAYS run before `bridge-execute`.
 Bridging on a stale balance read can double-spend or strand funds. Treat a stale slot as "do not act."
 
 Run `scripts/bridge-safety.ts` (uses `scripts/rpc-health.ts`).
+
+## Swap slippage (any-token transfers, e.g. SOL->ETH)
+For `kind: "swap"` quotes (different destToken), additionally:
+- Reject if `amountOut < minAmountOut` (slippage tolerance, DEFAULT_SLIPPAGE_BPS).
+- Re-quote right before execute; abort if price drifted beyond tolerance.
+Same-asset bridges (USDC->USDC) have priceImpactBps=0 and skip this.
