@@ -1,5 +1,6 @@
 // usage: tsx scripts/bridge-execute.ts <srcToken> <amountIn> <destChain> <destToken>
 // Aggregate -> safety preflight (both chains) -> route to best provider -> poll status.
+import "./env.js";
 import { preflight } from "./bridge-safety.js";
 import { aggregate } from "./bridge-aggregator.js";
 import { PROVIDERS } from "./providers.js";

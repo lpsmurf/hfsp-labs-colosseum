@@ -1,6 +1,7 @@
 // usage: tsx scripts/bridge-quote.ts <srcToken> <amountIn> <destChain> <destToken>
 //   bridge: tsx scripts/bridge-quote.ts USDC 5 polygon USDC
 //   swap:   tsx scripts/bridge-quote.ts SOL 1 ethereum ETH
+import "./env.js";
 import { aggregate } from "./bridge-aggregator.js";
 import type { EvmChain } from "./types.js";
 
