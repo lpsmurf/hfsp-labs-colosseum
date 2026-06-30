@@ -9,6 +9,7 @@
     "quote": "tsx scripts/bridge-quote.ts",
     "auto": "tsx scripts/auto-bridge.ts",
     "execute": "tsx scripts/bridge-execute.ts",
+    "return": "tsx scripts/bridge-return.ts",
     "targets": "tsx scripts/evm-targets.ts",
     "rpc-health": "tsx scripts/rpc-health.ts",
     "onramp": "tsx scripts/onramp.ts",
