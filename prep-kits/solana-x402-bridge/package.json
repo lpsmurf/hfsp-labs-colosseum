@@ -10,6 +10,7 @@
     "auto": "tsx scripts/auto-bridge.ts",
     "execute": "tsx scripts/bridge-execute.ts",
     "targets": "tsx scripts/evm-targets.ts",
+    "rpc-health": "tsx scripts/rpc-health.ts",
     "onramp": "tsx scripts/onramp.ts",
     "polymarket": "tsx scripts/polymarket.ts"
   },

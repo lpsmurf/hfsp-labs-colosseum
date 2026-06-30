@@ -1,6 +1,7 @@
 // Cross-chain RPC health switcher. Detects lagging/failing endpoints and fails over
 // BEFORE execution — on both the Solana source and the EVM destination.
 // Never act on a stale/unhealthy RPC.
+import "./env.js";
 import { Connection } from "@solana/web3.js";
 
 const TIMEOUT_MS = Number(process.env.RPC_PROBE_TIMEOUT_MS ?? 2500);
@@ -82,3 +83,27 @@ async function evmBlockNumber(url: string): Promise<number> {
 }
 
 function split(v?: string) { return (v ?? "").split(",").map((s) => s.trim()).filter(Boolean); }
+
+// ---------- CLI ----------
+// usage: tsx scripts/rpc-health.ts [chain]   (default: solana)
+//   tsx scripts/rpc-health.ts solana
+//   tsx scripts/rpc-health.ts polygon
+// Prints the selected healthy endpoint + lag. API keys are redacted from output.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const redact = (u: string) => u.replace(/(api-key=)[^&\s]+/i, "$1***").replace(/(\/v2\/)[^/\s]+/i, "$1***");
+  const chain = (process.argv[2] ?? "solana").toLowerCase();
+  (async () => {
+    try {
+      if (chain === "solana" || chain === "sol") {
+        const s = await getHealthySolana();
+        console.log(`[solana] OK -> ${redact(s.endpoint)}  slotLag=${s.slotLag}`);
+      } else {
+        const e = await getHealthyEvmRpc(chain);
+        console.log(`[${chain}] OK -> ${redact(e.endpoint)}  blockLag=${e.blockLag}  latency=${e.latency}ms`);
+      }
+    } catch (err) {
+      console.error(`[${chain}] UNHEALTHY: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  })();
+}
