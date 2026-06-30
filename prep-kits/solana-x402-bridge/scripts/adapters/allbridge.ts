@@ -82,10 +82,64 @@ export const allbridge: BridgeProvider = {
     };
   },
 
-  async execute(): Promise<BridgeResult> {
-    throw new Error("allbridge.execute not implemented in quote-only MVP — PROVIDERS.md #5 (SDK send)");
+  // Real execution: build the Solana send tx via the SDK, sign locally, broadcast.
+  // Non-custodial — the agent's own Solana key signs; Allbridge's relayer delivers on the
+  // destination. Only ever called by bridge-execute AFTER preflight + requote + --confirm.
+  async execute(srcToken, amountIn, chain, destToken): Promise<BridgeResult> {
+    const sym = CHAIN_SYMBOL[chain];
+    if (!sym) throw new Error(`allbridge: chain '${chain}' not supported`);
+    const sk = process.env.SOLANA_WALLET_PRIVATE_KEY;
+    if (!sk) throw new Error("allbridge.execute: SOLANA_WALLET_PRIVATE_KEY not set in .env");
+    const evmPk = process.env.EVM_WALLET_PRIVATE_KEY;
+    if (!evmPk) throw new Error("allbridge.execute: EVM_WALLET_PRIVATE_KEY (recipient) not set in .env");
+
+    const mod: any = await import("@allbridge/bridge-core-sdk");
+    const web3: any = await import("@solana/web3.js");
+    const bs58 = (await import("bs58")).default;
+    const { privateKeyToAccount } = await import("viem/accounts");
+
+    const sdk = new mod.AllbridgeCoreSdk(nodeUrls());
+    const tokens: any[] = await sdk.tokens();
+    const eq = (a: string, b: string) => a?.toUpperCase() === b?.toUpperCase();
+    const source = tokens.find((t) => t.chainSymbol === "SOL" && eq(t.symbol, srcToken));
+    const dest = tokens.find((t) => t.chainSymbol === sym && eq(t.symbol, destToken));
+    if (!source || !dest) throw new Error(`allbridge: no pool for ${srcToken} (SOL) -> ${destToken} (${sym})`);
+
+    const keypair = web3.Keypair.fromSecretKey(bs58.decode(sk));
+    const fromAddress = keypair.publicKey.toBase58();
+    const toAddress = privateKeyToAccount(evmPk as `0x${string}`).address;
+
+    // Build (validates the route; throws here if unsupported — before any broadcast).
+    const rawTx: any = await sdk.bridge.rawTxBuilder.send({
+      amount: String(amountIn),
+      fromAccountAddress: fromAddress,
+      toAccountAddress: toAddress,
+      sourceToken: source,
+      destinationToken: dest,
+      messenger: mod.Messenger.ALLBRIDGE,
+      txFeeParams: { solana: mod.SolanaAutoTxFee },
+    });
+
+    rawTx.sign([keypair]);
+    const connection = new web3.Connection(process.env.SOLANA_RPC_URL!, "confirmed");
+    const sig = await connection.sendTransaction(rawTx);
+    await connection.confirmTransaction(sig, "confirmed");
+
+    return {
+      sourceTx: sig,
+      destTx: "pending — Allbridge relayer delivers on destination (poll status)",
+      statusId: sig,
+      sourceExplorer: `https://explorer.solana.com/tx/${sig}`,
+      destExplorer: `https://polygonscan.com/address/${toAddress}`,
+    };
   },
-  async status(): Promise<string> {
-    throw new Error("allbridge.status not implemented in quote-only MVP — PROVIDERS.md #5");
+
+  async status(id: string): Promise<string> {
+    try {
+      const mod: any = await import("@allbridge/bridge-core-sdk");
+      const sdk = new mod.AllbridgeCoreSdk(nodeUrls());
+      const st = await sdk.getTransferStatus?.("SOL", id);
+      return st ? JSON.stringify(st) : `submitted: ${id}`;
+    } catch { return `submitted: ${id}`; }
   },
 };
