@@ -1,0 +1,22 @@
+{
+  "name": "solana-x402-bridge-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-chain execution skill for Solana agents — bridge USDC to any EVM via x402, then execute (Polymarket demo).",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "quote": "tsx scripts/bridge-quote.ts",
+    "execute": "tsx scripts/bridge-execute.ts",
+    "targets": "tsx scripts/evm-targets.ts",
+    "polymarket": "tsx scripts/polymarket.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
