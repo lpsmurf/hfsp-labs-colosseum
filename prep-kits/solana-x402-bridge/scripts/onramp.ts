@@ -119,11 +119,14 @@ function print(label: string, unit: string, r: QuoteReport) {
     console.log(`  ${q.provider.padEnd(12)} payout=${q.payout} ${unit}  fee=${q.totalFeeOnTop.toFixed(2)} (${q.feePct.toFixed(2)}%)  via ${q.paymentMethod}`);
 }
 
-const [cmd, ...rest] = process.argv.slice(2);
-if (cmd === "quote") {
-  onrampQuote(rest[0], Number(rest[1]), rest[2]).then((r) => print("(onramp)", "USDC", r)).catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
-} else if (cmd === "offramp") {
-  offrampQuote(Number(rest[0]), rest[1], rest[2]).then((r) => print("(offramp)", rest[1].toUpperCase(), r)).catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
-} else {
-  console.log("usage: quote <fiat> <amount> <deliverChain|cryptoId> | offramp <amountUSDC> <fiat> [fromChain]");
+// CLI dispatch only when run directly (not when imported by position.ts etc.)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const [cmd, ...rest] = process.argv.slice(2);
+  if (cmd === "quote") {
+    onrampQuote(rest[0], Number(rest[1]), rest[2]).then((r) => print("(onramp)", "USDC", r)).catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
+  } else if (cmd === "offramp") {
+    offrampQuote(Number(rest[0]), rest[1], rest[2]).then((r) => print("(offramp)", rest[1].toUpperCase(), r)).catch((e) => { console.error(String(e.message ?? e)); process.exit(1); });
+  } else {
+    console.log("usage: quote <fiat> <amount> <deliverChain|cryptoId> | offramp <amountUSDC> <fiat> [fromChain]");
+  }
 }

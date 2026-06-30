@@ -13,6 +13,7 @@
     "targets": "tsx scripts/evm-targets.ts",
     "rpc-health": "tsx scripts/rpc-health.ts",
     "onramp": "tsx scripts/onramp.ts",
+    "position": "tsx scripts/position.ts",
     "polymarket": "tsx scripts/polymarket.ts"
   },
   "dependencies": {
