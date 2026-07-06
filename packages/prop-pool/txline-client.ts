@@ -104,6 +104,6 @@ async function demo() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   demo().catch((e) => { console.error(e); process.exit(1); });
 }

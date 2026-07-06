@@ -1,0 +1,26 @@
+{
+  "name": "prop-pool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PropPool — Telegram-native parametric prop-bet pools that auto-settle from TxLINE on-chain proofs (TxODDS txoracle CPI).",
+  "scripts": {
+    "demo": "tsx txline-client.ts",
+    "m0": "tsx scripts/m0-validate-stat.ts",
+    "wallet": "tsx scripts/setup-wallet.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.95.4",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "js-sha3": "^0.9.3",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
