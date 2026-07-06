@@ -13,9 +13,14 @@ then pays out winners.
 | Milestone | What | Status |
 |---|---|---|
 | **M0** | One real `validate_stat` verified on devnet + `PROOF_NOTES.md` | ✅ **GREEN** |
-| M1 | `prop_pool` Anchor consumer program (create/join/settle-via-CPI/claim) | designed (`docs/M1-PROGRAM-DESIGN.md`) |
+| **M1** | `prop_pool` Anchor consumer program (create/join/settle-via-CPI/claim/refund) | ✅ **GREEN** — deployed + devnet integration test passing |
 | M2 | Settlement crank worker | designed (`docs/OFFCHAIN-DESIGN.md`) |
 | M3 | Telegram bot + Mini App | designed (`docs/OFFCHAIN-DESIGN.md`) |
+
+**M1 deployed:** `prop_pool` program `2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD`
+(devnet). Test: create_prop → 2 users join opposite sides → `settle` (real CPI into
+`txoracle::validate_stat`) → winner claims full pool, loser rejected, vault → 0, plus
+double-settle guard. Toolchain: Anchor 1.1.2 / Solana 4.0.2 (Agave).
 
 M0 proof (Brazil vs Norway, devnet): real `validate_stat` tx
 [`RWmDw6WE…ft3yRdyB`](https://explorer.solana.com/tx/RWmDw6WEzbMUYfwqy1qvpU4UVDgh8FcuzpLqXitsMdJCaM4AthKwa25h1awSfe6bgGwnpgs8DdFUBq9ft3yRdyB?cluster=devnet).
@@ -40,5 +45,15 @@ npm run m0              # auth → subscribe → activate → fetch proof → va
 Requires ~0.05 devnet SOL. No secrets are committed; the wallet file and TxLINE
 token cache are gitignored.
 
-Devnet program: `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` ·
+## Build & test the program (M1)
+```bash
+anchor build
+anchor deploy --provider.cluster devnet --provider.wallet .devnet-wallet.json
+npx tsx tests/prop-pool.test.ts     # full flow against live devnet + real txoracle CPI
+```
+Needs the Anchor toolchain (Rust + Solana CLI + `avm use 1.1.2`) and a funded devnet
+wallet (~3 SOL for deploy + test).
+
+txoracle (oracle, devnet): `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` ·
+prop_pool (ours, devnet): `2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD` ·
 API origin: `https://txline-dev.txodds.com`

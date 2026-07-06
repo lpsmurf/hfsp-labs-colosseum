@@ -1,0 +1,21 @@
+[package]
+name = "prop-pool"
+version = "0.1.0"
+description = "PropPool — parametric prop-bet escrow that settles via txoracle::validate_stat CPI. UNAUDITED, devnet only."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "prop_pool"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
+anchor-spl = "1.1.2"
