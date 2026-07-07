@@ -43,6 +43,7 @@ pub mod prop_pool {
         let p = &mut ctx.accounts.prop;
         p.creator = ctx.accounts.creator.key();
         p.stake_mint = ctx.accounts.stake_mint.key();
+        p.nonce = args.nonce;
         p.fixture_id = args.fixture_id;
         p.stat_key = args.stat_key;
         p.period = args.period;
@@ -181,7 +182,7 @@ pub mod prop_pool {
 
     /// Winner withdraws their pro-rata share; losers are rejected.
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
-        let (payout, seeds_bump, fixture_id, creator) = {
+        let (payout, seeds_bump, fixture_id, creator, nonce) = {
             let p = &ctx.accounts.prop;
             require!(p.status == PropStatus::Settled, PropError::NotSettled);
             let pos = &ctx.accounts.position;
@@ -189,10 +190,10 @@ pub mod prop_pool {
             let winning_total = if p.winning_side { p.over_stake } else { p.under_stake };
             require!(winning_total > 0, PropError::NoWinners);
             let payout = ((pos.stake as u128) * (p.total_pool as u128) / (winning_total as u128)) as u64;
-            (payout, p.bump, p.fixture_id, p.creator)
+            (payout, p.bump, p.fixture_id, p.creator, p.nonce)
         };
 
-        let seeds: &[&[u8]] = &[b"prop", &fixture_id.to_le_bytes(), creator.as_ref(), &[seeds_bump]];
+        let seeds: &[&[u8]] = &[b"prop", &fixture_id.to_le_bytes(), creator.as_ref(), &nonce.to_le_bytes(), &[seeds_bump]];
         token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.key(),
@@ -210,12 +211,12 @@ pub mod prop_pool {
 
     /// Unopposed prop: everyone gets their exact stake back.
     pub fn refund(ctx: Context<Refund>) -> Result<()> {
-        let (amount, seeds_bump, fixture_id, creator) = {
+        let (amount, seeds_bump, fixture_id, creator, nonce) = {
             let p = &ctx.accounts.prop;
             require!(p.status == PropStatus::Refundable, PropError::NotRefundable);
-            (ctx.accounts.position.stake, p.bump, p.fixture_id, p.creator)
+            (ctx.accounts.position.stake, p.bump, p.fixture_id, p.creator, p.nonce)
         };
-        let seeds: &[&[u8]] = &[b"prop", &fixture_id.to_le_bytes(), creator.as_ref(), &[seeds_bump]];
+        let seeds: &[&[u8]] = &[b"prop", &fixture_id.to_le_bytes(), creator.as_ref(), &nonce.to_le_bytes(), &[seeds_bump]];
         token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.key(),
@@ -253,6 +254,8 @@ fn option_binexpr_eq(passed: &Option<OracleBinaryExpression>, stored: &Option<Bi
 // ── Args ────────────────────────────────────────────────────────────────────────
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct CreatePropArgs {
+    /// Caller-chosen nonce so a creator can run multiple props per fixture.
+    pub nonce: u64,
     pub fixture_id: i64,
     pub stat_key: u32,
     pub period: i32,
@@ -293,6 +296,7 @@ pub enum BinaryExpr {
 pub struct Prop {
     pub creator: Pubkey,
     pub stake_mint: Pubkey,
+    pub nonce: u64,
     pub fixture_id: i64,
     pub stat_key: u32,
     pub period: i32,
@@ -331,7 +335,7 @@ pub struct CreateProp<'info> {
         init,
         payer = creator,
         space = 8 + Prop::INIT_SPACE,
-        seeds = [b"prop", args.fixture_id.to_le_bytes().as_ref(), creator.key().as_ref()],
+        seeds = [b"prop", args.fixture_id.to_le_bytes().as_ref(), creator.key().as_ref(), args.nonce.to_le_bytes().as_ref()],
         bump
     )]
     pub prop: Account<'info, Prop>,
@@ -356,7 +360,7 @@ pub struct CreateProp<'info> {
 pub struct Join<'info> {
     #[account(
         mut,
-        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref()],
+        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref(), prop.nonce.to_le_bytes().as_ref()],
         bump = prop.bump
     )]
     pub prop: Account<'info, Prop>,
@@ -386,7 +390,7 @@ pub struct Join<'info> {
 pub struct Settle<'info> {
     #[account(
         mut,
-        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref()],
+        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref(), prop.nonce.to_le_bytes().as_ref()],
         bump = prop.bump
     )]
     pub prop: Account<'info, Prop>,
@@ -402,7 +406,7 @@ pub struct Settle<'info> {
 pub struct Claim<'info> {
     #[account(
         mut,
-        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref()],
+        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref(), prop.nonce.to_le_bytes().as_ref()],
         bump = prop.bump
     )]
     pub prop: Account<'info, Prop>,
@@ -430,7 +434,7 @@ pub struct Claim<'info> {
 pub struct Refund<'info> {
     #[account(
         mut,
-        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref()],
+        seeds = [b"prop", prop.fixture_id.to_le_bytes().as_ref(), prop.creator.as_ref(), prop.nonce.to_le_bytes().as_ref()],
         bump = prop.bump
     )]
     pub prop: Account<'info, Prop>,

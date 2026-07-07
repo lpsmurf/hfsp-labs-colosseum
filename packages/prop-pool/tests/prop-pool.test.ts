@@ -150,8 +150,9 @@ async function main() {
 
   // PDAs
   const fixtureIdBN = new BN(v.summary.fixtureId);
+  const nonce = new BN(Date.now());
   const [propPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("prop"), fixtureIdBN.toArrayLike(Buffer, "le", 8), userA.publicKey.toBuffer()],
+    [Buffer.from("prop"), fixtureIdBN.toArrayLike(Buffer, "le", 8), userA.publicKey.toBuffer(), nonce.toArrayLike(Buffer, "le", 8)],
     program.programId
   );
   const [vaultPda] = PublicKey.findProgramAddressSync(
@@ -168,6 +169,7 @@ async function main() {
   log("\n[create_prop]…");
   await program.methods
     .createProp({
+      nonce,
       fixtureId: fixtureIdBN,
       statKey: v.statToProve.key,
       period: v.statToProve.period,

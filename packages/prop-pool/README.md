@@ -14,7 +14,7 @@ then pays out winners.
 |---|---|---|
 | **M0** | One real `validate_stat` verified on devnet + `PROOF_NOTES.md` | ✅ **GREEN** |
 | **M1** | `prop_pool` Anchor consumer program (create/join/settle-via-CPI/claim/refund) | ✅ **GREEN** — deployed + devnet integration test passing |
-| M2 | Settlement crank worker | designed (`docs/OFFCHAIN-DESIGN.md`) |
+| **M2** | Settlement crank worker | ✅ **GREEN** — settles real props unattended on devnet |
 | M3 | Telegram bot + Mini App | designed (`docs/OFFCHAIN-DESIGN.md`) |
 
 **M1 deployed:** `prop_pool` program `2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD`
@@ -53,6 +53,15 @@ npx tsx tests/prop-pool.test.ts     # full flow against live devnet + real txora
 ```
 Needs the Anchor toolchain (Rust + Solana CLI + `avm use 1.1.2`) and a funded devnet
 wallet (~3 SOL for deploy + test).
+
+## Settlement crank (M2)
+```bash
+npx tsx crank/seed-demo-prop.ts   # create an OPEN prop + two joins (no settle)
+npm run crank -- --once           # single pass: settles any ready prop, logs the proof tx
+npm run crank                     # continuous poll loop (settles props past settle_after)
+```
+The crank reuses the vendored TxLINE auth, resolves each prop's root bucket, fetches
+the proof, and submits `settle()` (idempotent; retries transient RPC errors).
 
 txoracle (oracle, devnet): `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` ·
 prop_pool (ours, devnet): `2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD` ·

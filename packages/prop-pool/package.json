@@ -7,6 +7,9 @@
     "demo": "tsx txline-client.ts",
     "m0": "tsx scripts/m0-validate-stat.ts",
     "wallet": "tsx scripts/setup-wallet.ts",
+    "crank": "tsx crank/index.ts",
+    "seed-demo": "tsx crank/seed-demo-prop.ts",
+    "test:program": "tsx tests/prop-pool.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
