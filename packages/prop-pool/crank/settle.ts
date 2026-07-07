@@ -28,7 +28,7 @@ export interface SettleResult {
 
 /** Submit settle() for `propPubkey` using the supplied validation proof. */
 export async function settleProp(
-  program: Program,
+  program: any,
   connection: Connection,
   propPubkey: PublicKey,
   prop: any,

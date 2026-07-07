@@ -63,7 +63,7 @@ async function realValidation(connection: Connection, kp: Keypair): Promise<Scor
 async function main() {
   const payer = wallet();
   const connection = new Connection(RPC, "confirmed");
-  const program = new Program(idl, new AnchorProvider(connection, new Wallet(payer), { commitment: "confirmed" }));
+  const program: any = new Program(idl, new AnchorProvider(connection, new Wallet(payer), { commitment: "confirmed" }));
 
   const v = await realValidation(connection, payer);
   const epochDay = epochDayFromMs(batchTimestamp(v));

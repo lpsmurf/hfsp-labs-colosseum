@@ -114,7 +114,7 @@ async function main() {
   const payer = loadWallet();
   const connection = new Connection(RPC, "confirmed");
   const provider = new AnchorProvider(connection, new Wallet(payer), { commitment: "confirmed" });
-  const program = new Program(idl, provider);
+  const program: any = new Program(idl, provider);
   log(`program: ${program.programId.toBase58()}`);
   log(`payer:   ${payer.publicKey.toBase58()}`);
 

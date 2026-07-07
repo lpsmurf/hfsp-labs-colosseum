@@ -15,7 +15,7 @@ then pays out winners.
 | **M0** | One real `validate_stat` verified on devnet + `PROOF_NOTES.md` | ✅ **GREEN** |
 | **M1** | `prop_pool` Anchor consumer program (create/join/settle-via-CPI/claim/refund) | ✅ **GREEN** — deployed + devnet integration test passing |
 | **M2** | Settlement crank worker | ✅ **GREEN** — settles real props unattended on devnet |
-| M3 | Telegram bot + Mini App | designed (`docs/OFFCHAIN-DESIGN.md`) |
+| **M3** | Telegram bot + Mini App | ✅ code complete + typechecked (needs a bot token + HTTPS host to run live) |
 
 **M1 deployed:** `prop_pool` program `2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD`
 (devnet). Test: create_prop → 2 users join opposite sides → `settle` (real CPI into
@@ -27,12 +27,18 @@ M0 proof (Brazil vs Norway, devnet): real `validate_stat` tx
 
 ## Layout
 ```
-src/txline/        Vendored TxLINE SDK (auth, subscribe, proof fetch, validate) — see VENDORED.md
-scripts/           setup-wallet.ts (devnet keypair + airdrop), m0-validate-stat.ts (the proof)
-txoracle-idl/      Real txoracle IDL v1.5.5 (github.com/txodds/tx-on-chain)
-PROOF_NOTES.md     Source-cited proof internals + verified live results (the M0 deliverable)
-docs/              M1 program design, off-chain design, competitor/bounty brief
-artifacts/         M0 run artifacts (gitignored)
+programs/prop-pool/  The Anchor program (create_prop / join / settle-via-CPI / claim / refund)
+tests/               Devnet integration test (real CPI end-to-end)
+crank/               Settlement crank worker (poll → fetch proof → settle)
+bot/                 Telegram bot (grammY) — /prop, /mypools, result cards
+miniapp/             Telegram Mini App (React + Vite + wallet-adapter) — create/join/claim
+src/txline/          Vendored TxLINE SDK (auth, subscribe, proof fetch, validate) — see VENDORED.md
+scripts/             setup-wallet.ts (devnet keypair + airdrop), m0-validate-stat.ts (the proof)
+idl/                 Built prop_pool IDL (used by crank/bot/miniapp)
+txoracle-idl/        Real txoracle IDL v1.5.5 (github.com/txodds/tx-on-chain)
+PROOF_NOTES.md       Source-cited proof internals + verified live results (the M0 deliverable)
+docs/                M1 program design, off-chain design, competitor/bounty brief
+artifacts/           M0 run artifacts (gitignored)
 ```
 
 ## Run Milestone 0
@@ -62,6 +68,20 @@ npm run crank                     # continuous poll loop (settles props past set
 ```
 The crank reuses the vendored TxLINE auth, resolves each prop's root bucket, fetches
 the proof, and submits `settle()` (idempotent; retries transient RPC errors).
+
+## Telegram bot + Mini App (M3)
+The bot never holds keys — every on-chain write happens in the Mini App with the
+user's own wallet. To run live you need a BotFather token + an HTTPS host for the app.
+```bash
+# 1) Mini App (React/Vite) — deploy to any HTTPS host (Vercel/Netlify) or run locally
+cd miniapp && npm install && npm run dev        # or `npm run build` -> dist/
+# 2) Bot — set TELEGRAM_BOT_TOKEN + MINIAPP_URL in .env, then:
+npm run bot
+```
+Bot commands: `/link <wallet>`, `/prop` (guided: match → stat → over/under → threshold,
+posts a shareable card), `/mypools`. A watcher posts a "TxLINE-proven" result card when
+a tracked prop settles. The `/prop` card's button opens the Mini App — the creator's tap
+creates+stakes, friends' taps join the same pool.
 
 txoracle (oracle, devnet): `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` ·
 prop_pool (ours, devnet): `2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD` ·

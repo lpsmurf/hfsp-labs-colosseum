@@ -11,3 +11,8 @@ test-ledger/
 *-keypair.json
 .m0-cache.json
 artifacts/
+
+# Bot store + mini-app build output
+.bot-store.json
+miniapp/dist/
+*.tsbuildinfo
