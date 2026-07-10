@@ -25,6 +25,9 @@ double-settle guard. Toolchain: Anchor 1.1.2 / Solana 4.0.2 (Agave).
 M0 proof (Brazil vs Norway, devnet): real `validate_stat` tx
 [`RWmDw6WE…ft3yRdyB`](https://explorer.solana.com/tx/RWmDw6WEzbMUYfwqy1qvpU4UVDgh8FcuzpLqXitsMdJCaM4AthKwa25h1awSfe6bgGwnpgs8DdFUBq9ft3yRdyB?cluster=devnet).
 
+**▶ See [`DEMO.md`](DEMO.md)** for a reproducible live end-to-end run (create → stake →
+trustless settle via real CPI → claim) with on-chain tx links. Reproduce: `npm run demo:e2e`.
+
 ## Layout
 ```
 programs/prop-pool/  The Anchor program (create_prop / join / settle-via-CPI / claim / refund)

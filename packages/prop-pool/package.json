@@ -10,6 +10,7 @@
     "crank": "tsx crank/index.ts",
     "seed-demo": "tsx crank/seed-demo-prop.ts",
     "bot": "tsx bot/index.ts",
+    "demo:e2e": "tsx scripts/demo.ts",
     "test:program": "tsx tests/prop-pool.test.ts",
     "typecheck": "tsc --noEmit"
   },
