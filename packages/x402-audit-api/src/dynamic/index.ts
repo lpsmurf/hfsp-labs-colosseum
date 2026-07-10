@@ -3,7 +3,11 @@ import net from 'net';
 import { probeAuthBypass } from './auth-bypass.js';
 import { probeCors }       from './cors-probe.js';
 import { probeInfoLeak }   from './info-leak.js';
+import { probeSchemaLeak } from './schema-leak.js';
+import { probeHeaders }    from './headers.js';
 import type { Finding }    from '../report.js';
+
+export { checkProgramUpgradeAuthority } from './solana-upgrade-authority.js';
 
 function isBlockedIpv4(ip: string): boolean {
   return (
@@ -73,15 +77,19 @@ export async function runDynamicProbes(endpoint: string): Promise<Finding[]> {
   await assertSafeEndpoint(endpoint); // throws → caller catches, no probes run
   const findings: Finding[] = [];
 
-  const [bypass, cors, info] = await Promise.allSettled([
+  const [bypass, cors, info, leak, headers] = await Promise.allSettled([
     probeAuthBypass(endpoint),
     probeCors(endpoint),
     probeInfoLeak(endpoint),
+    probeSchemaLeak(endpoint),
+    probeHeaders(endpoint),
   ]);
 
-  if (bypass.status === 'fulfilled') findings.push(...bypass.value);
-  if (cors.status   === 'fulfilled') findings.push(...cors.value);
-  if (info.status   === 'fulfilled') findings.push(...info.value);
+  if (bypass.status  === 'fulfilled') findings.push(...bypass.value);
+  if (cors.status    === 'fulfilled') findings.push(...cors.value);
+  if (info.status    === 'fulfilled') findings.push(...info.value);
+  if (leak.status    === 'fulfilled') findings.push(...leak.value);
+  if (headers.status === 'fulfilled') findings.push(...headers.value);
 
   return findings;
 }
