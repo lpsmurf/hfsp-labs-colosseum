@@ -37,13 +37,13 @@ const NETWORKS = {
   polygon: {
     id: 'polygon', name: 'Polygon', symbol: 'POL', nativeDecimals: 18,
     usdt: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', usdtDecimals: 6,
-    defaultRpc: 'https://rpc.ankr.com/polygon',
+    defaultRpc: 'https://polygon.llamarpc.com',
     type: 'evm'
   },
   arbitrum: {
     id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH', nativeDecimals: 18,
     usdt: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', usdtDecimals: 6,
-    defaultRpc: 'https://rpc.ankr.com/arbitrum',
+    defaultRpc: 'https://arbitrum.llamarpc.com',
     type: 'evm'
   },
   plasma: {
