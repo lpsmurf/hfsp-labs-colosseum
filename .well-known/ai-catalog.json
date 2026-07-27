@@ -1,0 +1,81 @@
+{
+  "$schema": "https://agenticresourcediscovery.org/schemas/ai-catalog.json",
+  "publisher": {
+    "name": "HFSP Labs",
+    "url": "https://hfsp.cloud",
+    "contact": "https://clawdrop.live"
+  },
+  "catalog": {
+    "entries": [
+      {
+        "mediaType": "application/ai-skill",
+        "name": "clawdrop",
+        "title": "Clawdrop Platform",
+        "description": "Deploy 24/7 autonomous Solana AI agents, buy gift cards and eSIMs with USDC, get anonymous WireGuard VPN or ephemeral VPS, implement x402 payments on Solana, and audit x402 endpoints. All services pay-per-use with Solana mainnet USDC via the x402 protocol — no accounts required.",
+        "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/skills/clawdrop/SKILL.md",
+        "tags": ["solana", "x402", "usdc", "agent", "mcp", "payments", "defi", "vpn", "gift-cards"],
+        "representative_queries": [
+          "deploy a Solana AI agent",
+          "buy gift cards with USDC",
+          "pay for VPN with crypto",
+          "pay with x402 on Solana",
+          "audit an x402 endpoint",
+          "get an anonymous VPS with Solana",
+          "provision a 24/7 autonomous agent",
+          "buy eSIMs with USDC"
+        ]
+      },
+      {
+        "mediaType": "application/ai-skill",
+        "name": "hfsp-store",
+        "title": "HFSP Store",
+        "description": "Buy gift cards, mobile top-ups, and eSIMs from 10,500+ brands in 180+ countries. Pay USDC on Solana. No account required. Powered by Cryptorefills.",
+        "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/hfsp-store/PAY.md",
+        "service_url": "https://store.hfsp.cloud",
+        "openapi_url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/hfsp-store/openapi.json",
+        "tags": ["shopping", "gift-cards", "esim", "mobile-topup", "solana", "usdc", "x402", "cryptorefills"],
+        "representative_queries": [
+          "buy an Amazon gift card with USDC",
+          "purchase Google Play credit with Solana",
+          "buy an eSIM for travel with crypto",
+          "mobile top-up with USDC",
+          "gift card with Solana payment"
+        ]
+      },
+      {
+        "mediaType": "application/ai-skill",
+        "name": "vpn-x402",
+        "title": "HFSP VPN x402",
+        "description": "Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana. No account, no logs, no identity. Servers auto-destroy at expiry.",
+        "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/vpn-x402/PAY.md",
+        "service_url": "https://vpn.hfsp.cloud",
+        "openapi_url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/vpn-x402/openapi.json",
+        "tags": ["vpn", "vps", "privacy", "wireguard", "cloud", "solana", "usdc", "x402", "anonymous"],
+        "representative_queries": [
+          "get an anonymous VPN with crypto",
+          "pay for VPN with Solana USDC",
+          "spin up a burner VPS with crypto",
+          "ephemeral server paid with USDC",
+          "WireGuard VPN no account"
+        ]
+      },
+      {
+        "mediaType": "application/ai-skill",
+        "name": "openclaw-agents",
+        "title": "Openclaw",
+        "description": "Deploy and manage private 24/7 autonomous Solana AI agents with built-in wallet tools, token monitoring, and DeFi capabilities. Supports platform-managed keys or BYOK. Agents connect via MCP and run on Solana mainnet.",
+        "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/providers/openclaw/agents/PAY.md",
+        "service_url": "https://clawdrop.live/api/platform",
+        "openapi_url": "https://clawdrop.live/api/platform/openapi.json",
+        "tags": ["agent", "solana", "mcp", "defi", "autonomous", "ai", "wallet", "telegram"],
+        "representative_queries": [
+          "deploy a personal Solana AI agent",
+          "run a 24/7 DeFi trading agent",
+          "set up an autonomous Solana bot",
+          "MCP agent with Solana wallet tools",
+          "provision a crypto agent with Telegram"
+        ]
+      }
+    ]
+  }
+}
