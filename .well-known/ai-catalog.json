@@ -1,0 +1,81 @@
+{
+  "$schema": "https://agenticresourcediscovery.org/spec/schemas/ai-catalog.schema.json",
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "HFSP Labs",
+    "identifier": "did:web:hfsp.cloud",
+    "documentationUrl": "https://clawdrop.live"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:hfsp.cloud:platform:clawdrop",
+      "displayName": "Clawdrop Platform",
+      "type": "application/ai-skill",
+      "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/skills/clawdrop/SKILL.md",
+      "description": "Deploy 24/7 autonomous Solana AI agents, buy gift cards and eSIMs with USDC, get anonymous WireGuard VPN or ephemeral VPS, implement x402 payments on Solana, and audit x402 endpoints.",
+      "tags": ["solana", "x402", "usdc", "agent", "mcp", "payments", "vpn", "gift-cards"],
+      "representativeQueries": [
+        "deploy a Solana AI agent",
+        "buy gift cards with USDC",
+        "pay for VPN with crypto",
+        "pay with x402 on Solana",
+        "audit an x402 endpoint"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "identifier": "urn:air:hfsp.cloud:store:hfsp-store",
+      "displayName": "HFSP Store",
+      "type": "application/ai-skill",
+      "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/hfsp-store/PAY.md",
+      "description": "Buy gift cards, mobile top-ups, and eSIMs from 10,500+ brands in 180+ countries. Pay USDC on Solana. No account required.",
+      "tags": ["shopping", "gift-cards", "esim", "mobile-topup", "solana", "usdc", "x402"],
+      "representativeQueries": [
+        "buy an Amazon gift card with USDC",
+        "purchase Google Play credit with Solana",
+        "buy an eSIM for travel with crypto",
+        "mobile top-up with USDC"
+      ],
+      "metadata": {
+        "serviceUrl": "https://store.hfsp.cloud",
+        "openapiUrl": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/hfsp-store/openapi.json"
+      }
+    },
+    {
+      "identifier": "urn:air:hfsp.cloud:network:vpn-x402",
+      "displayName": "HFSP VPN x402",
+      "type": "application/ai-skill",
+      "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/vpn-x402/PAY.md",
+      "description": "Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana. No account, no logs, no identity.",
+      "tags": ["vpn", "vps", "privacy", "wireguard", "cloud", "solana", "usdc", "x402"],
+      "representativeQueries": [
+        "get an anonymous VPN with crypto",
+        "pay for VPN with Solana USDC",
+        "spin up a burner VPS with crypto",
+        "ephemeral server paid with USDC"
+      ],
+      "metadata": {
+        "serviceUrl": "https://vpn.hfsp.cloud",
+        "openapiUrl": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/pay-skills/providers/hfsp/vpn-x402/openapi.json"
+      }
+    },
+    {
+      "identifier": "urn:air:hfsp.cloud:agents:openclaw",
+      "displayName": "Openclaw",
+      "type": "application/ai-skill",
+      "url": "https://raw.githubusercontent.com/lpsmurf/hfsp-labs-colosseum/main/marketplace/providers/openclaw/agents/PAY.md",
+      "description": "Deploy and manage private 24/7 autonomous Solana AI agents with wallet tools, token monitoring, and DeFi capabilities on Solana mainnet.",
+      "tags": ["agent", "solana", "mcp", "defi", "autonomous", "wallet"],
+      "representativeQueries": [
+        "deploy a personal Solana AI agent",
+        "run a 24-7 DeFi agent",
+        "set up an autonomous Solana bot",
+        "MCP agent with Solana wallet tools"
+      ],
+      "metadata": {
+        "serviceUrl": "https://clawdrop.live/api/platform",
+        "openapiUrl": "https://clawdrop.live/api/platform/openapi.json"
+      }
+    }
+  ]
+}
