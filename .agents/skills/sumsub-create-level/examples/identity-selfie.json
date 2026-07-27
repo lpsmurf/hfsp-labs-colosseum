@@ -1,0 +1,16 @@
+{
+  "name": "Basic KYC (example)",
+  "applicantType": "individual",
+  "type": "standalone",
+  "docSets": [
+    {
+      "type": "IDENTITY",
+      "docTypes": ["PASSPORT", "ID_CARD", "DRIVERS", "RESIDENCE_PERMIT"],
+      "videoRequired": "disabled"
+    },
+    {
+      "type": "SELFIE",
+      "videoRequired": "passiveLiveness"
+    }
+  ]
+}

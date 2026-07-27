@@ -7,6 +7,7 @@ export function injectTelegramMock() {
 
   const mockUser = {
     id: 123456789,
+    is_bot: false,
     first_name: 'Dev',
     last_name: 'User',
     username: 'devuser',
@@ -57,12 +58,12 @@ export function injectTelegramMock() {
         selectionChanged: () => {},
       },
       CloudStorage: {
-        setItem: (_k: string, _v: string, cb?: (e: null) => void) => cb?.(null),
-        getItem: (_k: string, cb?: (e: null, v: string) => void) => cb?.(null, ''),
-        getItems: (_k: string[], cb?: (e: null, v: Record<string, string>) => void) => cb?.(null, {}),
-        removeItem: (_k: string, cb?: (e: null) => void) => cb?.(null),
-        removeItems: (_k: string[], cb?: (e: null) => void) => cb?.(null),
-        getKeys: (cb?: (e: null, k: string[]) => void) => cb?.(null, []),
+        setItem: (_k: string, _v: string, cb?: () => void) => cb?.(),
+        getItem: (_k: string, cb?: (value?: string) => void) => cb?.(''),
+        getItems: (_k: string[], cb?: (items?: Record<string, string>) => void) => cb?.({}),
+        removeItem: (_k: string, cb?: () => void) => cb?.(),
+        removeItems: (_k: string[], cb?: () => void) => cb?.(),
+        getKeys: (cb?: (keys?: string[]) => void) => cb?.([]),
       },
       ready: () => { console.log('[TG Mock] ready()'); },
       expand: () => {},
@@ -75,21 +76,21 @@ export function injectTelegramMock() {
       showPopup: () => {},
       showScanQrPopup: () => {},
       closeScanQrPopup: () => {},
-      readTextFromClipboard: (_cb: (text: string) => void) => _cb(''),
-      requestWriteAccess: (_cb: (ok: boolean) => void) => _cb(true),
-      requestPhoneNumber: (_cb: (ok: boolean) => void) => _cb(true),
+      readTextFromClipboard: (cb?: (text?: string) => void) => cb?.(''),
+      requestWriteAccess: (cb?: (ok: boolean) => void) => cb?.(true),
+      requestPhoneNumber: (cb?: (ok: boolean) => void) => cb?.(true),
       sendData: (data: string) => console.log('[TG Mock] sendData:', data),
       openLink: (url: string) => window.open(url, '_blank'),
       openTelegramLink: (url: string) => window.open(url, '_blank'),
       onEvent: (event: string, cb: () => void) => {
         console.log('[TG Mock] onEvent:', event);
-        if (event === 'themeChanged') setTimeout(cb, 100);
+        cb?.();
       },
-      offEvent: () => {},
-      setHeaderColor: () => {},
-      setBackgroundColor: () => {},
-    },
+      offEvent: (event: string, cb: () => void) => {
+        console.log('[TG Mock] offEvent:', event);
+      },
+      setHeaderColor: (color: string) => { console.log('[TG Mock] setHeaderColor:', color); },
+      setBackgroundColor: (color: string) => { console.log('[TG Mock] setBackgroundColor:', color); },
+    } as any,
   };
-
-  console.log('%c[TG Mock] Telegram Web App mock injected', 'color:#0088cc;font-weight:bold');
 }

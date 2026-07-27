@@ -1,0 +1,15 @@
+{
+  "id": "REPLACE_WITH_EXISTING_WEBHOOK_ID",
+  "name": "Updated production webhook (example)",
+  "target": "https://backend.example.com/webhooks/sumsub/v2",
+  "targetType": "http",
+  "types": [
+    "applicantCreated",
+    "applicantPending",
+    "applicantReviewed",
+    "applicantOnHold",
+    "applicantTagsChanged"
+  ],
+  "signatureAlgorithm": "HMAC_SHA256_HEX",
+  "disabled": false
+}

@@ -130,7 +130,7 @@ class TelegramAppService {
    */
   triggerHaptic(
     type: 'impactOccurred' | 'notificationOccurred' | 'selectionChanged',
-    style?: string
+    style?: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' | 'error' | 'success' | 'warning'
   ): void {
     const haptic = this.getApp().HapticFeedback;
     if (!haptic) return;
@@ -140,7 +140,7 @@ class TelegramAppService {
         haptic.impactOccurred(style || 'light');
         break;
       case 'notificationOccurred':
-        haptic.notificationOccurred(style || 'default');
+        haptic.notificationOccurred(style || 'error');
         break;
       case 'selectionChanged':
         haptic.selectionChanged();

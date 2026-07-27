@@ -12,6 +12,13 @@ const envSchema = z.object({
   EVM_WALLET_ADDRESS:     z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   EVM_WALLET_PRIVATE_KEY: z.string().min(60),
   BASE_RPC_URL:           z.string().default('https://mainnet.base.org'),
+  // Gnosis Chain RPC — used to inspect a destination address (Safe vs wallet, balances)
+  GNOSIS_RPC_URL:         z.string().default('https://rpc.gnosischain.com'),
+  // Cryptorefills store (x402-store) — proxied so the frontend stays same-origin
+  STORE_API_URL:          z.string().default('https://store.hfsp.cloud'),
+  // Shared secret for calling x402-store internal endpoints.
+  // Must match INTERNAL_KEY in x402-store .env.
+  STORE_INTERNAL_KEY:     z.string().min(16).optional(),
   // Redis session store
   REDIS_URL:         z.string().default('redis://localhost:6379'),
   // Gnosis Pay partner credentials (partners.gnosispay.com)

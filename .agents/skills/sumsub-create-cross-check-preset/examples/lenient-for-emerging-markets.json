@@ -1,0 +1,11 @@
+{
+  "title": "Lenient cross-check for emerging markets",
+  "description": "AI-based name comparison + fuzzy address; tolerant of transliterations and abbreviations. Ignore middle-name mismatches.",
+  "mode": "basic",
+  "basicSettings": {
+    "nameComparisonMode": "ai",
+    "addressComparisonMode": "fuzzy",
+    "ignoreMiddleNameMismatch": true,
+    "ignoreProvidedInfoMismatch": false
+  }
+}

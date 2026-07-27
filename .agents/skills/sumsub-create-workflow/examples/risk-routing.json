@@ -1,0 +1,27 @@
+{
+  "title": "Risk + Re-attempt Routing (example)",
+  "kind": "default",
+  "revisionStatus": "draft",
+  "desc": "After IDV: if applicant has already retried >3 times, send straight to manual review; otherwise route by country to either fast-path approval or extended due diligence.",
+
+  "nodes": [
+    { "id": "idv",       "type": "level",     "name": "IDV", "levelName": "IDV" },
+    { "id": "gate",      "type": "condition", "name": "Re-attempt / risk gate" },
+    { "id": "manual",    "type": "review",    "name": "Manual review" },
+    { "id": "edd",       "type": "level",     "name": "Extended due diligence", "levelName": "EDD" },
+    { "id": "approve",   "type": "actions",   "name": "Approve fast-path",
+      "actions": [
+        { "tag": ["fast-path-approved"] },
+        { "note": "Auto-approved by workflow" }
+      ]
+    }
+  ],
+
+  "edges": [
+    { "from": "idv",   "to": "gate",    "on": ["approved", "resubmission"] },
+    { "from": "gate",  "to": "manual",  "when": "applicant.review.attemptCnt > 3" },
+    { "from": "gate",  "to": "edd",     "when": "applicant.country in [AFG, IRN, PRK, SYR] AND applicant.review.attemptCnt <= 3" },
+    { "from": "gate",  "to": "manual",  "when": "empty applicant.country AND applicant.review.attemptCnt <= 3" },
+    { "from": "gate",  "to": "approve", "when": "not empty applicant.country AND applicant.review.attemptCnt <= 3" }
+  ]
+}

@@ -125,3 +125,15 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 # Demo recordings and wallet envs (never commit private keys)
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
+
+.openclaw/
+
+# Skill-installer symlinks (point into .agents/skills)
+data/skills/
+
+# polysharp paper-trading ledger (runtime)
+data/polysharp-paper.json
+
+# prep-kit local env (moved under packages/)
+packages/worldcup-bounty/.env
+packages/worldcup-bounty/node_modules/

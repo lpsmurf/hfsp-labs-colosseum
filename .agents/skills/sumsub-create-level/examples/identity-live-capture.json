@@ -1,0 +1,16 @@
+{
+  "_comment": "IDENTITY-only level with Live capture and all docapture sub-options spelled out. Mirrors the dashboard's Capture method = Live capture + Capture mode + Fallback to file upload controls.",
+  "name": "POI live-capture (example)",
+  "applicantType": "individual",
+  "type": "standalone",
+  "docSets": [
+    {
+      "type": "IDENTITY",
+      "docTypes": ["PASSPORT", "ID_CARD", "DRIVERS", "RESIDENCE_PERMIT"],
+      "videoRequired": "docapture",
+      "captureMode": "manualOnly",
+      "uploaderMode": "fallback",
+      "nfcVerificationSettings": {"mode": "optional"}
+    }
+  ]
+}

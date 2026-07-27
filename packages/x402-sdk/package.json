@@ -1,0 +1,72 @@
+{
+  "name": "@hfsp/x402-sdk",
+  "version": "0.1.0",
+  "description": "Node.js middleware for Solana x402 payments — add payment-gated APIs in under 10 lines",
+  "keywords": [
+    "x402",
+    "http402",
+    "solana",
+    "usdc",
+    "payment",
+    "middleware",
+    "express",
+    "mcp",
+    "ai-agent",
+    "payment-gating",
+    "micropayments"
+  ],
+  "author": "HFSP Labs <info@hfsp.xyz>",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server/index.js",
+      "types": "./dist/server/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "peerDependencies": {
+    "express": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "express": "^4.19.2",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpsmurf/hfsp-labs-colosseum"
+  }
+}

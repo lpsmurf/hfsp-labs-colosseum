@@ -1,0 +1,178 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "@hfsp/x402-sdk Demo",
+    "description": "Live demo for @hfsp/x402-sdk — Node.js middleware for Solana x402 payments. Try the full 402 payment flow for $0.001 USDC.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "HFSP Labs",
+      "url":  "https://hfsp.xyz",
+      "email": "info@hfsp.xyz"
+    }
+  },
+  "servers": [
+    { "url": "https://demo.hfsp.cloud" }
+  ],
+  "x-x402": {
+    "network":       "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "asset":         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "paymentHeader": "X-Solana-Tx"
+  },
+  "components": {
+    "schemas": {
+      "PaymentRequired": {
+        "type": "object",
+        "properties": {
+          "ok":    { "type": "boolean", "example": false },
+          "error": { "type": "string",  "example": "Payment Required" },
+          "pay": {
+            "type": "object",
+            "properties": {
+              "amount":      { "type": "integer", "description": "Atomic USDC units (6 decimals)", "example": 1000 },
+              "amountUsd":   { "type": "string",  "example": "0.001000" },
+              "mint":        { "type": "string",  "example": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+              "payTo":       { "type": "string",  "example": "GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY" },
+              "network":     { "type": "string",  "example": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" },
+              "description": { "type": "string" }
+            }
+          },
+          "instructions": { "type": "string" }
+        }
+      }
+    },
+    "parameters": {
+      "SolanaTx": {
+        "in": "header",
+        "name": "X-Solana-Tx",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Confirmed Solana transaction signature proving USDC payment. Omit to receive the 402 payment challenge."
+      }
+    }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Service info",
+        "operationId": "getRoot",
+        "description": "Returns available endpoints, how-to-pay instructions, and SDK quickstart.",
+        "responses": {
+          "200": { "description": "Service info", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok":      { "type": "boolean" },
+                    "service": { "type": "string" },
+                    "version": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hello": {
+      "post": {
+        "summary": "Hello — $0.001 USDC",
+        "operationId": "hello",
+        "description": "Returns a greeting with your wallet address and transaction signature. Cheapest demo endpoint.",
+        "x-x402-amount": "1000",
+        "parameters": [ { "$ref": "#/components/parameters/SolanaTx" } ],
+        "responses": {
+          "200": {
+            "description": "Greeting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok":      { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "paidBy":  { "type": "string", "description": "Sender wallet address" },
+                    "txSig":   { "type": "string" },
+                    "amount":  { "type": "integer" },
+                    "sdk":     { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "402": { "description": "Payment required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequired" } } } }
+        }
+      }
+    },
+    "/api/timestamp": {
+      "post": {
+        "summary": "Timestamp — $0.001 USDC",
+        "operationId": "timestamp",
+        "description": "Returns a server-side ISO timestamp.",
+        "x-x402-amount": "1000",
+        "parameters": [ { "$ref": "#/components/parameters/SolanaTx" } ],
+        "responses": {
+          "200": {
+            "description": "Timestamp",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok":        { "type": "boolean" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "paidBy":    { "type": "string" },
+                    "txSig":     { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "402": { "description": "Payment required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequired" } } } }
+        }
+      }
+    },
+    "/api/echo": {
+      "post": {
+        "summary": "Echo — $0.005 USDC",
+        "operationId": "echo",
+        "description": "Echoes your JSON request body back. Useful for testing client payload handling.",
+        "x-x402-amount": "5000",
+        "parameters": [ { "$ref": "#/components/parameters/SolanaTx" } ],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Echo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok":     { "type": "boolean" },
+                    "echo":   { "type": "object" },
+                    "paidBy": { "type": "string" },
+                    "txSig":  { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "402": { "description": "Payment required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequired" } } } }
+        }
+      }
+    }
+  }
+}

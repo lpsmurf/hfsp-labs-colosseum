@@ -67,15 +67,27 @@ After migration, these point to Mac Mini via Cloudflare Tunnel (no IP needed).
 
 ---
 
-## SSH Access (Historical)
+## SSH Access
 
 ```bash
-# Used MacBook Pro id_rsa (private key not on Mac Mini)
-ssh -i ~/.ssh/id_rsa root@72.62.239.63
+# Short alias (uses ~/.ssh/config Host entry):
+ssh vps
 
-# Key registered on Hostinger: mac-local (id_rsa, MacBook Pro)
-# Also: hfsp-provisioner-root (from KVM4 server)
+# Explicit:
+ssh -i ~/.ssh/id_ed25519_claude root@72.62.239.63
 ```
+
+**Key:** `~/.ssh/id_ed25519_claude` (`claude-code-deploy`) — the only active key.
+
+**Authorized keys on server (as of 2026-06-11):**
+
+| Comment | Type |
+|---------|------|
+| `claude-code-deploy` | ed25519 — **active local key** |
+| `mac@MacBook-Pro.local` | RSA — legacy MacBook key |
+| `vibecoder-piercalito` | ed25519 |
+| `pathfinder-deploy` | ed25519 |
+| `iris-to-tenant` | ed25519 |
 
 ---
 

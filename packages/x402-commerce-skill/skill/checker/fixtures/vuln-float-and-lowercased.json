@@ -1,0 +1,14 @@
+{
+  "x402Version": 2,
+  "resource": { "url": "https://bad.example/score", "description": "mispriced + corrupted mint" },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "amount": "0.005",
+      "asset": "epjfwdd5aufqssqem2qn1xzybapc8g4weggkzwytdt1v",
+      "payTo": "GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY",
+      "extra": { "method": "POST" }
+    }
+  ]
+}

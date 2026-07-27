@@ -9,6 +9,7 @@ const EnvSchema = z.object({
   HELIUS_API_KEY: z.string().min(1),
   PLATFORM_WALLET_ADDRESS: z.string().min(1),
   VAULT_ENCRYPTION_KEY: z.string().min(32),
+  PLATFORM_INTERNAL_KEY: z.string().min(32),
   POLY_OPENROUTER_KEY: z.string().optional(),
 });
 

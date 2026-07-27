@@ -1,0 +1,13 @@
+{
+  "name": "x402-commerce-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solana AI Kit skill — ship a paid API that AI agents discover and buy from over x402",
+  "type": "module",
+  "scripts": {
+    "test": "node --test skill/checker/x402-commerce-lint.test.mjs",
+    "lint:example": "node skill/checker/x402-commerce-lint.mjs skill/checker/fixtures/safe-manifest.json"
+  },
+  "license": "MIT",
+  "author": "HFSP Labs <info@hfsp.xyz>"
+}

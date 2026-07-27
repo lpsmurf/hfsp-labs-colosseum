@@ -1,0 +1,31 @@
+{
+  "name": "Broad subscription scoped to a source key (example)",
+  "description": "Receives applicant lifecycle + tag/level changes for the 'kyb-prod-1' source-key stream.",
+  "target": "https://backend.example.com/sumsub-events",
+  "targetType": "http",
+
+  "types": [
+    "applicantCreated",
+    "applicantPending",
+    "applicantReviewed",
+    "applicantOnHold",
+    "applicantActivated",
+    "applicantDeactivated",
+    "applicantTagsChanged",
+    "applicantLevelChanged",
+    "applicantReset"
+  ],
+
+  "sourceKeys": ["kyb-prod-1"],
+
+  "signatureAlgorithm": "HMAC_SHA256_HEX",
+  "secretKey": "REPLACE_WITH_GENERATED_SECRET",
+
+  "headers": [
+    { "key": "X-Source", "value": "sumsub" },
+    { "key": "X-Environment", "value": "production" }
+  ],
+
+  "notResendFailedWebhooks": false,
+  "disabled": false
+}

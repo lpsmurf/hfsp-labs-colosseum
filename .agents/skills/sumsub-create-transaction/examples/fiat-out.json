@@ -1,0 +1,42 @@
+{
+  "_applicantId": "REPLACE_WITH_APPLICANT_ID",
+  "txnId": "finance-fiat-out-0001",
+  "txnDate": "2026-05-21 14:30:00+0000",
+  "type": "finance",
+
+  "amount": 1500.50,
+  "currency": "EUR",
+  "currencyType": "fiat",
+  "direction": "out",
+  "paymentDetails": "Invoice #INV-2026-001",
+  "mcc": 5411,
+
+  "applicant": {
+    "externalUserId": "user-001",
+    "type": "individual",
+    "fullName": "John Smith",
+    "dob": "1990-05-01",
+    "email": "john@example.com",
+    "address": { "country": "USA", "town": "New York" },
+    "paymentMethod": {
+      "type": "bankCard",
+      "accountId": "4111********1111",
+      "issuingCountry": "USA",
+      "3dsUsed": true,
+      "2faUsed": false
+    }
+  },
+
+  "counterparty": {
+    "externalUserId": "merchant-XYZ",
+    "type": "company",
+    "fullName": "Acme Inc.",
+    "registrationNumber": "12345678",
+    "address": { "country": "QAT" }
+  },
+
+  "props": {
+    "internalNote": "test-payment-from-skill",
+    "channel": "web"
+  }
+}

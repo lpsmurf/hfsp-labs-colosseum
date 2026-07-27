@@ -23,7 +23,7 @@ Replace lines 123-128 in `index.ts`:
 
 ```typescript
 // BEFORE: Individual VPS config
-const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '187.124.173.69';
+const TENANT_VPS_HOST = process.env.TENANT_VPS_HOST ?? '72.62.239.63';
 const TENANT_VPS_USER = process.env.TENANT_VPS_USER ?? 'root';
 const TENANT_VPS_SSH_KEY = process.env.TENANT_VPS_SSH_KEY ?? '...';
 
@@ -45,7 +45,7 @@ const provisioner: BaseProvisioner = ProvisionerFactory.createProvisioner(
   {
     mode: PROVISIONER_MODE as any,
     vpsRegistry: PROVISIONER_CONFIG.vpsRegistry,
-    vpsHost: process.env.TENANT_VPS_HOST ?? '187.124.173.69',
+    vpsHost: process.env.TENANT_VPS_HOST ?? '72.62.239.63',
     vpsUser: process.env.TENANT_VPS_USER ?? 'root'
   }
 );
@@ -107,7 +107,7 @@ app.get('/provisioner/health', async (req, res) => {
 ### Shell Provisioner (Single VPS)
 ```bash
 PROVISIONER_MODE=shell
-TENANT_VPS_HOST=187.124.173.69
+TENANT_VPS_HOST=72.62.239.63
 TENANT_VPS_USER=root
 TENANT_VPS_SSH_KEY=/path/to/key
 ```

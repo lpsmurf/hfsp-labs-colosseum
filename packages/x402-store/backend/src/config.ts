@@ -34,6 +34,10 @@ const env = z.object({
 
   // Agent wallets — pay micro-price for testing
   AGENT_WALLETS: z.string().default(""),
+
+  // Shared secret for the internal /api/internal/* endpoints.
+  // Set the same value in gnosis-card-x402 (STORE_INTERNAL_KEY).
+  INTERNAL_KEY: z.string().min(16).optional(),
 }).parse(process.env);
 
 export default env;

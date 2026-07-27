@@ -1,0 +1,21 @@
+{
+  "_applicantId": "REPLACE_WITH_APPLICANT_ID",
+  "txnId": "evt-login-0001",
+  "txnDate": "2026-05-21 14:45:00+0000",
+  "type": "userPlatformEvent",
+
+  "applicant": {
+    "externalUserId": "user-001",
+    "type": "individual",
+    "device": {
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      "fingerprint": "abc123fp",
+      "ipInfo": { "ip": "203.0.113.42" }
+    }
+  },
+
+  "userPlatformEvent": {
+    "type": "login",
+    "twoFaUsed": true
+  }
+}

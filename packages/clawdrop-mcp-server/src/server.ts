@@ -63,7 +63,7 @@ async function setupServer() {
         tool.name,
         {
           description: tool.description ?? '',
-          inputSchema: z.object({}).passthrough(),
+          inputSchema: z.record(z.any()).default({}),
         },
         async (args: any) => {
           return await callX402Tool(tool.name, args);
