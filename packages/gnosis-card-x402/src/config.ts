@@ -23,6 +23,12 @@ const envSchema = z.object({
   // Service fees
   TOPUP_FEE_PCT:     z.string().default('0.5'),
   ONBOARD_FEE_USDC:  z.string().default('5'),
+
+  // x402 V2 facilitator. Not x402.org — testnet only; these are mainnet routes
+  // and @hfsp/x402-common refuses that combination at boot.
+  FACILITATOR_URL:   z.string().url().default('https://facilitator.payai.network'),
+  INTEGRATOR_FEE_BPS: z.string().default('15'),
+  INTEGRATOR_FEE_ACCOUNT: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -43,6 +49,9 @@ export const BASE_USDC  = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 export const BASE_CHAIN_ID   = 8453;
 export const SOLANA_CHAIN_ID = 792703809;
 export const GNOSIS_CHAIN_ID = 100;
+export const POLYGON_CHAIN_ID = 137;
+export const ARBITRUM_CHAIN_ID = 42161;
+export const ETHEREUM_CHAIN_ID = 1;
 
 // Gnosis Chain tokens
 // USDC: native Circle USDC on Gnosis (0x2a22...) — Gnosis Pay updated to this token
@@ -55,3 +64,46 @@ export const GNOSIS_TOKENS = {
 
 export type GnosisToken  = keyof typeof GNOSIS_TOKENS;
 export type SourceChain  = 'solana' | 'base';
+export type BridgeDestChain = 'polygon' | 'gnosis' | 'base' | 'arbitrum' | 'ethereum';
+
+export const BRIDGE_TARGETS = {
+  polygon: {
+    chainId: POLYGON_CHAIN_ID,
+    finalitySeconds: 45,
+    tokens: {
+      USDC: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+      USDC_E: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+    },
+  },
+  gnosis: {
+    chainId: GNOSIS_CHAIN_ID,
+    finalitySeconds: 90,
+    tokens: {
+      USDC: GNOSIS_TOKENS.USDC,
+      USDC_E: '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83',
+      EURe: GNOSIS_TOKENS.EURe,
+      GBPe: GNOSIS_TOKENS.GBPe,
+    },
+  },
+  base: {
+    chainId: BASE_CHAIN_ID,
+    finalitySeconds: 30,
+    tokens: {
+      USDC: BASE_USDC,
+    },
+  },
+  arbitrum: {
+    chainId: ARBITRUM_CHAIN_ID,
+    finalitySeconds: 30,
+    tokens: {
+      USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    },
+  },
+  ethereum: {
+    chainId: ETHEREUM_CHAIN_ID,
+    finalitySeconds: 60,
+    tokens: {
+      USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    },
+  },
+} as const;

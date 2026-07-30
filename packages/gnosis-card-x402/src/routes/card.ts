@@ -20,6 +20,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { makeX402Gate } from '../middleware/x402.js';
+import { sdkGate } from '../middleware/x402-sdk.js';
+import { NETWORKS } from '@hfsp/x402-common';
 import { isSpent, markSpent } from '../services/nullifier.js';
 import { getQuote, createAndSubmitOrder, getOrderStatus } from '../services/bridge.js';
 import {
@@ -97,12 +99,12 @@ cardRouter.get('/topup/quote', async (req, res) => {
       payment: isBase ? {
         payTo:   config.EVM_WALLET_ADDRESS,
         asset:   '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-        network: 'base-mainnet',
+        network: NETWORKS.base,
         amount:  amount.toFixed(6),
       } : {
         payTo:   config.WALLET_PUBLIC_KEY,
         asset:   'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        network: 'solana-mainnet',
+        network: NETWORKS.solana,
         amount:  amount.toFixed(6),
       },
     });
@@ -259,6 +261,10 @@ cardRouter.post('/onboard/session', async (req, res) => {
  */
 cardRouter.post(
   '/onboard',
+  // Fixed price, so it can settle through a facilitator like any standard x402
+  // resource. sdkGate handles PAYMENT-SIGNATURE clients; anything still sending
+  // X-Payment falls through to makeX402Gate below.
+  sdkGate,
   makeX402Gate({
     amountUsdc:  parseFloat(config.ONBOARD_FEE_USDC),
     description: `Gnosis Pay onboarding — managed Safe deployment + virtual card ($${config.ONBOARD_FEE_USDC} USDC)`,
