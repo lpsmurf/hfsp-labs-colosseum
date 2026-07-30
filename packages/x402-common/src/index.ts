@@ -7,7 +7,9 @@
 export {
   NETWORKS,
   USDC,
+  EIP712_DOMAIN,
   isMainnet,
+  isEvm,
   usdc,
   usdcToDollars,
   type NetworkName,

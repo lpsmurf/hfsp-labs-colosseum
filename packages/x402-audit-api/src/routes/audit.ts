@@ -7,7 +7,7 @@ import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
 import { generateAIFeedback } from '../ai-feedback.js';
 import { AUDIT_PRICE_USDC, config } from '../config.js';
-import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER, attachReceipt } from '@hfsp/x402-common';
+import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER, attachReceipt , EIP712_DOMAIN} from '@hfsp/x402-common';
 import { usesLegacyPayment } from '../x402.js';
 
 export const auditRouter = Router();
@@ -60,7 +60,9 @@ auditRouter.get('/', (req, res) => {
         asset:             USDC_ASSET.base,
         payTo:             config.PAYMENT_RECIPIENT_BASE,
         maxTimeoutSeconds: 300,
-        extra:             {},
+        // EVM settles via EIP-3009; the client cannot sign without the token's
+        // EIP-712 domain. Solana (SPL) needs no equivalent.
+        extra:             EIP712_DOMAIN.base,
       },
       {
         scheme:            'exact',

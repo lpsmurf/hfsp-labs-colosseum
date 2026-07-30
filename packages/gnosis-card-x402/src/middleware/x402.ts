@@ -8,7 +8,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
-import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER } from '@hfsp/x402-common';
+import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER , EIP712_DOMAIN} from '@hfsp/x402-common';
 import { USDC_MINT, BASE_USDC, HELIUS_RPC, type SourceChain, config } from '../config.js';
 
 const MAX_AGE_SECS   = 300;
@@ -155,7 +155,8 @@ export function makeX402Gate(opts: {
             asset:             BASE_USDC,
             payTo:             config.EVM_WALLET_ADDRESS,
             maxTimeoutSeconds: 300,
-            extra:             {},
+            // Required for EIP-3009 signing — see EIP712_DOMAIN.
+            extra:             EIP712_DOMAIN.base,
           },
         ],
       };
