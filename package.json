@@ -34,7 +34,10 @@
     "packages/x402-vpn-vps",
     "packages/x402-store",
     "packages/x402-vpn-vps-base",
-    "packages/x402-wallet"
+    "packages/x402-wallet",
+    "packages/x402-vpn-vps/backend",
+    "packages/x402-vpn-vps-base/backend",
+    "packages/x402-store/backend"
   ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
