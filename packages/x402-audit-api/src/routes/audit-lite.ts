@@ -9,7 +9,8 @@ import { fetchRepo, parseRepoUrl } from '../github.js';
 import { runStaticAnalysis } from '../static/index.js';
 import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
-import { BASE_USDC, SOLANA_USDC_MINT, AUDIT_PRICE_USDC, config } from '../config.js';
+import { AUDIT_PRICE_USDC, config } from '../config.js';
+import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER } from '@hfsp/x402-common';
 
 export const auditRouter = Router();
 
@@ -32,11 +33,39 @@ auditRouter.get('/', (req, res) => {
     return;
   }
 
-  const amountMicro = Math.round(AUDIT_PRICE_USDC * 1_000_000).toString();
-  const resource    = `${req.protocol}://${req.get('host')}/audit`;
+  const resource = `${req.protocol}://${req.get('host')}/audit`;
 
-  res.status(402).json({
-    x402Version: 1,
+  const challenge = {
+    x402Version: 2 as const,
+    resource: {
+      url:         resource,
+      description: `x402 security audit for ${repo}`,
+      mimeType:    'application/json',
+    },
+    accepts: [
+      {
+        scheme:            'exact',
+        network:           NETWORKS.base,
+        amount:            usdc(AUDIT_PRICE_USDC),
+        asset:             USDC_ASSET.base,
+        payTo:             config.PAYMENT_RECIPIENT_BASE,
+        maxTimeoutSeconds: 300,
+        extra:             {},
+      },
+      {
+        scheme:            'exact',
+        network:           NETWORKS.solana,
+        amount:            usdc(AUDIT_PRICE_USDC),
+        asset:             USDC_ASSET.solana,
+        payTo:             config.PAYMENT_RECIPIENT_SOL,
+        maxTimeoutSeconds: 300,
+        extra:             {},
+      },
+    ],
+  };
+
+  res.set(HEADER.required, encode(challenge)).status(402).json({
+    ...challenge,
     error:       'Payment required to run security audit',
     description: `x402 security audit for ${repo}`,
     audit: {
@@ -52,30 +81,6 @@ auditRouter.get('/', (req, res) => {
       priceUsdc:  AUDIT_PRICE_USDC,
       serviceFee: '100% — no third-party fees',
     },
-    accepts: [
-      {
-        scheme:            'exact',
-        network:           'base-mainnet',
-        maxAmountRequired: amountMicro,
-        asset:             BASE_USDC,
-        payTo:             config.PAYMENT_RECIPIENT_BASE,
-        resource,
-        description:       `x402 security audit: ${repo} (Base USDC)`,
-        mimeType:          'application/json',
-        maxTimeoutSeconds: 300,
-      },
-      {
-        scheme:            'exact',
-        network:           'solana-mainnet',
-        maxAmountRequired: amountMicro,
-        asset:             SOLANA_USDC_MINT,
-        payTo:             config.PAYMENT_RECIPIENT_SOL,
-        resource,
-        description:       `x402 security audit: ${repo} (Solana USDC)`,
-        mimeType:          'application/json',
-        maxTimeoutSeconds: 300,
-      },
-    ],
     howToPay: [
       `Option A (Base):    Send ${AUDIT_PRICE_USDC} USDC on Base to ${config.PAYMENT_RECIPIENT_BASE}`,
       `Option B (Solana):  Send ${AUDIT_PRICE_USDC} USDC on Solana to ${config.PAYMENT_RECIPIENT_SOL}`,

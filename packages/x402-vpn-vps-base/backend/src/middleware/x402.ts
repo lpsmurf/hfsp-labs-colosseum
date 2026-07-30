@@ -47,7 +47,22 @@ export const routes: RoutesConfig = {
 };
 
 // ── Resource server ────────────────────────────────────────────────────────
-const facilitator = new HTTPFacilitatorClient({ url: env.FACILITATOR_URL });
+// On testnet the x402.org facilitator is the right default; on mainnet it is not
+// a supported production path, so an operator who leaves FACILITATOR_URL unset
+// still gets a sane choice for whichever network DEV_MODE selects.
+const X402ORG = "https://x402.org/facilitator";
+const facilitatorUrl = env.DEV_MODE ? X402ORG : env.FACILITATOR_URL;
+
+if (!env.DEV_MODE && facilitatorUrl === X402ORG) {
+  throw new Error(
+    "FACILITATOR_URL is set to the x402.org facilitator on Base mainnet. That is " +
+    "a testnet/quickstart service — payments may verify and never settle. Use a " +
+    "production facilitator (facilitator.payai.network, api.solvador.com, " +
+    "corbits.dev) or self-host.",
+  );
+}
+
+const facilitator = new HTTPFacilitatorClient({ url: facilitatorUrl });
 const server      = new x402ResourceServer(facilitator)
   .register("eip155:*", new ExactEvmScheme());
 

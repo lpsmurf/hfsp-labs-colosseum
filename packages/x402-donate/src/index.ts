@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { healthRouter }    from './routes/health.js';
 import { charitiesRouter } from './routes/charities.js';
 import { donateRouter }    from './routes/donate.js';
+import { x402Gate }        from './x402.js';
 import { config } from './config.js';
 
 const app = express();
@@ -14,6 +15,9 @@ app.set('trust proxy', 1);
 
 app.use('/health',    healthRouter);
 app.use('/charities', charitiesRouter);
+// x402 V2 gate before the router: a PAYMENT-SIGNATURE request is verified here
+// and settled after the handler returns (see the afterSettle hook in x402.ts).
+app.use(x402Gate);
 app.use('/donate',    donateRouter);
 
 // Discovery doc — describes the x402 donation service

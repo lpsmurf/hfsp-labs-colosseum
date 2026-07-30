@@ -6,6 +6,10 @@ const envSchema = z.object({
   NODE_ENV:     z.string().default('development'),
   BASE_RPC_URL: z.string().default('https://mainnet.base.org'),
 
+  // x402 V2 facilitator. Not x402.org — that is testnet-only and this is a
+  // mainnet route; @hfsp/x402-common refuses the combination at boot.
+  FACILITATOR_URL: z.string().url().default('https://facilitator.payai.network'),
+
   // DonationRouter contract — deployed on Base, receives all donor USDC
   ROUTER_CONTRACT_ADDRESS: z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Must be a valid EVM address'),
   // EOA that calls route() — must match the `router` param passed at deploy time
