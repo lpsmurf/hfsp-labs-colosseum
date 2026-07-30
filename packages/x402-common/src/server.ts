@@ -14,7 +14,7 @@ import type { RoutesConfig, RouteConfig } from "@x402/core/server";
 import type { PaymentOption } from "@x402/core/http";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { ExactSvmScheme } from "@x402/svm/exact/server";
-import { NETWORKS, USDC, isMainnet, usdc, type NetworkName } from "./networks.js";
+import { NETWORKS, USDC, EIP712_DOMAIN, isMainnet, isEvm, usdc, type NetworkName } from "./networks.js";
 
 /**
  * Facilitators we have verified as supporting mainnet settlement.
@@ -136,23 +136,45 @@ function paymentOption(opts: GateOptions): PaymentOption {
   return {
     scheme:  "exact",
     payTo:   opts.payTo,
-    price:   { asset: USDC[opts.network], amount: usdc(opts.price) },
+    // EVM clients need the token's EIP-712 domain to sign the EIP-3009
+    // authorization; without it they cannot build a payment payload at all.
+    price:   { asset: USDC[opts.network], amount: usdc(opts.price), ...evmExtra(opts.network) },
     network: NETWORKS[opts.network],
     ...(opts.maxTimeoutSeconds ? { maxTimeoutSeconds: opts.maxTimeoutSeconds } : {}),
   };
 }
 
+/** EIP-712 domain for EVM assets; nothing for SVM, which does not use EIP-3009. */
+function evmExtra(network: NetworkName): { extra?: Record<string, unknown> } {
+  if (!isEvm(network)) return {};
+  const domain = EIP712_DOMAIN[network];
+  if (!domain) {
+    throw new Error(
+      `No EIP-712 domain recorded for ${network}. EVM payments cannot be signed ` +
+      `without the token's name and version — read them from the contract with ` +
+      `name() / version() and add them to EIP712_DOMAIN.`,
+    );
+  }
+  return { extra: { ...domain } };
+}
+
 /**
  * Build the Express payment middleware for a set of routes.
  *
- * `syncFacilitatorOnStart` defaults to false so a slow or briefly unreachable
- * facilitator cannot stop the service booting; validation happens on the first
- * paid request instead.
+ * `syncFacilitatorOnStart` must stay true. It is how the server learns which
+ * scheme/network pairs the facilitator actually settles; without that list it
+ * rejects every payment with "Facilitator does not support exact on
+ * eip155:8453" and never retries. It is a startup fetch, not a lazy one.
+ *
+ * Setting it false looks like a harmless boot-time optimisation and instead
+ * disables payments entirely — the service starts fine, serves 402 challenges
+ * that look correct, and 500s the moment a client tries to pay. Only turn it off
+ * in tests that never exercise settlement.
  */
 export function buildGate(
   routes: RoutesConfig,
   server: x402ResourceServer,
-  syncFacilitatorOnStart = false,
+  syncFacilitatorOnStart = true,
 ) {
   return paymentMiddleware(routes, server, undefined, undefined, syncFacilitatorOnStart);
 }

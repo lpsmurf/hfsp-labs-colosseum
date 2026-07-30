@@ -10,7 +10,7 @@ import { runStaticAnalysis } from '../static/index.js';
 import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
 import { AUDIT_PRICE_USDC, config } from '../config.js';
-import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER } from '@hfsp/x402-common';
+import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER , EIP712_DOMAIN} from '@hfsp/x402-common';
 
 export const auditRouter = Router();
 
@@ -50,7 +50,7 @@ auditRouter.get('/', (req, res) => {
         asset:             USDC_ASSET.base,
         payTo:             config.PAYMENT_RECIPIENT_BASE,
         maxTimeoutSeconds: 300,
-        extra:             {},
+        extra:             EIP712_DOMAIN.base,
       },
       {
         scheme:            'exact',

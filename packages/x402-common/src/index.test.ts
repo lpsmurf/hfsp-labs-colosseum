@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { NETWORKS, USDC, isMainnet, usdc, usdcToDollars } from "./networks.js";
+import { NETWORKS, USDC, EIP712_DOMAIN, isMainnet, isEvm, usdc, usdcToDollars } from "./networks.js";
 import { FACILITATORS, createResourceServer, gate, multiGate } from "./server.js";
 import { buildChallenge, decode, encode, readProof, HEADER } from "./legacy.js";
 
@@ -82,7 +82,13 @@ test("gate emits an explicit asset+amount, never a price string", () => {
   assert.equal(accepts.length, 1);
   assert.equal(accepts[0].scheme, "exact");
   assert.equal(accepts[0].network, NETWORKS.base);
-  assert.deepEqual(accepts[0].price, { asset: USDC.base, amount: "990000" });
+  // EVM must also carry the token's EIP-712 domain — without it the client
+  // cannot sign the EIP-3009 authorization and no EVM payment is possible.
+  assert.deepEqual(accepts[0].price, {
+    asset: USDC.base,
+    amount: "990000",
+    extra: { name: "USD Coin", version: "2" },
+  });
 });
 
 test("multiGate accepts one price per network", () => {
@@ -97,6 +103,20 @@ test("multiGate accepts one price per network", () => {
 
 test("multiGate rejects an empty option list", () => {
   assert.throws(() => multiGate("nothing", []));
+});
+
+test("Solana options carry no EIP-712 domain", () => {
+  const route = gate({ price: 1, payTo: "So1ana", network: "solana", description: "" });
+  const accepts = Array.isArray(route.accepts) ? route.accepts : [route.accepts];
+  // SPL transfers do not use EIP-3009; an extra here would be meaningless.
+  assert.deepEqual(accepts[0].price, { asset: USDC.solana, amount: "1000000" });
+});
+
+test("every EVM network has an EIP-712 domain recorded", () => {
+  for (const name of Object.keys(NETWORKS) as Array<keyof typeof NETWORKS>) {
+    if (!isEvm(name)) continue;
+    assert.ok(EIP712_DOMAIN[name], `${name} is EVM but has no EIP-712 domain — payments would be unsignable`);
+  }
 });
 
 test("buildChallenge is V2 shaped", () => {

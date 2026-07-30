@@ -30,9 +30,36 @@ export const USDC = {
   solanaDevnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 } as const satisfies Record<NetworkName, string>;
 
+/**
+ * EIP-712 domain of each EVM USDC contract.
+ *
+ * Required, not decorative. EVM settlement uses EIP-3009
+ * (`transferWithAuthorization`), and the client cannot construct the signature
+ * without the token's EIP-712 `name` and `version`. Omit them and the client
+ * fails with "EIP-712 domain parameters (name, version) are required in payment
+ * requirements" — the server looks healthy and every EVM payment is impossible.
+ *
+ * These are NOT guessable: Base mainnet USDC is "USD Coin" while Base Sepolia
+ * USDC is "USDC". Values below were read from the contracts via `eth_call`
+ * (`name()` / `version()`) on 2026-07-30, except Ethereum mainnet — public RPCs
+ * refused the call, and we do not currently sell on that network. Verify before
+ * enabling it.
+ */
+export const EIP712_DOMAIN: Partial<Record<NetworkName, { name: string; version: string }>> = {
+  base:        { name: "USD Coin", version: "2" },
+  baseSepolia: { name: "USDC",     version: "2" },
+  sepolia:     { name: "USDC",     version: "2" },
+  ethereum:    { name: "USD Coin", version: "2" }, // unverified — see above
+};
+
 /** True for networks where a mistake costs real money. */
 export function isMainnet(network: NetworkName): boolean {
   return network === "base" || network === "ethereum" || network === "solana";
+}
+
+/** EVM networks settle via EIP-3009 and need the token's EIP-712 domain. */
+export function isEvm(network: NetworkName): boolean {
+  return NETWORKS[network].startsWith("eip155:");
 }
 
 /** USDC has 6 decimals on every network we support. */

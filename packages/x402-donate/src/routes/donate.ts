@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { findCharity } from '../catalog.js';
 import { verifyAndRoute } from '../router.js';
 import { BASE_USDC, FEES, config } from '../config.js';
-import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER, attachReceipt } from '@hfsp/x402-common';
+import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER, attachReceipt , EIP712_DOMAIN} from '@hfsp/x402-common';
 import { usesLegacyPayment, resolveAmount } from '../x402.js';
 import type { DonationReceipt } from '../types.js';
 
@@ -47,7 +47,8 @@ donateRouter.get('/:id', async (req, res) => {
       asset:             USDC_ASSET.base,
       payTo:             config.ROUTER_CONTRACT_ADDRESS,
       maxTimeoutSeconds: 300,
-      extra:             {},
+      // Required for EIP-3009 signing — see EIP712_DOMAIN.
+      extra:             EIP712_DOMAIN.base,
     }],
   };
 

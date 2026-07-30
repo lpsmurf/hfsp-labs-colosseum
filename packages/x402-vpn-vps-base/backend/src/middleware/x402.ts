@@ -66,6 +66,10 @@ const facilitator = new HTTPFacilitatorClient({ url: facilitatorUrl });
 const server      = new x402ResourceServer(facilitator)
   .register("eip155:*", new ExactEvmScheme());
 
-// syncFacilitatorOnStart=false: skip startup validation so the server boots fast.
-// Payment validation happens lazily on first real request.
-export const x402Gate = paymentMiddleware(routes, server, undefined, undefined, false);
+// syncFacilitatorOnStart must stay true (the SDK default). It is the startup
+// fetch that tells the server which scheme/network pairs the facilitator settles.
+// This was previously false — "boots fast, validates lazily" — but there is no
+// lazy path: without that list every payment is rejected with "Facilitator does
+// not support exact on eip155:8453". The service booted, served correct-looking
+// 402 challenges, and 500'd on any real payment attempt.
+export const x402Gate = paymentMiddleware(routes, server, undefined, undefined, true);
