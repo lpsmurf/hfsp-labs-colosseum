@@ -13,6 +13,7 @@
     "clawdrop": "./packages/clawdrop-mcp/cli.cjs"
   },
   "workspaces": [
+    "packages/agent-kit-mcp-adapter",
     "packages/agent-provisioning",
     "packages/clawdrop-agent-runtime",
     "packages/clawdrop-landing",
