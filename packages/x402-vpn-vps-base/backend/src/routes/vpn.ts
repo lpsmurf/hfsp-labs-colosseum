@@ -26,7 +26,11 @@ const Body = z.object({
   clientWgPublicKey: z.string().length(44).regex(/^[A-Za-z0-9+/=]+$/, 'Invalid WireGuard public key (must be base64 44 chars)'),
 });
 
-async function provision(period: string) {
+// NOT async: this is a handler factory, and `router.post(path, provision("hour"))`
+// would otherwise hand Express a Promise instead of a function — which throws
+// "requires a callback function but got a [object Promise]" at module load and
+// stops the service booting at all.
+function provision(period: string) {
   return async (req: any, res: any) => {
     const parsed = Body.safeParse(req.body);
     if (!parsed.success) {

@@ -85,7 +85,10 @@ function make402(ourAmount: bigint, crAmount: bigint, url: string) {
 
 // POST /api/orders
 router.post("/", async (req, res) => {
-  const txSig  = req.headers["x-solana-tx"] as string | undefined;
+  // Accept the standard V2 header as well as our own. Standard clients send
+  // PAYMENT-SIGNATURE; existing integrations send X-Solana-Tx.
+  const txSig  = ((req.headers["payment-signature"] as string | undefined)?.trim()
+                || (req.headers["x-solana-tx"] as string | undefined)?.trim()) || undefined;
   const url    = `https://store.hfsp.cloud${req.originalUrl.split("?")[0]}`;
 
   // ── Phase 1: no payment header → return 402 ──────────────────────────────

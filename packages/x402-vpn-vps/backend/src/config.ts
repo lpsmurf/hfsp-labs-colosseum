@@ -6,9 +6,13 @@ const env = z.object({
   // Solana operator address — RECIPIENT only, no private keys needed in the backend
   OPERATOR_SOLANA_ADDRESS: z.string().min(32).default("GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY"),
 
-  // Helius RPC — used for on-chain payment verification (no facilitator needed for Solana)
+  // Helius RPC — on-chain verification for the legacy X-Solana-Tx payment path.
   // This must be set to a valid URL including your API key.
   HELIUS_RPC_URL: z.string().url(),
+
+  // x402 V2 facilitator. PayAI serves x402Version 2 `exact` on Solana mainnet —
+  // verified 2026-07-29 — which is what finally made the SDK path possible here.
+  FACILITATOR_URL: z.string().url().default("https://facilitator.payai.network"),
 
   HETZNER_API_TOKEN: z.string().min(1),
   REDIS_URL:         z.string().url().default("redis://localhost:6379"),

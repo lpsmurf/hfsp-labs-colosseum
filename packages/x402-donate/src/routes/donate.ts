@@ -3,6 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { findCharity } from '../catalog.js';
 import { verifyAndRoute } from '../router.js';
 import { BASE_USDC, FEES, config } from '../config.js';
+import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER, attachReceipt } from '@hfsp/x402-common';
+import { usesLegacyPayment, resolveAmount } from '../x402.js';
 import type { DonationReceipt } from '../types.js';
 
 export const donateRouter = Router();
@@ -24,16 +26,33 @@ donateRouter.get('/:id', async (req, res) => {
     return;
   }
 
-  const amount      = Math.max(Number(req.query.amount ?? 1), 0.01);
-  const amountMicro = Math.round(amount * 1_000_000).toString();
-  const resource    = `${req.protocol}://${req.get('host')}${req.path}`;
+  const amount   = resolveAmount(req.query.amount ?? 1);
+  const resource = `${req.protocol}://${req.get('host')}${req.path}`;
 
   const serviceFeeUsdc    = amount * FEES.servicePct / 100;
   const endaomentFeeUsdc  = (amount - serviceFeeUsdc) * FEES.endaomentAdminPct / 100;
   const netToCharityUsdc  = amount - serviceFeeUsdc - endaomentFeeUsdc;
 
-  res.status(402).json({
-    x402Version: 1,
+  const challenge = {
+    x402Version: 2 as const,
+    resource: {
+      url:         resource,
+      description: `Donate $${amount.toFixed(2)} USDC to ${charity.name}`,
+      mimeType:    'application/json',
+    },
+    accepts: [{
+      scheme:            'exact',
+      network:           NETWORKS.base,
+      amount:            usdc(amount),
+      asset:             USDC_ASSET.base,
+      payTo:             config.ROUTER_CONTRACT_ADDRESS,
+      maxTimeoutSeconds: 300,
+      extra:             {},
+    }],
+  };
+
+  res.set(HEADER.required, encode(challenge)).status(402).json({
+    ...challenge,
     error:       'Payment required to complete donation',
     description: `Donate $${amount.toFixed(2)} USDC to ${charity.name}`,
     charity: {
@@ -55,23 +74,11 @@ donateRouter.get('/:id', async (req, res) => {
       netToCharityUsdc:    parseFloat(netToCharityUsdc.toFixed(4)),
       feesNote:            'The 3% service fee is enforced transparently on-chain — visible in DonationRouter contract events. We pay gas for the route() call.',
     },
-    accepts: [
-      {
-        scheme:            'exact',
-        network:           'base-mainnet',
-        maxAmountRequired: amountMicro,
-        asset:             BASE_USDC,
-        payTo:             config.ROUTER_CONTRACT_ADDRESS,
-        resource,
-        description:       `Donate to ${charity.name} via x402-donate / Endaoment`,
-        mimeType:          'application/json',
-        maxTimeoutSeconds: 300,
-      },
-    ],
     howToPay: [
-      `1. Send ${amount.toFixed(2)} USDC (${BASE_USDC}) on Base to the DonationRouter: ${config.ROUTER_CONTRACT_ADDRESS}`,
-      `2. POST to this URL with header  X-Payment: <txHash>`,
-      `3. Service calls route() on-chain → ${netToCharityUsdc.toFixed(4)} USDC reaches ${charity.name}`,
+      `Preferred: POST to this URL with a PAYMENT-SIGNATURE header (any x402 V2 client, e.g. @x402/fetch)`,
+      `Legacy 1. Send ${amount.toFixed(2)} USDC (${BASE_USDC}) on Base to the DonationRouter: ${config.ROUTER_CONTRACT_ADDRESS}`,
+      `Legacy 2. POST to this URL with header  X-Payment: <txHash>`,
+      `Either way: service calls route() on-chain → ${netToCharityUsdc.toFixed(4)} USDC reaches ${charity.name}`,
     ],
   });
 });
@@ -80,8 +87,10 @@ donateRouter.get('/:id', async (req, res) => {
 // Header: X-Payment: <Base USDC tx hash>
 // Body (optional): { amount: number }
 donateRouter.post('/:id', verifyLimiter, async (req, res) => {
+  const legacy = usesLegacyPayment(req);
   const txHash = (req.headers['x-payment'] as string | undefined)?.trim();
-  if (!txHash) {
+
+  if (legacy && !txHash) {
     res.status(400).json({ error: 'Missing X-Payment header (Base tx hash of USDC sent to DonationRouter)' });
     return;
   }
@@ -92,21 +101,49 @@ donateRouter.post('/:id', verifyLimiter, async (req, res) => {
     return;
   }
 
-  const minUsdc = Math.max(Number(req.body?.amount ?? req.query.amount ?? 0.01), 0.01);
+  const minUsdc = resolveAmount(req.body?.amount ?? req.query.amount);
+
+  // V2 path: payment is verified but NOT yet settled — x402 settles after this
+  // handler returns. The on-chain split runs in the afterSettle hook in x402.ts,
+  // so there is no routeTxHash to report here. The client's proof of payment is
+  // the PAYMENT-RESPONSE header the middleware attaches on the way out.
+  if (!legacy) {
+    const fee = minUsdc * FEES.servicePct / 100;
+    res.status(200).json({
+      success: true,
+      pending: true,
+      charity: { id: charity.id, name: charity.name, baseAddress: charity.baseAddress },
+      donationUsdc: minUsdc,
+      estimatedNetToCharityUsdc: parseFloat((minUsdc - fee - (minUsdc - fee) * FEES.endaomentAdminPct / 100).toFixed(4)),
+      message: `Thank you! Your donation to ${charity.name} is settling on-chain now.`,
+      note: 'Settlement details are in the PAYMENT-RESPONSE header. The 97/3 split is executed by DonationRouter immediately after settlement.',
+      onChainProof: {
+        routerContract: `https://basescan.org/address/${config.ROUTER_CONTRACT_ADDRESS}`,
+        endaomentOrg:   `https://app.endaoment.org/orgs/${charity.ein ?? charity.id}`,
+      },
+    });
+    return;
+  }
 
   const { ok, error, paidUsdc, netToCharityUsdc, routeTxHash } =
-    await verifyAndRoute(txHash, charity.baseAddress, minUsdc);
+    await verifyAndRoute(txHash!, charity.baseAddress, minUsdc);
 
   if (!ok) {
     res.status(402).json({ error });
     return;
   }
 
+  attachReceipt(res, {
+    success:     true,
+    network:     'base',
+    transaction: routeTxHash ?? txHash!,
+  });
+
   const receipt: DonationReceipt = {
     charityId:        charity.id,
     charityName:      charity.name,
     baseAddress:      charity.baseAddress,
-    txHash,
+    txHash:           txHash!,
     routeTxHash:      routeTxHash ?? null,
     paidUsdc,
     netToCharityUsdc: netToCharityUsdc ?? 0,

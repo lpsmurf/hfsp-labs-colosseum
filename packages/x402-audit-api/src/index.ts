@@ -4,7 +4,8 @@ import { fileURLToPath } from 'url';
 import express           from 'express';
 import helmet            from 'helmet';
 import { auditRouter }   from './routes/audit.js';
-import { config, AUDIT_PRICE_USDC, BASE_USDC } from './config.js';
+import { x402Gate }      from './x402.js';
+import { config, AUDIT_PRICE_USDC } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,9 @@ app.use(helmet());
 app.use(express.json({ limit: '32kb' }));
 app.set('trust proxy', 1);
 
+// x402 V2 gate runs before the router: a PAYMENT-SIGNATURE request is verified
+// and settled here, so auditRouter only ever sees paid traffic on that path.
+app.use(x402Gate);
 app.use('/audit', auditRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'x402-audit-api' }));

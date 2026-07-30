@@ -1,7 +1,7 @@
 {
   "name": "@clawdrop/vpn",
   "version": "0.1.0",
-  "description": "x402-gated anonymous HTTP proxy — pay USDC, get a time-limited session. Registered on SAP marketplace.",
+  "description": "x402-gated anonymous HTTP proxy \u2014 pay USDC, get a time-limited session. Registered on SAP marketplace.",
   "author": "Clawdrop <info@hfsp.xyz>",
   "license": "MIT",
   "type": "module",
@@ -17,7 +17,8 @@
     "better-sqlite3": "^9.6.0",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "@hfsp/x402-common": "file:../x402-common"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

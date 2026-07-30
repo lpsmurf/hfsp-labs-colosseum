@@ -6,7 +6,9 @@ import { runStaticAnalysis } from '../static/index.js';
 import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
 import { generateAIFeedback } from '../ai-feedback.js';
-import { BASE_USDC, SOLANA_USDC_MINT, AUDIT_PRICE_USDC, config } from '../config.js';
+import { AUDIT_PRICE_USDC, config } from '../config.js';
+import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER, attachReceipt } from '@hfsp/x402-common';
+import { usesLegacyPayment } from '../x402.js';
 
 export const auditRouter = Router();
 
@@ -38,67 +40,81 @@ auditRouter.get('/', (req, res) => {
     return;
   }
 
-  const amountMicro = Math.round(AUDIT_PRICE_USDC * 1_000_000).toString();
-  const resource    = `${req.protocol}://${req.get('host')}/audit`;
+  const resource = `${req.protocol}://${req.get('host')}/audit`;
 
-  res.status(402).json({
-    x402Version: 1,
-    error:       'Payment required to run security audit',
-    description: `x402 security audit for ${repo}`,
-    audit: {
-      repo,
-      includes: [
-        'Static analysis — CORS misconfiguration, payment bypass patterns, exposed secrets',
-        'Dynamic probing — live auth bypass test, CORS probe, info-leak probe',
-      ],
-      turnaround: '~30 seconds',
-    },
-    costBreakdown: {
-      priceUsdc:  AUDIT_PRICE_USDC,
-      serviceFee: '100% — no third-party fees',
-      note:       'One audit per payment. Payment verified on Base before analysis runs.',
+  // Spec-shaped V2 challenge, one `accepts` entry per network. The base64 form
+  // goes in the PAYMENT-REQUIRED header for standard clients; the JSON body
+  // carries the same thing plus the human-readable extras.
+  const challenge = {
+    x402Version: 2 as const,
+    resource: {
+      url:         resource,
+      description: `x402 security audit for ${repo}`,
+      mimeType:    'application/json',
     },
     accepts: [
       {
         scheme:            'exact',
-        network:           'base-mainnet',
-        maxAmountRequired: amountMicro,
-        asset:             BASE_USDC,
+        network:           NETWORKS.base,
+        amount:            usdc(AUDIT_PRICE_USDC),
+        asset:             USDC_ASSET.base,
         payTo:             config.PAYMENT_RECIPIENT_BASE,
-        resource,
-        description:       `x402 security audit: ${repo} (Base USDC)`,
-        mimeType:          'application/json',
         maxTimeoutSeconds: 300,
+        extra:             {},
       },
       {
         scheme:            'exact',
-        network:           'solana-mainnet',
-        maxAmountRequired: amountMicro,
-        asset:             SOLANA_USDC_MINT,
+        network:           NETWORKS.solana,
+        amount:            usdc(AUDIT_PRICE_USDC),
+        asset:             USDC_ASSET.solana,
         payTo:             config.PAYMENT_RECIPIENT_SOL,
-        resource,
-        description:       `x402 security audit: ${repo} (Solana USDC)`,
-        mimeType:          'application/json',
         maxTimeoutSeconds: 300,
+        extra:             {},
       },
     ],
-    howToPay: [
-      `Option A (Base):    Send ${AUDIT_PRICE_USDC} USDC on Base to ${config.PAYMENT_RECIPIENT_BASE}`,
-      `Option B (Solana):  Send ${AUDIT_PRICE_USDC} USDC on Solana to ${config.PAYMENT_RECIPIENT_SOL}`,
-      `Then POST /audit with X-Payment: <txHash or signature> and body { "repo": "${repo}" }`,
-    ],
-  });
+  };
+
+  res.set(HEADER.required, encode(challenge))
+     .status(402)
+     .json({
+       ...challenge,
+       error:       'Payment required to run security audit',
+       audit: {
+         repo,
+         includes: [
+           'Static analysis — CORS misconfiguration, payment bypass patterns, exposed secrets',
+           'Dynamic probing — live auth bypass test, CORS probe, info-leak probe',
+         ],
+         turnaround: '~30 seconds',
+       },
+       costBreakdown: {
+         priceUsdc:  AUDIT_PRICE_USDC,
+         serviceFee: '100% — no third-party fees',
+         note:       'One audit per payment. Payment verified on-chain before analysis runs.',
+       },
+       howToPay: [
+         `Preferred: POST /audit with a PAYMENT-SIGNATURE header (any x402 V2 client, e.g. @x402/fetch)`,
+         `Legacy (Base):   send ${AUDIT_PRICE_USDC} USDC on Base to ${config.PAYMENT_RECIPIENT_BASE}`,
+         `Legacy (Solana): send ${AUDIT_PRICE_USDC} USDC on Solana to ${config.PAYMENT_RECIPIENT_SOL}`,
+         `Then POST /audit with X-Payment: <txHash or signature> and body { "repo": "${repo}" }`,
+       ],
+     });
 });
 
 // POST /audit
 // Body: { repo: string, endpoint?: string }
-// Header: X-Payment: <Base tx hash>
+//
+// Payment arrives one of two ways:
+//   - PAYMENT-SIGNATURE — already verified and settled by the x402 middleware
+//     before this handler runs, so there is nothing left to check here.
+//   - X-Payment: <txHash|signature> — legacy flow, verified below.
 auditRouter.post('/', limiter, async (req, res) => {
+  const legacy   = usesLegacyPayment(req);
   const txHash   = (req.headers['x-payment'] as string | undefined)?.trim();
   const repo     = typeof req.body?.repo     === 'string' ? req.body.repo.trim()     : null;
   const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint.trim() : null;
 
-  if (!txHash) {
+  if (legacy && !txHash) {
     res.status(400).json({ error: 'Missing X-Payment header' });
     return;
   }
@@ -124,11 +140,21 @@ auditRouter.post('/', limiter, async (req, res) => {
     }
   }
 
-  // Verify payment first
-  const { ok, error } = await verifyPayment(txHash);
-  if (!ok) {
-    res.status(402).json({ error });
-    return;
+  // Legacy path only. A V2 payment was already verified and settled by the
+  // facilitator in the middleware — reaching this handler at all means it passed.
+  if (legacy) {
+    const { ok, error, chain } = await verifyPayment(txHash!);
+    if (!ok) {
+      res.status(402).json({ error });
+      return;
+    }
+    // Legacy clients never got a machine-readable receipt. Give them one so an
+    // agent can record what it spent without parsing prose.
+    attachReceipt(res, {
+      success:     true,
+      network:     chain === 'solana' ? 'solana' : 'base',
+      transaction: txHash!,
+    });
   }
 
   // Run the audit

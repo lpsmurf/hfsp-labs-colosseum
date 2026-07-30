@@ -1,7 +1,12 @@
 // Verifies a Solana mainnet USDC transfer via Helius enhanced getTransaction.
 // Returns the sender wallet so callers can apply agent-discount rules.
 
-const HELIUS_RPC = process.env.HELIUS_RPC_URL;
+// Read through config rather than process.env directly: config validates the URL
+// at boot, so this is a string and not `string | undefined`. Reading the raw env
+// var here was a type error that stopped `tsc` — and therefore `npm run build`.
+import env from "../config.js";
+
+const HELIUS_RPC = env.HELIUS_RPC_URL;
 
 export interface VerifyResult {
   ok:      boolean;

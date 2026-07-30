@@ -5,6 +5,11 @@ const envSchema = z.object({
   PORT:                z.string().default('3008'),
   NODE_ENV:            z.string().default('development'),
 
+  // x402 V2 facilitator — verifies and settles payments on our behalf.
+  // NOT x402.org: that one is testnet-only and these are mainnet routes.
+  // @hfsp/x402-common throws at boot if this is set to x402.org.
+  FACILITATOR_URL:         z.string().url().default('https://facilitator.payai.network'),
+
   // Base (EVM) payment
   BASE_RPC_URL:            z.string().default('https://mainnet.base.org'),
   PAYMENT_RECIPIENT_BASE:  z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Must be a valid EVM address'),

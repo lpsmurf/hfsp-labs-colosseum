@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER } from '@hfsp/x402-common';
 import type Database from 'better-sqlite3';
 import { createSession } from './db.js';
 
@@ -83,26 +84,32 @@ export function sessionHandler(
     const hours = parseInt(String(rawHours));
     const tier = TIERS[hours] ?? TIERS[1];
     const tierHours = TIERS[hours] ? hours : 1;
-    const usdcMicro = Math.round(tier.usdc * 1_000_000).toString();
+    const proof = readProof(req.headers as Record<string, unknown>, 'X-Payment');
 
-    const paymentSig = (req.headers['x-payment'] as string | undefined)?.trim();
-
-    if (!paymentSig) {
-      res.status(402).json({
-        x402Version: 1,
-        error: 'Payment required',
-        description: `Pay ${tier.usdc} USDC on Solana to get ${tier.label} of anonymous proxy access.`,
-        accepts: [{
-          scheme: 'exact',
-          network: 'solana-mainnet',
-          maxAmountRequired: usdcMicro,
-          asset: USDC_MINT,
-          payTo: walletPublicKey,
-          resource: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
+    if (!proof) {
+      const resource = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const challenge = {
+        x402Version: 2 as const,
+        resource: {
+          url: resource,
           description: `Clawdrop VPN — ${tier.label} anonymous proxy session (HTTP CONNECT)`,
           mimeType: 'application/json',
+        },
+        accepts: [{
+          scheme: 'exact',
+          network: NETWORKS.solana,
+          amount: usdc(tier.usdc),
+          asset: USDC_MINT,
+          payTo: walletPublicKey,
           maxTimeoutSeconds: 300,
+          extra: {},
         }],
+      };
+
+      res.set(HEADER.required, encode(challenge)).status(402).json({
+        ...challenge,
+        error: 'Payment required',
+        description: `Pay ${tier.usdc} USDC on Solana to get ${tier.label} of anonymous proxy access.`,
         tiers: Object.entries(TIERS).map(([h, t]) => ({
           hours: parseInt(h),
           usdc: t.usdc,
@@ -113,11 +120,15 @@ export function sessionHandler(
       return;
     }
 
+    const paymentSig = proof.value;
+
     const { ok, error, paid } = await verifyPayment(paymentSig, walletPublicKey, tier.usdc);
     if (!ok) {
       res.status(402).json({ error });
       return;
     }
+
+    attachReceipt(res, { success: true, network: 'solana', transaction: paymentSig });
 
     const token = crypto.randomUUID();
     const session = createSession(db, token, tierHours, paymentSig, paid);

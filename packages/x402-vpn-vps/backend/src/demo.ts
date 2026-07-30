@@ -36,7 +36,9 @@ import * as crypto from "crypto";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const VPN_API   = process.env.VPN_API_URL   ?? "https://vpn.hfsp.cloud";
-const SOL_RPC   = process.env.HELIUS_RPC_URL;
+// Falling back to the public RPC keeps this a plain string. Reading the env var
+// bare left it `string | undefined`, which failed `tsc` and broke the build.
+const SOL_RPC   = process.env.HELIUS_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 // Agent wallet pays micro-price (100 atomic = $0.0001) for full provisioning.

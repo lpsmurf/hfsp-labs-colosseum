@@ -12,9 +12,18 @@ openapi:
 Pay-per-use anonymous VPN and ephemeral VPS infrastructure. A single POST returns a
 ready-to-use WireGuard config or SSH IP — no accounts, no identity, no logs.
 
-Payment is Solana mainnet USDC via the x402 protocol. Send the USDC transfer,
-then retry the original request with `X-Solana-Tx: <confirmed-signature>`. The
-server verifies on-chain via Helius and provisions immediately.
+Payment is Solana mainnet USDC via the x402 protocol (V2, `x402Version: 2`,
+network `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`).
+
+**Preferred — standard x402 V2.** Use any x402 client (`@x402/fetch`,
+`@x402/axios`, or the Python `x402` package). It reads the `PAYMENT-REQUIRED`
+header from the 402, signs a payment authorization, and retries with
+`PAYMENT-SIGNATURE`. A facilitator settles on-chain; you never broadcast a
+transaction and you never pay gas.
+
+**Legacy — direct transfer.** Send the USDC transfer yourself, then retry with
+`X-Solana-Tx: <confirmed-signature>`. The server verifies on-chain via Helius.
+Still supported, but you pay the gas and it takes two round trips.
 
 ## Endpoints at a glance
 
@@ -69,7 +78,8 @@ POST /api/vps/hour
 - **Network:** Solana mainnet (`solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`)
 - **Asset:** USDC (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, 6 decimals)
 - **Recipient:** `GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY`
-- **Header:** `X-Solana-Tx: <confirmed transaction signature>`
+- **Header (preferred):** `PAYMENT-SIGNATURE: <base64 PaymentPayload>` — produced automatically by any x402 V2 client
+- **Header (legacy):** `X-Solana-Tx: <confirmed transaction signature>`
 
 ## Spend-aware usage
 
