@@ -1,7 +1,7 @@
 {
   "name": "clawdrop",
   "version": "1.0.0",
-  "description": "Deploy per-user autonomous Solana AI agents powered by SendAI Agent Kit. Free trial chatbot → paid agent running 24/7.",
+  "description": "Deploy per-user autonomous Solana AI agents powered by SendAI Agent Kit. Free trial chatbot \u2192 paid agent running 24/7.",
   "private": true,
   "license": "MIT",
   "engines": {
@@ -27,6 +27,7 @@
     "packages/trial-frontend",
     "packages/wdk-solana-swap",
     "packages/wdk-tron-swap",
+    "packages/x402-common",
     "packages/x402-audit-api",
     "packages/x402-donate",
     "packages/x402-vpn-vps",
