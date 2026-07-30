@@ -2,6 +2,7 @@ import './config.js'; // validates env on startup
 import express from 'express';
 import helmet from 'helmet';
 import { noLogs } from './middleware/noLogs.js';
+import { bridgeRouter } from './routes/bridge.js';
 import { cardRouter } from './routes/card.js';
 import { healthRouter } from './routes/health.js';
 import { config } from './config.js';
@@ -33,6 +34,7 @@ app.use(express.json({ limit: '64kb' }));
 app.set('trust proxy', 1);
 
 app.use('/health', healthRouter);
+app.use('/api/bridge', bridgeRouter);
 app.use('/api/card', cardRouter);
 
 // 404

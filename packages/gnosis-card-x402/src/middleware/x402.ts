@@ -1,13 +1,14 @@
 /**
- * x402 payment verification middleware.
- * Supports Solana USDC (via Helius) and Base USDC (via Base RPC).
+ * x402 payment verification for body-priced routes.
  *
- * X-Payment header carries a tx signature/hash.
- * X-Payment-Chain header: "solana" (default) | "base"
+ * Speaks the V2 wire format (PAYMENT-REQUIRED / PAYMENT-SIGNATURE /
+ * PAYMENT-RESPONSE, CAIP-2 networks) while settling through our own on-chain
+ * verifier. `X-Payment` is still accepted for existing integrations.
  */
 
 import type { Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
+import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER } from '@hfsp/x402-common';
 import { USDC_MINT, BASE_USDC, HELIUS_RPC, type SourceChain, config } from '../config.js';
 
 const MAX_AGE_SECS   = 300;
@@ -106,6 +107,21 @@ async function verifyBase(
 
 // ── Gate factory ──────────────────────────────────────────────────────────────
 
+/**
+ * Payment gate for routes whose price comes from the request body.
+ *
+ * These cannot use the x402 SDK's route config: its dynamic-price callback only
+ * sees the path, method and query string — never the parsed body — so a top-up of
+ * "$25" priced from `req.body.amount` is not expressible there. Settlement stays
+ * on our own verifier as a result.
+ *
+ * What this DOES do is speak the V2 wire format: a `PAYMENT-REQUIRED` header with
+ * CAIP-2 networks and `x402Version: 2`, acceptance of `PAYMENT-SIGNATURE`, and a
+ * `PAYMENT-RESPONSE` receipt. That makes the endpoint discoverable and parseable
+ * by standard clients even though settlement is still ours.
+ *
+ * Fixed-price routes should use `sdkGate` below instead — it is fully standard.
+ */
 export function makeX402Gate(opts: {
   amountUsdc:   number | ((req: Request) => number);
   description:  string | ((req: Request) => string);
@@ -114,56 +130,70 @@ export function makeX402Gate(opts: {
   return function x402Gate(req: Request, res: Response, next: NextFunction) {
     const amount      = typeof opts.amountUsdc  === 'function' ? opts.amountUsdc(req)  : opts.amountUsdc;
     const description = typeof opts.description === 'function' ? opts.description(req) : opts.description;
-    const usdcMicro   = Math.round(amount * 1_000_000).toString();
-    const paymentSig  = (req.headers['x-payment']       as string | undefined)?.trim();
-    const chain       = ((req.headers['x-payment-chain'] as string | undefined)?.trim() ?? 'solana') as SourceChain;
     const resource    = opts.resource ?? `${req.protocol}://${req.get('host')}${req.path}`;
 
-    if (!paymentSig) {
-      res.status(402).json({
-        x402Version: 1,
-        error:       'Payment required',
-        description,
+    const proof = readProof(req.headers as Record<string, unknown>, 'X-Payment');
+
+    if (!proof) {
+      const challenge = {
+        x402Version: 2 as const,
+        resource: { url: resource, description, mimeType: 'application/json' },
         accepts: [
           {
             scheme:            'exact',
-            network:           'solana-mainnet',
-            maxAmountRequired: usdcMicro,
+            network:           NETWORKS.solana,
+            amount:            usdc(amount),
             asset:             USDC_MINT,
             payTo:             config.WALLET_PUBLIC_KEY,
-            resource,
-            description,
-            mimeType:          'application/json',
             maxTimeoutSeconds: 300,
+            extra:             {},
           },
           {
             scheme:            'exact',
-            network:           'base-mainnet',
-            maxAmountRequired: usdcMicro,
+            network:           NETWORKS.base,
+            amount:            usdc(amount),
             asset:             BASE_USDC,
             payTo:             config.EVM_WALLET_ADDRESS,
-            resource,
-            description,
-            mimeType:          'application/json',
             maxTimeoutSeconds: 300,
+            extra:             {},
           },
         ],
-      });
+      };
+      res.set(HEADER.required, encode(challenge))
+         .status(402)
+         .json({ ...challenge, error: 'Payment required', description });
       return;
     }
 
+    const chain = detectChain(req, proof.value);
+
     const verify = chain === 'base'
-      ? verifyBase(paymentSig, config.EVM_WALLET_ADDRESS, amount)
-      : verifySolana(paymentSig, config.WALLET_PUBLIC_KEY, amount);
+      ? verifyBase(proof.value, config.EVM_WALLET_ADDRESS, amount)
+      : verifySolana(proof.value, config.WALLET_PUBLIC_KEY, amount);
 
     verify
       .then(({ ok, error, paid }) => {
         if (!ok) { res.status(402).json({ error }); return; }
-        res.locals.payment = { paidUsdc: paid, signature: paymentSig, chain };
+        attachReceipt(res, { success: true, network: chain, transaction: proof.value });
+        res.locals.payment = { paidUsdc: paid, signature: proof.value, chain };
         next();
       })
       .catch((err: unknown) => {
         res.status(500).json({ error: `Payment verification error: ${err instanceof Error ? err.message : String(err)}` });
       });
   };
+}
+
+/**
+ * Work out which chain a proof belongs to.
+ *
+ * Prefers the shape of the proof itself — Base tx hashes are `0x` + 64 hex chars,
+ * Solana signatures are base58 with no prefix — so callers no longer need the
+ * non-standard `X-Payment-Chain` header. That header is still honoured when
+ * present so existing integrations keep working.
+ */
+function detectChain(req: Request, proof: string): SourceChain {
+  const explicit = (req.headers['x-payment-chain'] as string | undefined)?.trim();
+  if (explicit === 'base' || explicit === 'solana') return explicit;
+  return proof.startsWith('0x') ? 'base' : 'solana';
 }
