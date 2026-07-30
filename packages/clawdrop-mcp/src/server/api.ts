@@ -67,11 +67,16 @@ export class ClawdropAPIServer {
     // ========================================================================
     // x402 Payment Protocol Middleware
     // ========================================================================
-    // Classifies all transactions and attaches payment metadata
-    this.app.use('/api/swap', x402Middleware);
-    this.app.use('/api/transfer', x402Middleware);
-    this.app.use('/api/booking', x402Middleware);
-    
+    // Classifies all transactions and attaches payment metadata.
+    // x402Middleware is a FACTORY — it must be invoked. Passing it uninvoked makes
+    // Express call it as the handler, discard the middleware it returns, and never
+    // call next(), which hangs every request on these routes.
+    const gate = x402Middleware();
+    this.app.use('/api/swap', gate);
+    this.app.use('/api/transfer', gate);
+    this.app.use('/api/booking', gate);
+
+
     logger.info({}, '[API_MIDDLEWARE_SETUP] x402 middleware attached to payment routes');
   }
 
