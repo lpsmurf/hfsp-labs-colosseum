@@ -347,6 +347,7 @@ export async function verifyPaymentTransaction(params: {
   actual_amount_sol?: number;
   actual_recipient?: string;
   confirmation_status?: string;
+  block_time?: number | null;
 }> {
   const { tx_hash, expected_recipient, min_amount_sol, network } = params;
 
@@ -475,6 +476,9 @@ export async function verifyPaymentTransaction(params: {
       actual_amount_sol,
       actual_recipient,
       confirmation_status: confirmationStatus,
+      // Callers enforcing a freshness window need this — a confirmed tx is valid
+      // forever on-chain, so age is the only thing stopping an old-receipt replay.
+      block_time: tx.blockTime ?? null,
     };
   } catch (error) {
     logger.error({ error, tx_hash }, 'verifyPaymentTransaction failed');

@@ -13,6 +13,7 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
 import { classifyTransaction } from '../services/transaction-classifier';
 import { calculateSwapFee, calculateTransferFee, calculateFlightFee, FEE_RATES } from '../services/fee-collector';
+import { verifyPaymentTransaction } from '../integrations/helius';
 
 export interface X402Options {
   solPrice?: number;
@@ -28,35 +29,73 @@ const DEFAULT_OPTIONS: X402Options = {
 
 const PLATFORM_WALLET = process.env.CLAWDROP_FEE_WALLET || process.env.CLAWDROP_WALLET_ADDRESS || '';
 
+const NETWORK: 'mainnet' | 'devnet' =
+  process.env.SOLANA_NETWORK === 'devnet' ? 'devnet' : 'mainnet';
+
+// A confirmed transaction stays valid on-chain forever, so without an age limit
+// one payment receipt would unlock the endpoint indefinitely.
+const MAX_PAYMENT_AGE_SECS = 300;
+
+// Replay protection. In-memory, so it does NOT hold across a restart or a second
+// replica — matches the other Clawdrop services for now. Move to Redis (SET NX,
+// as x402-vpn-vps does) before running this behind more than one process.
+const usedSignatures = new Map<string, NodeJS.Timeout>();
+
+function claimSignature(signature: string): boolean {
+  if (usedSignatures.has(signature)) return false;
+  const timer = setTimeout(() => usedSignatures.delete(signature), MAX_PAYMENT_AGE_SECS * 3 * 1000);
+  timer.unref?.();
+  usedSignatures.set(signature, timer);
+  return true;
+}
+
+/** Undo a claim for a proof that turned out not to be spendable. */
+function releaseSignature(signature: string): void {
+  const timer = usedSignatures.get(signature);
+  if (timer) clearTimeout(timer);
+  usedSignatures.delete(signature);
+}
+
+/** Test seam — lets the suite start from a clean replay cache. */
+export function __resetReplayCache(): void {
+  for (const timer of usedSignatures.values()) clearTimeout(timer);
+  usedSignatures.clear();
+}
+
+// CAIP-2 id for Solana mainnet — the first 32 chars of the genesis hash.
+// V1 spelled this "solana-mainnet", which no V2 facilitator or client accepts.
+const SOLANA_MAINNET = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+const SOLANA_DEVNET  = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+
 interface PaymentRequirements {
-  version: string;
+  x402Version: 2;
+  resource: { url: string; description: string; mimeType: string };
   accepts: Array<{
     scheme: string;
     network: string;
     asset: string;
-    maxAmountRequired: string;
-    extra: {
-      recipient: string;
-      memo: string;
-    };
+    amount: string;
+    payTo: string;
+    maxTimeoutSeconds: number;
+    extra: Record<string, unknown>;
   }>;
 }
 
-function buildPaymentRequirements(feeSol: number): PaymentRequirements {
-  // Convert SOL fee to lamports for maxAmountRequired
-  const maxAmountLamports = Math.ceil(feeSol * 1e9).toString();
+function buildPaymentRequirements(feeSol: number, resourceUrl: string, description: string): PaymentRequirements {
+  // Native SOL, so amounts are in lamports (9 decimals) rather than USDC's 6.
+  const lamports = Math.ceil(feeSol * 1e9).toString();
   return {
-    version: 'x402/1',
+    x402Version: 2,
+    resource: { url: resourceUrl, description, mimeType: 'application/json' },
     accepts: [
       {
         scheme: 'exact',
-        network: 'solana-mainnet',
+        network: NETWORK === 'devnet' ? SOLANA_DEVNET : SOLANA_MAINNET,
         asset: 'SOL',
-        maxAmountRequired: maxAmountLamports,
-        extra: {
-          recipient: PLATFORM_WALLET,
-          memo: 'clawdrop-api',
-        },
+        amount: lamports,
+        payTo: PLATFORM_WALLET,
+        maxTimeoutSeconds: 300,
+        extra: { memo: 'clawdrop-api' },
       },
     ],
   };
@@ -75,16 +114,11 @@ export function x402Middleware(options: X402Options = {}) {
         return next();
       }
 
-      // Check for payment proof header (X-Payment)
-      const paymentProof = req.headers['x-payment'] as string | undefined;
-      if (paymentProof) {
-        // TODO: verify payment proof on-chain via Helius
-        // For now, accept any non-empty proof as valid (production: validate)
-        logger.info({ path: req.path, proof: paymentProof.slice(0, 20) + '...' }, '[HFSP_X402_003] Payment proof received');
-        return next();
-      }
-
-      // Classify the transaction
+      // Classify the transaction.
+      //
+      // This has to run BEFORE the payment check, not after: the fee depends on
+      // the transaction type and size, so there is no "amount required" to verify
+      // a proof against until classification has happened.
       const classification = classifyTransaction(req);
 
       logger.debug({
@@ -134,13 +168,63 @@ export function x402Middleware(options: X402Options = {}) {
         wallet: feeCalc.clawdrop_wallet,
       }, '[HFSP_X402_002] Transaction fee calculated');
 
-      // Check if payment is required
-      if (config.requirePayment) {
-        // Return 402 with payment instructions
+      // Payment gate disabled (dev / internal callers) — fee metadata is still attached.
+      if (!config.requirePayment) return next();
+
+      // Accept the V2 header, falling back to the legacy one.
+      const paymentProof =
+        (req.headers['payment-signature'] as string | undefined)?.trim() ||
+        (req.headers['x-payment'] as string | undefined)?.trim();
+      if (!paymentProof) {
         return respond402(req, res, 'Payment required to complete transaction');
       }
 
-      // Payment not required, continue
+      if (!PLATFORM_WALLET) {
+        // Fail closed. With no wallet configured there is nothing to verify a
+        // payment against, and waving requests through would be worse than a 500.
+        logger.error({ path: req.path }, '[HFSP_X402_005] No platform wallet configured — refusing to verify payment');
+        return res.status(500).json({ error: 'Payment verification unavailable: no recipient wallet configured' });
+      }
+
+      // Claim the signature before hitting the RPC, so two concurrent requests
+      // carrying the same proof can't both pass while verification is in flight.
+      if (!claimSignature(paymentProof)) {
+        logger.warn({ path: req.path, proof: paymentProof.slice(0, 20) + '...' }, '[HFSP_X402_006] Replayed payment proof rejected');
+        return respond402(req, res, 'Payment proof already used');
+      }
+
+      const verification = await verifyPaymentTransaction({
+        tx_hash:            paymentProof,
+        expected_recipient: PLATFORM_WALLET,
+        min_amount_sol:     feeCalc.fee_sol,
+        network:            NETWORK,
+      });
+
+      if (!verification.verified) {
+        // Release the claim — the proof was never spent, and a caller who hit a
+        // transient RPC failure must be able to retry with the same signature.
+        releaseSignature(paymentProof);
+        logger.warn({ path: req.path, reason: verification.reason }, '[HFSP_X402_004] Payment verification failed');
+        return respond402(req, res, `Payment verification failed: ${verification.reason}`);
+      }
+
+      const ageSecs = verification.block_time
+        ? Date.now() / 1000 - verification.block_time
+        : 0;
+      if (ageSecs > MAX_PAYMENT_AGE_SECS) {
+        releaseSignature(paymentProof);
+        logger.warn({ path: req.path, ageSecs }, '[HFSP_X402_007] Stale payment proof rejected');
+        return respond402(req, res, `Payment expired (${Math.round(ageSecs)}s old, max ${MAX_PAYMENT_AGE_SECS}s)`);
+      }
+
+      logger.info({
+        path: req.path,
+        paid_sol: verification.actual_amount_sol,
+        required_sol: feeCalc.fee_sol,
+      }, '[HFSP_X402_003] Payment verified on-chain');
+
+      req.clawdrop.payment_verified = true;
+      req.clawdrop.payment_signature = paymentProof;
       next();
     } catch (error) {
       logger.error({ error }, '[HFSP_X402_ERROR] x402 middleware error');
@@ -167,6 +251,20 @@ export function attachX402Headers(req: Request, res: Response): void {
 }
 
 /**
+ * Best-effort absolute URL for the requested resource.
+ *
+ * `respond402` is exported and gets called with partial Request objects (tests,
+ * other middleware), so nothing here may assume a fully-formed Express request —
+ * a missing `req.get` must not turn a 402 into a 500.
+ */
+function buildResourceUrl(req: Request): string {
+  const host = typeof req.get === 'function' ? req.get('host') : undefined;
+  const proto = req.protocol ?? 'https';
+  const path = req.originalUrl ?? req.path ?? '';
+  return `${proto}://${host ?? 'localhost'}${path}`;
+}
+
+/**
  * Respond with 402 Payment Required
  */
 export function respond402(req: Request, res: Response, message?: string): void {
@@ -176,12 +274,16 @@ export function respond402(req: Request, res: Response, message?: string): void 
   }
 
   const feeSol = req.clawdrop.fee_sol || 0;
-  const paymentReqs = buildPaymentRequirements(feeSol);
+  const resourceUrl = buildResourceUrl(req);
+  const description = `Clawdrop ${req.clawdrop.transaction_type || 'transfer'} fee`;
+  const paymentReqs = buildPaymentRequirements(feeSol, resourceUrl, description);
   const paymentReqsB64 = Buffer.from(JSON.stringify(paymentReqs)).toString('base64');
 
-  // Spec-compliant headers
+  // PAYMENT-REQUIRED is the V2 challenge header. This previously used
+  // X-Payment-Response, which is the *settlement receipt* header — a client
+  // reading it as a receipt would have seen a challenge and mis-parsed it.
+  res.setHeader('PAYMENT-REQUIRED', paymentReqsB64);
   res.setHeader('WWW-Authenticate', 'x402');
-  res.setHeader('X-Payment-Response', paymentReqsB64);
   res.setHeader('Accept-Payment', 'x402');
 
   // Legacy headers for backwards compatibility
