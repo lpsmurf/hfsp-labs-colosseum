@@ -1,7 +1,7 @@
 {
   "name": "clawdrop-mcp",
   "version": "0.2.1",
-  "description": "Clawdrop MCP Server - Deploy and manage AI agents on Solana",
+  "description": "Clawdrop MCP gateway \u2014 transaction classification, x402 fee enforcement, CLI wizard",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {

@@ -26,5 +26,6 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
-  }
+  },
+  "description": "Exposes Solana Agent Kit actions as MCP tools on the 2026-07-28 SDK \u2014 replaces @solana-agent-kit/adapter-mcp"
 }

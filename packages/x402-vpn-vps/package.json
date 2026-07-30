@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev:backend":  "cd backend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "build":        "bash scripts/deploy.sh",
-    "start":        "pm2 startOrReload pm2.config.js --update-env && pm2 save",
-    "test":         "cd contracts && npm test"
-  }
+    "build": "bash scripts/deploy.sh",
+    "start": "pm2 startOrReload pm2.config.js --update-env && pm2 save",
+    "test": "cd contracts && npm test"
+  },
+  "description": "x402-gated WireGuard VPN passes and ephemeral Hetzner VPS servers \u2014 Solana mainnet USDC"
 }
