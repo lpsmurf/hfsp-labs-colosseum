@@ -4,6 +4,7 @@ import { verifyPayment }     from '../verify.js';
 import { fetchRepo, parseRepoUrl, GitHubError } from '../github.js';
 import { analyzeStatic }     from '../static/index.js';
 import { runSupplyChainAnalysis } from '../supply/index.js';
+import { runAiDetection }    from '../ai/detect.js';
 import {
   TIERS, DEFAULT_TIER, parseTier, engineSet, tierCatalog, redactForPreview,
 } from '../tiers.js';
@@ -78,13 +79,22 @@ async function runAudit(repo: string, endpoint: string | null, tier: Tier) {
 
   // Needs the static pass first: patch-age is only scored on files the static
   // rules already called security-critical.
-  const supply = await runSupplyChainAnalysis(
-    repoMeta.owner,
-    repoMeta.repo,
-    repoMeta.files,
-    staticResult.criticalPaths,
-    engines,
-  );
+  //
+  // The AI pass is independent of the static results — it reads source and
+  // reasons, which is the only route to the logic bugs patterns cannot reach —
+  // so it runs alongside rather than after.
+  const [supply, ai] = await Promise.all([
+    runSupplyChainAnalysis(
+      repoMeta.owner,
+      repoMeta.repo,
+      repoMeta.files,
+      staticResult.criticalPaths,
+      engines,
+    ),
+    engines.has('ai-detect')
+      ? runAiDetection(repoMeta.files)
+      : Promise.resolve(null),
+  ]);
 
   const report = buildReport(
     repo,
@@ -92,11 +102,11 @@ async function runAudit(repo: string, endpoint: string | null, tier: Tier) {
     liveUrl,
     repoMeta.files.length,
     !!liveUrl,
-    [...staticResult.findings, ...dynamicFindings, ...supply.findings],
+    [...staticResult.findings, ...dynamicFindings, ...supply.findings, ...(ai?.findings ?? [])],
     staticResult.coverage,
   );
 
-  return { report, engines };
+  return { report, engines, ai };
 }
 
 // GET /audit/tiers — what can be bought, and what is not buyable yet.
@@ -239,7 +249,10 @@ auditRouter.get('/', (req, res) => {
            'Static analysis (Solana/Anchor) — missing signer and owner checks, unconstrained accounts, PDA bump canonicalization, arbitrary CPI, account revival, overflow-checks',
            'Verification-cache correctness (Solidity/Rust/C++) — cache-hit short-circuits and keys that do not bind the verified object',
            'Dynamic probing — live auth bypass test, CORS probe, info-leak probe',
-           'Every finding carries a confidence level; Clarity and Move files are counted but not yet analysed',
+           'Dependency advisories (OSV) and patch age on security-critical paths',
+           'AI pass — reads the source and proposes its own loss-of-funds findings, which is the only engine here that reaches logic and accounting bugs rather than known patterns',
+           'Every finding carries a confidence level. AI findings are unverified hypotheses capped at MEDIUM, and any citing code we did not send are discarded rather than reported',
+           'Clarity and Move files are counted but not yet analysed — see meta.coverage',
          ],
          turnaround: tier.turnaround,
          notIncluded: [
@@ -341,7 +354,7 @@ auditRouter.post('/', limiter, async (req, res) => {
 
   // Run the audit
   try {
-    const { report, engines } = await runAudit(repo, endpoint, tier);
+    const { report, engines, ai } = await runAudit(repo, endpoint, tier);
 
     // AI feedback via ACE Data Cloud (OpenAI gpt-4o-mini, paid via x402)
     const aiFeedback = engines.has('ai-summary')
@@ -360,6 +373,17 @@ auditRouter.post('/', limiter, async (req, res) => {
       aiFeedback,
       // Honest statement of what this tier did not look at, so a clean report
       // is never mistaken for a complete one.
+      aiPass: ai
+        ? {
+            model:        ai.meta.model,
+            filesRead:    ai.meta.filesSent,
+            filesOmitted: ai.meta.filesOmitted,
+            proposed:     ai.findings.length,
+            discarded:    ai.meta.rejected,
+            ...(ai.meta.error ? { error: ai.meta.error } : {}),
+            note: 'AI findings are unverified hypotheses, capped at MEDIUM confidence. Findings citing code that was not sent are discarded, not reported.',
+          }
+        : null,
       notAnalysed: {
         crossFile:    'Rules are file-local: no inheritance graph, no call graph, no type resolution. T2 adds this.',
         languages:    Object.keys(report.meta.coverage ?? {}).filter(l => l === 'clarity' || l === 'move'),

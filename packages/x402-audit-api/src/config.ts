@@ -19,9 +19,20 @@ const envSchema = z.object({
   PAYMENT_RECIPIENT_SOL:   z.string().min(32, 'Must be a valid Solana base58 address'),
 
   GITHUB_TOKEN:        z.string().optional(),
-  // ACE Data Cloud — OpenAI via x402 (used for AI feedback on audit findings)
+  // ACE Data Cloud — OpenAI via x402 (AI summary, and the fallback detection
+  // transport). The audit service buying its own inference over the protocol it
+  // audits is deliberate.
   ACEDATA_API_KEY:               z.string().optional(),
   ACEDATA_FACILITATOR_ADDRESS:   z.string().optional(),
+
+  // AI detection pass. Unlike the summary, this reads source and proposes its
+  // own findings, so quality is model-bound — 81% of real audit findings are
+  // logic bugs that need reasoning, not pattern matching.
+  ANTHROPIC_API_KEY:             z.string().optional(),
+  AI_DETECT_MODEL:               z.string().default('claude-sonnet-5'),
+  AI_DETECT_MODEL_FALLBACK:      z.string().default('gpt-4o'),
+  // ~160k chars is roughly 40k tokens of source, leaving room for the response.
+  AI_DETECT_CHAR_BUDGET:         z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
