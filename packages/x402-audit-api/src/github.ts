@@ -96,12 +96,18 @@ const WANTED = [
 // it looks: Foundry installs dependencies into lib/, so without this a contract
 // repo spends its entire file budget on lib/openzeppelin-contracts and we end up
 // auditing OpenZeppelin instead of the code we were pointed at.
+// `dependencies/` is the same trap as `lib/` under a different name: aave-v3-core
+// vendors OpenZeppelin there, and 9 of 10 findings on that repo were against
+// vendored OZ rather than Aave's own code.
 const EXCLUDED =
-  /(?:^|\/)(?:node_modules|lib|vendor|target|out|artifacts|cache|coverage|dist|build|\.git)\//i;
+  /(?:^|\/)(?:node_modules|lib|vendor|vendored|dependencies|deps|third[-_]party|target|out|artifacts|cache|coverage|dist|build|\.git)\//i;
 
-// Solidity tests (Foo.t.sol) and test directories — intentionally unsafe code
-// lives here and reporting it is pure noise.
-const EXCLUDED_TESTS = /\.t\.sol$|(?:^|\/)tests?\//i;
+// Test code, fuzzing harnesses and audit fixtures. Intentionally unsafe code
+// lives here and reporting it is pure noise — Uniswap v3-core keeps Echidna
+// harnesses under audits/tob/contracts/crytic/, which produced three findings
+// against code written to be broken on purpose.
+const EXCLUDED_TESTS =
+  /\.t\.sol$|(?:^|\/)(?:tests?|mocks?|crytic|echidna|audits|fixtures)\//i;
 
 function isWanted(path: string): boolean {
   if (EXCLUDED.test(path) || EXCLUDED_TESTS.test(path)) return false;

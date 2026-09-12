@@ -39,18 +39,9 @@ const FILE_RULES: SolRule[] = [
     fix:        'Use `msg.sender` for authorization. `tx.origin` has no safe use as an access-control primitive.',
     refs:       ['SWC-115', 'CWE-863'],
   },
-  {
-    id:         'SOL-CALL-001',
-    // A low-level call in statement position: its bool return is discarded, so
-    // a failed transfer or callee revert is silently treated as success.
-    re:         /^[ \t]*[\w.[\]()]+\.(?:call|delegatecall|staticcall)\s*[({]/m,
-    severity:   'HIGH',
-    confidence: 'MEDIUM',
-    title:      'Return value of low-level call is discarded',
-    detail:     'A low-level call appears in statement position, so its `bool success` return is never read. Unlike a high-level call, a low-level call does not bubble up a revert — execution continues as if it succeeded.',
-    fix:        'Capture the result and act on it: `(bool ok, ) = target.call{value: v}(data); require(ok, "call failed");`',
-    refs:       ['SWC-104', 'CWE-252'],
-  },
+  // SOL-CALL-001 is not a table rule — see uncheckedLowLevelCall(). A
+  // line-anchored regex cannot tell a discarded result from an assignment split
+  // across two lines, which is how Uniswap v3's TransferHelper is written.
   {
     id:         'SOL-ERC20-001',
     // Bare transfer/transferFrom/approve on a token, result unchecked. Gated on
@@ -76,25 +67,17 @@ const FILE_RULES: SolRule[] = [
     refs:       ['SWC-120', 'CWE-330'],
   },
   {
-    id:         'SOL-PROXY-001',
-    re:         /function\s+initialize\s*\([^)]*\)\s*(?:external|public)[^{]*\{/,
-    unless:     /\binitializer\b|\breinitializer\b/,
-    severity:   'CRITICAL',
-    confidence: 'HIGH',
-    title:      'Unprotected initializer on an upgradeable contract',
-    detail:     'A public `initialize` function without the `initializer` modifier can be called by anyone, and can be called again after legitimate setup. Whoever calls it takes whatever ownership or configuration it assigns.',
-    fix:        'Add OpenZeppelin\'s `initializer` modifier, and call `_disableInitializers()` in the implementation constructor so the logic contract cannot be initialized directly.',
-    refs:       ['SWC-118', 'https://proxies.yacademy.dev/'],
-  },
-  {
     id:         'SOL-SIG-001',
     re:         /\becrecover\s*\(/,
-    unless:     /ECDSA\.(?:recover|tryRecover)|require\s*\([^)]*\bv\b\s*==\s*27|_v\s*==\s*27/,
-    severity:   'HIGH',
+    // A zero-address check is the half that actually matters; without a nonce
+    // the replay rule (SOL-SIG-002) covers the rest. Uniswap V2's permit checks
+    // `recoveredAddress != address(0)` and was being reported anyway.
+    unless:     /ECDSA\.(?:recover|tryRecover)|require\s*\([^)]*\bv\b\s*==\s*27|_v\s*==\s*27|!=\s*address\s*\(\s*0\s*\)/,
+    severity:   'MEDIUM',
     confidence: 'MEDIUM',
-    title:      'Raw ecrecover without malleability or zero-address handling',
+    title:      'Raw ecrecover without zero-address or malleability handling',
     detail:     'Called directly, `ecrecover` returns `address(0)` for a malformed signature rather than reverting, and accepts both the high and low `s` values for the same key — so one valid signature has a second, different encoding.',
-    fix:        'Use OpenZeppelin `ECDSA.recover`, which rejects the upper-range `s` and reverts instead of returning the zero address.',
+    fix:        'Use OpenZeppelin `ECDSA.recover`, which rejects the upper-range `s` and reverts instead of returning the zero address. At minimum, reject `address(0)` explicitly.',
     refs:       ['SWC-117', 'SWC-121'],
   },
   {
@@ -110,7 +93,12 @@ const FILE_RULES: SolRule[] = [
   },
   {
     id:         'SOL-ORACLE-001',
-    re:         /\bgetReserves\s*\(|\bgetAmountsOut\s*\(|\.slot0\s*\(|price0CumulativeLast/,
+    // Must be a call *on another contract*. A bare `getReserves(` also matches
+    // the AMM's own definition of it, which reported UniswapV2Pair for reading
+    // its own reserves — the rule is about consumers of a spot price, not the
+    // pool that publishes one.
+    re:         /\.\s*(?:getReserves|getAmountsOut|getAmountsIn|slot0)\s*\(|\.\s*price[01]CumulativeLast/,
+    unless:     /function\s+(?:getReserves|slot0)\s*\(/,
     severity:   'HIGH',
     confidence: 'MEDIUM',
     title:      'Pricing read from an AMM spot price',
@@ -155,7 +143,7 @@ const FILE_RULES: SolRule[] = [
     // their pragma on purpose so downstream projects can compile them — firing
     // here produced 50 of 52 findings on openzeppelin-contracts, all noise.
     requires:   /(?<!abstract\s)\bcontract\s+\w+/,
-    severity:   'LOW',
+    severity:   'INFO',
     confidence: 'HIGH',
     title:      'Floating pragma',
     detail:     'A caret or range pragma lets the contract be compiled with a compiler version it was never tested or audited against, including versions with known codegen bugs.',
@@ -188,6 +176,49 @@ const FILE_RULES: SolRule[] = [
 // address(0) is usually unrecoverable.
 const PRIVILEGED_SETTER =
   /function\s+(?:set|update|change|transfer)(Owner|Admin|Treasury|Oracle|Resolver|Router|Fee[Rr]ecipient|Governance|Signer|Operator)\w*\s*\(/i;
+
+// A low-level call whose `bool success` return is genuinely discarded.
+//
+// Cannot be a line-anchored regex. Uniswap v3's TransferHelper writes
+//
+//     (bool success, bytes memory data) =
+//         token.call(abi.encodeWithSelector(...));
+//
+// which puts `token.call(` at the start of its own line even though the result
+// is captured and checked. Instead, walk back from each call to the start of its
+// statement and look for an assignment.
+function uncheckedLowLevelCall(path: string, src: string): Finding[] {
+  const re = /\.\s*(?:call|delegatecall|staticcall)\s*[({]/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(src)) !== null) {
+    // Statement start: the nearest preceding ; { } or ) closing a control head.
+    const before = src.slice(0, m.index);
+    const stmtStart = Math.max(
+      before.lastIndexOf(';'),
+      before.lastIndexOf('{'),
+      before.lastIndexOf('}'),
+    );
+    const stmt = before.slice(stmtStart + 1);
+
+    // An `=` in the statement means the result was captured. `require(`,
+    // `assert(` or `if (` means it is being consumed as a condition.
+    if (/=|require\s*\(|assert\s*\(|\bif\s*\(|return\b/.test(stmt)) continue;
+
+    return [{
+      id:         'SOL-CALL-001',
+      severity:   'HIGH',
+      confidence: 'MEDIUM',
+      title:      'Return value of low-level call is discarded',
+      detail:     'A low-level call is made without capturing its `bool success` return. Unlike a high-level call, a low-level call does not bubble up a revert — if the callee reverts or the address has no code, execution continues as if it had succeeded.',
+      location:   path,
+      fix:        'Capture the result and act on it: `(bool ok, ) = target.call{value: v}(data); require(ok, "call failed");`',
+      refs:       ['SWC-104', 'CWE-252'],
+    }];
+  }
+
+  return [];
+}
 
 function fileRules(path: string, src: string): Finding[] {
   const findings: Finding[] = [];
@@ -276,6 +307,41 @@ function functionRules(path: string, src: string): Finding[] {
       });
     }
 
+    // Unprotected initializer.
+    //
+    // This has to be function-level and has to accept every idiom, not just
+    // OpenZeppelin's. UniswapV2Pair.initialize() is guarded by
+    // `require(msg.sender == factory)` and is not upgradeable at all; a
+    // file-level check for the `initializer` modifier reported it as a CRITICAL
+    // takeover. A caller-identity check is as valid a guard as a modifier.
+    if (/^initiali[sz]e\w*$|^__?[Ii]nit\w*$/.test(name) && /\b(?:external|public)\b/.test(header)) {
+      const guarded =
+        /\binitiali[sz]er\b|\breinitializer\b/.test(header) ||           // OZ modifier
+        /\bonly\w+/.test(header) ||                                       // onlyOwner/onlyRole/...
+        /require\s*\(\s*msg\.sender\s*==/.test(body) ||                   // factory / admin check
+        /if\s*\(\s*msg\.sender\s*!=/.test(body) ||                        // custom-error form
+        /_?initiali[sz]ed\b/.test(body) ||                                // manual flag
+        /_checkRole|_checkOwner|_disableInitializers/.test(body) ||
+        // An "already initialized" guard on state: UniswapV3Pool uses
+        // `require(slot0.sqrtPriceX96 == 0, 'AI')`, and old OZ proxies use
+        // `require(_implementation() == address(0))`. Both are real guards.
+        /require\s*\(\s*[\w.()[\]]+\s*==\s*(?:0|address\s*\(\s*0\s*\))/.test(body) ||
+        /if\s*\(\s*[\w.()[\]]+\s*!=\s*(?:0|address\s*\(\s*0\s*\))\s*\)\s*revert/.test(body);
+
+      if (!guarded) {
+        findings.push({
+          id:         'SOL-PROXY-001',
+          severity:   'CRITICAL',
+          confidence: 'MEDIUM',
+          title:      `Unprotected initializer ${name}()`,
+          detail:     `\`${name}()\` is externally callable and no guard was found — no \`initializer\` modifier, no access-control modifier, no \`msg.sender\` check and no initialized flag. Anyone can call it, and call it again after legitimate setup, taking whatever ownership or configuration it assigns.`,
+          location:   `${path} → ${name}()`,
+          fix:        'Guard it: OpenZeppelin\'s `initializer` modifier for upgradeable contracts, or `require(msg.sender == factory)` for factory-deployed ones. For upgradeable implementations also call `_disableInitializers()` in the constructor so the logic contract cannot be initialized directly.',
+          refs:       ['SWC-118', 'https://proxies.yacademy.dev/'],
+        });
+      }
+    }
+
     // Privileged setter with no zero-address check.
     if (PRIVILEGED_SETTER.test(header) && !/address\s*\(\s*0\s*\)|!=\s*address\(0\)|ZeroAddress|NoZero/.test(body)) {
       findings.push({
@@ -302,5 +368,9 @@ export function checkSolidity(file: RepoFile): Finding[] {
   const src = stripComments(file.content);
   if (!/\b(?:contract|library)\s+\w+/.test(src)) return [];
 
-  return [...fileRules(file.path, src), ...functionRules(file.path, src)];
+  return [
+    ...fileRules(file.path, src),
+    ...uncheckedLowLevelCall(file.path, src),
+    ...functionRules(file.path, src),
+  ];
 }

@@ -70,12 +70,12 @@ which should be near-clean:
 
 ```
 248 files → 22 findings
-  13  SOL-PRAGMA-001  [LOW/HIGH]      floating pragma on deployable proxies
+  13  SOL-PRAGMA-001  [INFO/HIGH]     floating pragma on deployable contracts
    3  SOL-INPUT-001   [MEDIUM/MEDIUM] zero-address setters
    2  SOL-DELEGATE-001[HIGH/LOW]      delegatecall in proxies (by design)
    1  SOL-4626-001    [INFO/LOW]      ERC4626 checklist prompt
    1  SOL-HASH-001    [MEDIUM/MEDIUM]
-   1  SOL-SIG-001     [HIGH/MEDIUM]
+   1  SOL-SIG-001     [MEDIUM/MEDIUM]
    1  SOL-RAND-001    [HIGH/MEDIUM]
 ```
 
@@ -93,6 +93,15 @@ Down from 52 after fixing three real false-positive bugs found during this pass:
   single file.
 - `SOL-PRAGMA-001` fired on every library and interface. Libraries float their
   pragma on purpose; now gated on a deployable `contract`.
+
+Validated separately against real protocol code — `Uniswap/v2-core` (0 findings),
+`Uniswap/v3-core` (1 MEDIUM), `aave/aave-v3-core` (INFO only) and
+`transmissions11/solmate` (3 MEDIUM by design) — with **zero CRITICAL or HIGH
+across all four**. That run found four more false positives a clean-library
+baseline could not have surfaced, including CRITICAL "unprotected initializer"
+reports on `UniswapV2Pair` and `UniswapV3Pool`, both of which are guarded by a
+factory check or an already-initialized check rather than OpenZeppelin's
+modifier. Details in `prep-kits/x402-audit-tiers/TEST-PLAN.md` §1b.
 
 Recall is verified only against hand-written fixtures (11/11 Solidity, 8/8
 Solana/Anchor, 3/3 cache, 0 findings on corrected versions of each). That is not
