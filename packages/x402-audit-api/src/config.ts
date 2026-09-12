@@ -29,8 +29,18 @@ const envSchema = z.object({
   // own findings, so quality is model-bound — 81% of real audit findings are
   // logic bugs that need reasoning, not pattern matching.
   ANTHROPIC_API_KEY:             z.string().optional(),
+  // OpenRouter fronts every provider behind one key and one bill, which is the
+  // right default for comparing detection quality across models.
+  OPENROUTER_API_KEY:            z.string().optional(),
   AI_DETECT_MODEL:               z.string().default('claude-sonnet-5'),
   AI_DETECT_MODEL_FALLBACK:      z.string().default('gpt-4o'),
+  // 'auto' picks the first configured provider. 'file' calls no provider at
+  // all: it writes the prompt to disk and reads the reply back, so a human or
+  // a chat session can stand in for the model while the approach is still being
+  // validated. See scripts/ai-detect-manual.ts.
+  AI_DETECT_MODE:                z.enum(['auto', 'file']).default('auto'),
+  AI_DETECT_PROMPT_PATH:         z.string().default('/tmp/ai-detect-prompt.txt'),
+  AI_DETECT_RESPONSE_PATH:       z.string().default('/tmp/ai-detect-response.json'),
   // ~160k chars is roughly 40k tokens of source, leaving room for the response.
   AI_DETECT_CHAR_BUDGET:         z.string().optional(),
 });

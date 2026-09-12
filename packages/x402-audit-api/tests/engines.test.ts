@@ -112,3 +112,22 @@ describe('language dispatch', () => {
     expect(findings).toEqual([]);
   });
 });
+
+describe('dependency exclusion by depth', () => {
+  // Two wrong answers preceded this one. See the comment on EXCLUDED_LIB_DEP.
+  it('skips a nested dependency package but keeps a project library', async () => {
+    const { selectFiles } = await import('../src/github.js');
+    const kept = selectFiles([
+      'lib/forge-std/src/Base.sol',                     // dependency
+      'lib/openzeppelin-contracts/contracts/token/ERC20.sol',
+      'lib/Math.sol',                                   // own code
+      'src/lib/SafeCast.sol',                           // own code
+      'src/Vault.sol',
+    ]);
+    expect(kept).toContain('lib/Math.sol');
+    expect(kept).toContain('src/lib/SafeCast.sol');
+    expect(kept).toContain('src/Vault.sol');
+    expect(kept).not.toContain('lib/forge-std/src/Base.sol');
+    expect(kept.some(p => p.includes('openzeppelin'))).toBe(false);
+  });
+});
