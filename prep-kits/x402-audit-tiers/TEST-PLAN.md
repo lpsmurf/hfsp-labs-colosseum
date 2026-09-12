@@ -98,21 +98,97 @@ the vulnerable half only proves the regex executes.
 **This is not a recall measurement.** The same person wrote the bugs and the
 rules that catch them. It tests that rules execute and that fixes silence them.
 
-## 3. Recall — `frontier-evals` *(NOT YET RUN — the priority)*
+## 3. Recall — `frontier-evals` *(MEASURED)*
 
-Target: the [`frontier-evals`](https://github.com/openai/frontier-evals) corpus
-via [`paradigmxyz/evmbench`](https://github.com/paradigmxyz/evmbench) — contracts
-with known, independently-chosen bugs.
+Corpus: 40 Code4rena/Sherlock-style audit contests via
+[`evmbench`](https://github.com/paradigmxyz/evmbench) /
+[`frontier-evals`](https://github.com/openai/frontier-evals), **118 gold
+vulnerabilities** that real auditors were actually paid for. Source cloned from
+`evmbench-org` rather than fetched (40 audits x ~131 requests would blow the
+hourly GitHub budget). Harness: `scripts/recall-bench.ts`.
 
-Method: run T1 engines over each target, compare against the answer key, report
-`caught / total` by severity.
+File selection goes through the product's own `selectFiles()`, so the bench sees
+exactly what a paid audit sees, 120-file cap included. A bug in file 300 of a
+large repo is a real miss, not a rule gap.
 
-**Expect a low number.** The benchmark tests deep multi-step reasoning across a
-codebase; our engines are file-local pattern matchers. A single-digit result is
-the likely and acceptable outcome — the number is a *spending decision input*
-(more rules vs. move to T2), not a grade.
+### Headline
 
-Blocked on: nothing. This should be run next.
+| Measure | Value |
+|---|---|
+| Files read | 3,633 |
+| Findings produced | 1,068 |
+| Scorable gold vulns | 103 of 118 (88% had a file signal) |
+| **Reached — any finding in the right file** | 41 / 103 = **39.8%** |
+| &nbsp;&nbsp;expected by chance | 21.6% → **1.84x lift** |
+| **Reached — CRITICAL/HIGH only** | 24 / 103 = **23.3%** |
+| &nbsp;&nbsp;expected by chance | 3.6% → **6.42x lift** |
+| **True recall, hand-graded** | **~2-4%** |
+
+The chance row is the control and it is essential. With ~27 findings per audit,
+landing on the right file by accident is common — half the "any finding" reach is
+spray. The CRITICAL/HIGH lift of 6.42x is a real signal, but "right file" is not
+"right bug".
+
+### Hand grading — all 24 CRITICAL/HIGH reaches
+
+Two genuine catches:
+
+- `2024-03-taiko H-05` "Signatures can be replayed in withdraw()" ←
+  `SOL-SIG-002 @ TimelockTokenPool.sol → withdraw()`. Same file, same function,
+  same bug class.
+- `2026-01-tempo-feeamm H-01` "Reentrancy in burn allows stablecoin pool
+  drainage" ← `SOL-REENTRANCY-001 @ FeeAMM.sol → burn()`. Likewise exact.
+
+Two arguable partials (`2024-04-noya H-06` incomplete TVL calculation ←
+`SOL-ORACLE-001`; `2024-01-init-capital H-03` front-run via state change ←
+`SOL-REENTRANCY-001`, ordering-adjacent).
+
+The other twenty are right-file-wrong-reason. The pattern is stark: three
+different benddao bugs and three different secondswap bugs were each "reached"
+by one unrelated finding in a file they happen to share.
+
+### Why the ceiling is low — and this is the important number
+
+Categorising all 118 gold titles by bug shape:
+
+```
+ 22 (18%)  plausibly matchable by a pattern rule
+             8  signature / replay
+             4  access control
+             4  oracle / spot price
+             3  reentrancy
+             3  overflow / underflow
+ 96 (81%)  logic / accounting / protocol design
+```
+
+Examples from the 81%: *"userGaugeProfitIndex is not set correctly"*,
+*"update_market() market weight incorrect"*, *"Anyone can steal all distributed
+rewards"*, *"releaseRate is calculated incorrectly"*. The code does exactly what
+it says; what it says is wrong. **No pattern rule reaches these, ever.**
+
+So ~18% is the theoretical ceiling for *any* pure pattern approach on this
+corpus, and we are at ~3%. Both numbers matter: the gap between them is what
+more rules could win, and the 82% above the ceiling is what they never can.
+
+### Precision on contest code is worse than the library baseline suggested
+
+1,068 findings across 3,633 files is 0.29 per file, against 0.09 on
+OpenZeppelin. 74% of output is INFO (`{INFO: 790, HIGH: 148, MEDIUM: 96, LOW: 23,
+CRITICAL: 11}`). The OZ ceiling did not predict this because OZ is unusually
+clean. **A second precision gate on contest-grade code is worth adding.**
+
+### Reproducing
+
+```bash
+git clone https://github.com/openai/frontier-evals            # corpus metadata
+for a in $(ls frontier-evals/project/evmbench/audits | grep ^20); do
+  git clone --depth 1 https://github.com/evmbench-org/$a.git corpus/$a
+done
+npx tsx scripts/recall-bench.ts ./frontier-evals ./corpus
+```
+
+Caveat: the harness's small YAML reader finds 117 of 118 gold entries — a ~1%
+undercount that does not move any conclusion.
 
 ## 4. Tier behaviour *(automated, verified)*
 

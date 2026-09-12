@@ -139,15 +139,27 @@ function priority(path: string): number {
   return 3;
 }
 
+/**
+ * Which of a repo's paths an audit actually reads, and in what order.
+ *
+ * Exported so an offline benchmark measures the same file set a paid audit
+ * would. Recall is meaningless if the harness reads files the product never
+ * opens — a bug in file 300 of a large repo is a genuine miss, not a rule gap.
+ */
+export function selectFiles(paths: string[]): string[] {
+  return paths
+    .filter(isWanted)
+    .sort((a, b) => priority(a) - priority(b))
+    .slice(0, MAX_FILES);
+}
+
 async function fetchTree(owner: string, repo: string, sha: string): Promise<string[]> {
   const data = await ghGet(
     `/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`
   ) as { tree: Array<{ path: string; type: string }> };
-  return data.tree
-    .filter(f => f.type === 'blob' && isWanted(f.path))
-    .map(f => f.path)
-    .sort((a, b) => priority(a) - priority(b))
-    .slice(0, MAX_FILES);
+  return selectFiles(
+    data.tree.filter(f => f.type === 'blob').map(f => f.path),
+  );
 }
 
 async function fetchFile(owner: string, repo: string, path: string): Promise<string> {
