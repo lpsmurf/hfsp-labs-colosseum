@@ -92,15 +92,28 @@ const WANTED = [
   /docker-compose.*\.ya?ml$/i,
 ];
 
-// Vendored dependencies, build output and test fixtures. This matters more than
-// it looks: Foundry installs dependencies into lib/, so without this a contract
-// repo spends its entire file budget on lib/openzeppelin-contracts and we end up
-// auditing OpenZeppelin instead of the code we were pointed at.
-// `dependencies/` is the same trap as `lib/` under a different name: aave-v3-core
-// vendors OpenZeppelin there, and 9 of 10 findings on that repo were against
-// vendored OZ rather than Aave's own code.
+// Vendored dependencies and build output. This matters: aave-v3-core copies
+// OpenZeppelin into contracts/dependencies/openzeppelin/, and before that path
+// was excluded 9 of 10 findings on that repo were against vendored OZ rather
+// than Aave's own code. Two harms, and the quiet one is worse — reporting
+// somebody else's bugs is embarrassing, but spending the 120-file budget on
+// dependencies means the code we were actually pointed at is never opened and
+// the report says CLEAN about files nobody read.
+//
+// `lib/` is deliberately NOT here, and it is worth knowing why before adding it
+// back. Foundry installs dependencies as git submodules, and the GitHub tree API
+// reports a submodule as a single entry of type "commit", never as blobs — so
+// fetchTree's `type === 'blob'` filter already skips their contents entirely.
+// Measured: solmate, Uniswap/v4-core and sablier-labs/lockup each expose zero
+// blobs under lib/. Meanwhile `lib` is a generic name that projects commonly use
+// for their own shared contracts (Solidity calls them `library`, after all), so
+// excluding it silently skips code we are being paid to audit — a false negative
+// with nothing in the report to reveal it.
+//
+// If a repo ever does commit dependency files under lib/, exclude the
+// nested-package shape (`lib/<dep>/src/`), not all of lib/.
 const EXCLUDED =
-  /(?:^|\/)(?:node_modules|lib|vendor|vendored|dependencies|deps|third[-_]party|target|out|artifacts|cache|coverage|dist|build|\.git)\//i;
+  /(?:^|\/)(?:node_modules|vendor|vendored|dependencies|deps|third[-_]party|target|out|artifacts|cache|coverage|dist|build|\.git)\//i;
 
 // Test code, fuzzing harnesses and audit fixtures. Intentionally unsafe code
 // lives here and reporting it is pure noise — Uniswap v3-core keeps Echidna
