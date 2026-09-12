@@ -126,8 +126,15 @@ const EXCLUDED_LIB_DEP = /(?:^|\/)lib\/[^/]+\/.+/i;
 // lives here and reporting it is pure noise — Uniswap v3-core keeps Echidna
 // harnesses under audits/tob/contracts/crytic/, which produced three findings
 // against code written to be broken on purpose.
+// Test code, fuzzing harnesses, formal-verification harnesses and audit
+// fixtures. Intentionally unsafe code lives here and reporting it is pure noise
+// — Uniswap v3-core keeps Echidna harnesses under audits/tob/contracts/crytic/,
+// which produced three findings against code written to be broken on purpose,
+// and aave-v3-core's certora/harness/ exposes 21 unguarded setters so the
+// prover can drive reserve configuration directly. Those 21 were 21 of the 24
+// access-control findings on aave, every one of them false.
 const EXCLUDED_TESTS =
-  /\.t\.sol$|(?:^|\/)(?:tests?|mocks?|crytic|echidna|audits|fixtures)\//i;
+  /\.t\.sol$|(?:^|\/)(?:tests?|mocks?|crytic|echidna|audits|fixtures|certora|harness(?:es)?|\.certora\w*)\//i;
 
 function isWanted(path: string): boolean {
   if (EXCLUDED.test(path) || EXCLUDED_LIB_DEP.test(path) || EXCLUDED_TESTS.test(path)) return false;

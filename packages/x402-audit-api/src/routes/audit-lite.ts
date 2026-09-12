@@ -12,6 +12,8 @@ import { buildReport }       from '../report.js';
 import { AUDIT_PRICE_USDC, config } from '../config.js';
 import { NETWORKS, USDC as USDC_ASSET, usdc, encode, HEADER , EIP712_DOMAIN} from '@hfsp/x402-common';
 
+import { usesLegacyPayment } from '../x402.js';
+
 export const auditRouter = Router();
 
 const limiter = rateLimit({
@@ -95,7 +97,7 @@ auditRouter.post('/', limiter, async (req, res) => {
   const repo     = typeof req.body?.repo     === 'string' ? req.body.repo.trim()     : null;
   const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint.trim() : null;
 
-  if (!txHash) { res.status(400).json({ error: 'Missing X-Payment header' }); return; }
+  if (usesLegacyPayment(req) && !txHash) { res.status(400).json({ error: 'Missing X-Payment header' }); return; }
   if (!repo)   { res.status(400).json({ error: 'Missing body.repo' }); return; }
 
   try { parseRepoUrl(repo); } catch {
@@ -113,8 +115,10 @@ auditRouter.post('/', limiter, async (req, res) => {
     }
   }
 
-  const { ok, error } = await verifyPayment(txHash);
-  if (!ok) { res.status(402).json({ error }); return; }
+  if (usesLegacyPayment(req)) {
+    const { ok, error } = await verifyPayment(txHash!);
+    if (!ok) { res.status(402).json({ error }); return; }
+  }
 
   try {
     const repoMeta = await fetchRepo(repo);
@@ -130,6 +134,7 @@ auditRouter.post('/', limiter, async (req, res) => {
       repoMeta.files.length, !!liveUrl,
       [...staticResult.findings, ...dynamicFindings],
       staticResult.coverage,
+      staticResult.attackSurface,
     );
 
     console.log(`[audit-lite] ${repo} → ${report.summary.verdict} (${report.summary.total} findings)`);

@@ -104,6 +104,7 @@ async function runAudit(repo: string, endpoint: string | null, tier: Tier) {
     !!liveUrl,
     [...staticResult.findings, ...dynamicFindings, ...supply.findings, ...(ai?.findings ?? [])],
     staticResult.coverage,
+    staticResult.attackSurface,
   );
 
   return { report, engines, ai };

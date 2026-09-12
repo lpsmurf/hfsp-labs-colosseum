@@ -6,6 +6,9 @@ import { checkSolidity }       from './solidity.js';
 import { checkSolana }         from './solana.js';
 import { checkVerifyCache }    from './verify-cache.js';
 import { checkSupplyChain }    from './supply-chain.js';
+import { checkUncheckedMath }  from './unchecked-math.js';
+import { checkAccessControl, accessControlInventory } from './access-control.js';
+import type { AttackSurface }  from './access-control.js';
 import { langOf }              from '../lang.js';
 import { T1_ENGINES }          from '../tiers.js';
 import type { EngineId }       from '../tiers.js';
@@ -19,6 +22,10 @@ export interface StaticResult {
   // Files carrying a verification/validation finding. Patch-age scoring only
   // asks GitHub about these — age on an arbitrary file means nothing.
   criticalPaths: string[];
+  // Externally reachable state-changing functions and whether each is guarded.
+  // A section, not a finding: most of these are permissionless by design, and
+  // the value is in handing over the table rather than in an accusation.
+  attackSurface?: AttackSurface;
 }
 
 // Rule prefixes whose findings mark a file as security-critical for the
@@ -59,8 +66,10 @@ export async function analyzeStatic(
         if (on('verify-cache')) findings.push(...checkVerifyCache(file));
         break;
       case 'solidity':
-        if (on('solidity'))     findings.push(...checkSolidity(file));
-        if (on('verify-cache')) findings.push(...checkVerifyCache(file));
+        if (on('solidity'))       findings.push(...checkSolidity(file));
+        if (on('access-control')) findings.push(...checkAccessControl(file));
+        if (on('unchecked-math')) findings.push(...checkUncheckedMath(file));
+        if (on('verify-cache'))   findings.push(...checkVerifyCache(file));
         break;
       case 'rust':
         if (on('solana'))       findings.push(...checkSolana(file));
@@ -90,5 +99,12 @@ export async function analyzeStatic(
       .map(f => f.location.split(' → ')[0]),
   )];
 
-  return { findings, coverage, criticalPaths };
+  // Computed over the whole file set rather than per file: a contract's surface
+  // is only meaningful as a total, and "3 of 47 unguarded" is the shape of the
+  // answer an auditor wants.
+  const attackSurface = on('access-control')
+    ? accessControlInventory(files)
+    : undefined;
+
+  return { findings, coverage, criticalPaths, attackSurface };
 }

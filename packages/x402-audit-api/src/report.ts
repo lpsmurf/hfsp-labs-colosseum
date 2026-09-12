@@ -1,3 +1,7 @@
+// Type-only, so no runtime cycle with static/access-control.ts (which imports
+// Finding from here).
+import type { AttackSurface } from './static/access-control.js';
+
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
 // Pattern matching cannot prove a bug, only that code looks like one. Saying so
@@ -46,6 +50,11 @@ export interface AuditReport {
     verdict:  'CLEAN' | 'ISSUES_FOUND' | 'CRITICAL_ISSUES';
   };
   findings: Finding[];
+  // Every externally reachable state-changing function, and whether a guard was
+  // found on it. Kept out of `findings` on purpose: an unguarded external
+  // function is how most protocols are meant to work, so this is the surface an
+  // auditor should read, not a list of defects.
+  attackSurface?: AttackSurface;
 }
 
 const SEVERITY_RANK: Record<Severity, number> = {
@@ -64,6 +73,7 @@ export function buildReport(
   dynamicProbes: boolean,
   findings:      Finding[],
   coverage?:     Record<string, number>,
+  attackSurface?: AttackSurface,
 ): AuditReport {
   // Deduplicate by id+location
   const seen = new Set<string>();
@@ -104,5 +114,6 @@ export function buildReport(
     },
     summary: { ...counts, total: unique.length, needsReview, verdict },
     findings: unique,
+    attackSurface,
   };
 }

@@ -17,7 +17,11 @@ contract SafeVault is ReentrancyGuard {
         require(ok, "send failed");
     }
 
+    // Both halves are load-bearing: the zero-address check satisfies
+    // SOL-INPUT-001, the caller check satisfies SOL-AC-001. The fixture
+    // originally had only the first and was quietly a real takeover.
     function setOwner(address newOwner) external {
+        require(msg.sender == owner, "not owner");
         require(newOwner != address(0), "zero");
         owner = newOwner;
     }
