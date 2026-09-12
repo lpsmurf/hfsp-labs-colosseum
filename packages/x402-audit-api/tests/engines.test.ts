@@ -133,3 +133,33 @@ describe('dependency exclusion by depth', () => {
     expect(kept.some(p => p.includes('openzeppelin'))).toBe(false);
   });
 });
+
+// Both found while establishing the pattern baseline for the blind AI trials.
+describe('pattern false positives from the AI-trial baseline', () => {
+  const sol = async (content: string) =>
+    (await analyzeStatic([{ path: 'x.sol', content }])).findings.map(f => f.id);
+
+  it('does not treat a hashed timestamp used as an id as randomness', async () => {
+    // Tempo TempoStreamChannel.openChannel derives a channel id this way.
+    expect(await sol(`contract C { uint256 c;
+      function open(address p) external returns (bytes32 id) {
+        id = keccak256(abi.encodePacked(msg.sender, p, block.timestamp, c++));
+      } }`)).not.toContain('SOL-RAND-001');
+  });
+
+  it('still flags a hashed timestamp that picks an outcome', async () => {
+    expect(await sol(`contract C {
+      function pick(uint256 n) external view returns (uint256 winner) {
+        winner = uint256(keccak256(abi.encodePacked(block.timestamp))) % n;
+      } }`)).toContain('SOL-RAND-001');
+  });
+
+  it('does not ask for a zero-address check on a setter that takes no address', async () => {
+    // liquid-ron LiquidRon.setOperatorFee(uint256) and updateOperator(address, bool).
+    const ids = await sol(`contract C { uint256 fee; mapping(address=>bool) op;
+      function setOperatorFee(uint256 f) external onlyOwner { fee = f; }
+      function updateOperator(address o, bool v) external onlyOwner { op[o] = v; }
+    }`);
+    expect(ids).not.toContain('SOL-INPUT-001');
+  });
+});
