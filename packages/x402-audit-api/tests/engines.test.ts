@@ -21,7 +21,9 @@ async function scan(fixture: string, asPath?: string): Promise<Finding[]> {
 // the second one.
 describe('rule firing — vulnerable fixtures', () => {
   const cases: Array<[string, number, string?]> = [
-    ['vuln.sol',          11],
+    // 12 includes SOL-AC-001 on setOwner(), which is externally callable with
+    // no caller check — a takeover the rule set could not see before.
+    ['vuln.sol',          12],
     ['vuln.rs',            8],
     ['vuln.Cargo.toml',    1, 'Cargo.toml'],
     ['cache_vuln.cpp',     3],

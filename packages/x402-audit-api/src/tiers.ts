@@ -21,6 +21,8 @@ export type EngineId =
   | 'payment'
   | 'solidity'
   | 'solana'
+  | 'access-control'
+  | 'unchecked-math'
   | 'verify-cache'
   | 'dynamic'
   | 'advisories'
@@ -42,7 +44,7 @@ export type EngineId =
 
 export const T1_ENGINES: EngineId[] = [
   'secrets', 'supply-chain', 'cors', 'payment',
-  'solidity', 'solana', 'verify-cache',
+  'solidity', 'solana', 'access-control', 'unchecked-math', 'verify-cache',
   'dynamic', 'advisories', 'patch-age', 'ai-summary', 'ai-detect',
 ];
 
@@ -93,7 +95,7 @@ export const TIERS: Record<TierId, Tier> = {
     human:      false,
     available:  true,
     turnaround: '~30 seconds',
-    summary:    'All in-process engines: JS/TS, Solidity, Solana/Anchor, verification-cache, supply-chain, live probes, dependency advisories, patch age, plus an AI pass that reads the source and proposes findings of its own.',
+    summary:    'All in-process engines: JS/TS, Solidity, Solana/Anchor, access-control inventory, unchecked-arithmetic, verification-cache, supply-chain, live probes, dependency advisories, patch age, plus an AI pass that reads the source and proposes findings of its own.',
   },
   T2: {
     id:         'T2',
