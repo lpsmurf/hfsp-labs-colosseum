@@ -43,6 +43,27 @@ const SAFE_FILES = /\.env\.example$|\.env\.sample$|README|\.md$|\.test\.|\.spec\
 // Placeholder patterns — skip these
 const PLACEHOLDER = /your[_-]?key|your[_-]?secret|<[^>]+>|\$\{|xxx|redact|placeholder|changeme|todo/i;
 
+// A 32-byte hex literal is far more often a storage slot, typehash or keccak
+// constant than a private key. Gating this by language was not enough: aave's
+// deployment helper holds `EIP1967_ADMIN_SLOT = '0xb531...'` in TypeScript and
+// was reported as a CRITICAL leaked key. Judge by what the value is called.
+// No leading \b on purpose. `EIP1967_ADMIN_SLOT` has a word character before
+// "SLOT", so \bslot cannot match it — the same mistake \bnonce made against
+// `_useNonce`. The trailing group must also allow the opening quote of the
+// literal, which sits between the identifier and the match.
+const CTX_TAIL = String.raw`\w*\s*[:=]{1,2}\s*['"\`]?\s*$`;
+
+const HASH_CONTEXT = new RegExp(
+  `(?:slot|hash|typehash|digest|root|salt|selector|domain|commitment|merkle|leaf|nullifier|topic|sighash|bytes32|keccak|namespace|eip\\d*)${CTX_TAIL}`,
+  'i',
+);
+
+// Conversely, these names mean the value really is meant to be a credential.
+const KEY_CONTEXT = new RegExp(
+  `(?:private[_-]?key|secret|mnemonic|seed|passphrase|signer[_-]?key|deployer[_-]?key|wallet[_-]?key|privkey)${CTX_TAIL}`,
+  'i',
+);
+
 export function checkSecrets(file: RepoFile): Finding[] {
   const findings: Finding[] = [];
   const { path, content } = file;
@@ -62,11 +83,26 @@ export function checkSecrets(file: RepoFile): Finding[] {
       const matched = m[1] ?? m[0];
       if (PLACEHOLDER.test(matched)) continue;
 
+      // The bare 32-byte-hex pattern needs its surroundings read before it can
+      // claim to have found a key.
+      let confidence: NonNullable<Finding['confidence']> = 'HIGH';
+      let effectiveSeverity: Finding['severity'] = severity;
+      if (id === 'STATIC-SECRET-004') {
+        const before = content.slice(Math.max(0, m.index - 80), m.index);
+        if (HASH_CONTEXT.test(before)) continue;                    // slot/typehash — not a key
+        confidence = KEY_CONTEXT.test(before) ? 'HIGH' : 'LOW';     // unnamed 32-byte hex is a guess
+        // A hex blob nothing calls a key does not get to headline a report as
+        // CRITICAL. Severity should track how sure we are, not just the worst
+        // case if we happen to be right.
+        if (confidence === 'LOW') effectiveSeverity = 'MEDIUM';
+      }
+
       findings.push({
         id,
-        severity,
+        severity: effectiveSeverity,
+        confidence,
         title:    `Hardcoded secret detected: ${label}`,
-        detail:   `Found a value matching "${label}" pattern hardcoded in \`${path}\`. If this is a real credential it should be moved to environment variables and the secret rotated immediately.`,
+        detail:   `Found a value matching "${label}" pattern hardcoded in \`${path}\`.${confidence === 'LOW' ? ' The surrounding code does not name it as a credential, so this may be a hash, storage slot or other 32-byte constant — verify before treating it as a leak.' : ' If this is a real credential it should be moved to environment variables and the secret rotated immediately.'}`,
         location: path,
         fix:      'Move all secrets to environment variables. Rotate the exposed credential immediately. Add the file to .gitignore if it contains real values.',
       });

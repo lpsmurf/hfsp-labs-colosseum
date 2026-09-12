@@ -34,8 +34,9 @@ export function checkCors(file: RepoFile): Finding[] {
     if (re.test(content)) {
       re.lastIndex = 0;
       findings.push({
-        id:       'STATIC-CORS-001',
-        severity: 'HIGH',
+        id:         'STATIC-CORS-001',
+        severity:   'HIGH',
+        confidence: 'HIGH',
         title:    'CORS reflects arbitrary Origin with credentials:true',
         detail:   `${label}. Combined with \`credentials: true\`, any website can make credentialed requests to this API and read the response. x402 auth is the X-PAYMENT header — \`credentials: true\` is not needed.`,
         location: path,

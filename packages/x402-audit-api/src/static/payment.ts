@@ -35,8 +35,9 @@ export function checkPaymentBypass(file: RepoFile): Finding[] {
     if (re.test(content)) {
       re.lastIndex = 0;
       findings.push({
-        id:       'STATIC-PAY-001',
-        severity: hasVerify ? 'MEDIUM' : 'CRITICAL',
+        id:         'STATIC-PAY-001',
+        severity:   hasVerify ? 'MEDIUM' : 'CRITICAL',
+        confidence: hasVerify ? 'LOW' : 'HIGH',
         title:    'Payment header checked for presence only — potential bypass',
         detail:   `${label}. ${hasVerify ? 'A verification function is present elsewhere in the file — confirm it is actually called before serving content.' : 'No verification/settlement call detected. Any non-empty X-PAYMENT value may return paid content for free.'}`,
         location: path,
