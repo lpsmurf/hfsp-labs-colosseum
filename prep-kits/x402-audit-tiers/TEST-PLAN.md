@@ -116,13 +116,30 @@ large repo is a real miss, not a rule gap.
 | Measure | Value |
 |---|---|
 | Files read | 3,633 |
-| Findings produced | 1,068 |
+| Findings produced | 669 |
 | Scorable gold vulns | 103 of 118 (88% had a file signal) |
-| **Reached — any finding in the right file** | 41 / 103 = **39.8%** |
-| &nbsp;&nbsp;expected by chance | 21.6% → **1.84x lift** |
-| **Reached — CRITICAL/HIGH only** | 24 / 103 = **23.3%** |
-| &nbsp;&nbsp;expected by chance | 3.6% → **6.42x lift** |
+| **Reached — any finding in the right file** | 65 / 103 = **63.1%** |
+| &nbsp;&nbsp;expected by chance | 23.7% → **2.66x lift** |
+| **Reached — CRITICAL/HIGH only** | 37 / 103 = **35.9%** |
+| &nbsp;&nbsp;expected by chance | 6.4% → **5.64x lift** |
 | **True recall, hand-graded** | **~2-4%** |
+
+Measured after the `lib/` dependency fix. Before it, 22 of the 40 corpus repos
+were feeding forge-std and OpenZeppelin into the analysis: 1,068 findings instead
+of 669, and reach of 23.3% instead of 35.9% because the file budget was being
+spent on dependencies rather than the contracts under audit. **Reach improved
+substantially; true recall did not move at all.** Excluding dependencies is worth
+doing for noise and for honesty, but it does not make the engines better at
+finding bugs.
+
+### A known weakness in the reach metric
+
+Reach is per-gold-vulnerability, and several gold bugs often live in one file, so
+a single finding can "reach" many of them. One `SOL-AUTH-001` in
+`src/PhiFactory.sol` reaches **six** separate gold bugs in that file — including
+one titled "Signature replay in signatureClaim", which has nothing to do with
+`tx.origin`. That inflation is why the hand-graded number is the one to quote and
+the reach number is only a ceiling.
 
 The chance row is the control and it is essential. With ~27 findings per audit,
 landing on the right file by accident is common — half the "any finding" reach is

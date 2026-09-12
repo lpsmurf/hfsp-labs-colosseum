@@ -1,5 +1,6 @@
 import type { RepoFile } from '../github.js';
 import type { Finding } from '../report.js';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { config } from '../config.js';
 import { SYSTEM_PROMPT, buildDetectPrompt } from './prompt.js';
 
@@ -112,7 +113,69 @@ function aceTransport(apiKey: string, facilitator: string, model: string): Trans
   };
 }
 
+// OpenRouter: one key, one bill, every model. Best choice for comparing
+// detection quality before committing to a provider.
+function openRouterTransport(apiKey: string, model: string): Transport {
+  return {
+    name: `${model} via OpenRouter`,
+    async call(system, user) {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'X-Title':       'x402-audit-api',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 8000,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user',   content: user },
+          ],
+        }),
+        signal: AbortSignal.timeout(180_000),
+      });
+      if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+      return data.choices?.[0]?.message?.content ?? '';
+    },
+  };
+}
+
+// No provider. Write the prompt out, read a reply back in. Lets a person — or a
+// chat session — answer as the model, so the detection approach can be judged
+// before paying for inference. The grounding and parsing path is identical to a
+// live call, which is the point: what is validated here is what ships.
+function fileTransport(): Transport {
+  return {
+    name: 'file (manual)',
+    async call(system, user) {
+      writeFileSync(
+        config.AI_DETECT_PROMPT_PATH,
+        `===== SYSTEM =====\n${system}\n\n===== USER =====\n${user}\n`,
+        'utf8',
+      );
+      console.log(`[ai-detect] prompt written to ${config.AI_DETECT_PROMPT_PATH}`);
+      try {
+        return readFileSync(config.AI_DETECT_RESPONSE_PATH, 'utf8');
+      } catch {
+        throw new Error(
+          `Prompt written to ${config.AI_DETECT_PROMPT_PATH}. ` +
+          `Answer it and save the JSON to ${config.AI_DETECT_RESPONSE_PATH}, then re-run.`,
+        );
+      }
+    },
+  };
+}
+
 function pickTransport(): Transport | null {
+  if (config.AI_DETECT_MODE === 'file') return fileTransport();
+
+  // OpenRouter first when present: one key across providers.
+  if (config.OPENROUTER_API_KEY) {
+    return openRouterTransport(config.OPENROUTER_API_KEY, config.AI_DETECT_MODEL);
+  }
   // Anthropic direct when available — detection quality is model-bound, and
   // this is the capable path.
   if (config.ANTHROPIC_API_KEY) {

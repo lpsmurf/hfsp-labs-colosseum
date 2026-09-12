@@ -100,20 +100,27 @@ const WANTED = [
 // dependencies means the code we were actually pointed at is never opened and
 // the report says CLEAN about files nobody read.
 //
-// `lib/` is deliberately NOT here, and it is worth knowing why before adding it
-// back. Foundry installs dependencies as git submodules, and the GitHub tree API
-// reports a submodule as a single entry of type "commit", never as blobs — so
-// fetchTree's `type === 'blob'` filter already skips their contents entirely.
-// Measured: solmate, Uniswap/v4-core and sablier-labs/lockup each expose zero
-// blobs under lib/. Meanwhile `lib` is a generic name that projects commonly use
-// for their own shared contracts (Solidity calls them `library`, after all), so
-// excluding it silently skips code we are being paid to audit — a false negative
-// with nothing in the report to reveal it.
-//
-// If a repo ever does commit dependency files under lib/, exclude the
-// nested-package shape (`lib/<dep>/src/`), not all of lib/.
 const EXCLUDED =
   /(?:^|\/)(?:node_modules|vendor|vendored|dependencies|deps|third[-_]party|target|out|artifacts|cache|coverage|dist|build|\.git)\//i;
+
+// Foundry's lib/, but only in its dependency shape.
+//
+// Getting this right took two wrong answers. Excluding all of `lib/` skips a
+// project's own shared contracts — `lib` is a generic name and Solidity calls a
+// reusable contract a `library`. Excluding none of it was justified by the fact
+// that Foundry installs dependencies as git submodules, which the tree API
+// reports as a single "commit" entry rather than blobs, so their contents are
+// invisible. That is true of upstream Foundry repos (solmate, Uniswap/v4-core
+// and sablier-labs/lockup expose zero blobs under lib/) and false of the real
+// world: 22 of the 40 evmbench corpus repos commit lib/ as ordinary files, one
+// of them 6,542 of them. On those, forge-std and OpenZeppelin ate the file
+// budget — one audit sent 18 dependency files and 2 real ones.
+//
+// The distinction that actually works is depth. A dependency is a nested package
+// (`lib/forge-std/src/Base.sol`); a project's own library is a direct child
+// (`lib/Math.sol`, `src/lib/Math.sol`). So exclude lib/ only when a directory
+// follows it.
+const EXCLUDED_LIB_DEP = /(?:^|\/)lib\/[^/]+\/.+/i;
 
 // Test code, fuzzing harnesses and audit fixtures. Intentionally unsafe code
 // lives here and reporting it is pure noise — Uniswap v3-core keeps Echidna
@@ -123,7 +130,7 @@ const EXCLUDED_TESTS =
   /\.t\.sol$|(?:^|\/)(?:tests?|mocks?|crytic|echidna|audits|fixtures)\//i;
 
 function isWanted(path: string): boolean {
-  if (EXCLUDED.test(path) || EXCLUDED_TESTS.test(path)) return false;
+  if (EXCLUDED.test(path) || EXCLUDED_LIB_DEP.test(path) || EXCLUDED_TESTS.test(path)) return false;
   return WANTED.some(r => r.test(path));
 }
 
