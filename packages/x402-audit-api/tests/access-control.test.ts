@@ -138,6 +138,27 @@ describe('false positives measured on audited protocols', () => {
       } }`)).toEqual([]);
   });
 
+  it('does not flag a setter that only emits an event', () => {
+    // phi's PhiNFT1155.setContractURI — a notification stub that declines to
+    // be `view` but writes nothing. Perfect name match, no state to protect,
+    // so an access-control finding on it is empty.
+    expect(ac(`contract C {
+      /// @dev just notice to update
+      function setContractURI() external { emit ContractURIUpdated(); } }`)).toEqual([]);
+  });
+
+  it('accepts a delegatecall-context check as authorization', () => {
+    // reNFT Reclaimer, found on the corpus. The function asks who *we* are
+    // rather than who called, because it is only ever reached by delegatecall
+    // from a rental safe. That is still authorization.
+    expect(ac(`contract Reclaimer { address original;
+      function reclaimRentalOrder(RentalOrder calldata o) external {
+        if (address(this) == original) revert OnlyDelegateCallAllowed();
+        if (address(this) != o.rentalWallet) revert OnlyRentalSafeAllowed(o.rentalWallet);
+        _reclaim(o);
+      } }`)).toEqual([]);
+  });
+
   it('does not treat an AMM skim as an admin sweep', () => {
     // UniswapV2Pair.skim() takes only the surplus above the recorded reserves
     // and is permissionless in v2 and every fork of it.

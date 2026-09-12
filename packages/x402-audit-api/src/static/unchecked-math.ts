@@ -41,6 +41,30 @@ function rootName(expr: string): string {
 }
 
 /**
+ * Is the subtraction target declared as a *signed* integer?
+ *
+ * The rule's entire premise is that a subtraction below zero wraps to near
+ * 2^256, which is an unbounded credit when the target is a balance. On an
+ * `int256` it wraps at INT256_MIN instead — a value nothing can plausibly
+ * reach — and going negative is ordinarily the intended behaviour, because
+ * that is what a signed accumulator is for.
+ *
+ * Panoptic's PanopticVaultAccountant.computeNAV keeps `int256 poolExposure0/1`
+ * and adjusts them up and down inside `unchecked`. The rule reported both, and
+ * both were false — instructively so: the file does carry a paid CRITICAL on
+ * exactly those lines, but it is a wrong-sign accounting error, not an
+ * underflow. The finding said the wrong thing about the right code, which
+ * scores as a hit on a file-level benchmark and is worth nothing to an auditor.
+ */
+function isSignedTarget(name: string, scope: string): boolean {
+  if (!name) return false;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // The lookbehind is what keeps `uint256` from matching as `int256`.
+  return new RegExp(`(?<![\\w$])int\\d*\\s+(?:\\w+\\s+)*${esc}\\b`).test(scope)
+      || new RegExp(`=>\\s*(?<![\\w$])int\\d*\\s*\\)\\s*(?:\\w+\\s+)*${esc}\\b`).test(scope);
+}
+
+/**
  * Did anything before this point bound the subtraction?
  *
  * Deliberately loose. Any comparison, require, if-revert, min(), or explicit
@@ -125,18 +149,40 @@ export function checkUncheckedMath(file: RepoFile): Finding[] {
 
       for (const hit of hits) {
         if (boundedUpstream(before, hit.target, hit.subtrahend)) continue;
+        // The declaration may be a local in this function or a state variable
+        // in the contract, so both are in scope for the type lookup.
+        if (isSignedTarget(rootName(hit.target), fn.body + src)) continue;
+
+        // Storage or a local? Both are worth reporting, but not at the same
+        // weight. Wrapping a stored balance or supply is a permanent,
+        // unbounded credit; wrapping a local that was just read is only
+        // exploitable if the result is then used as an amount — which it often
+        // is, so it stays a finding, one an auditor should read rather than
+        // act on. PoolTogether's Vault._liquidatableBalanceOf is the case:
+        // `return _availableYield -= _availableYieldFeeBalance(...)` on a
+        // local, safe only because the fee is a fraction of the yield.
+        const isLocal = new RegExp(
+          `\\b(?:uint\\d*|bytes\\d*)\\s+${rootName(hit.target).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b\\s*=`,
+        ).test(fn.body);
 
         findings.push({
           id:         'SOL-MATH-001',
-          severity:   'HIGH',
-          confidence: 'MEDIUM',
+          severity:   isLocal ? 'MEDIUM' : 'HIGH',
+          confidence: isLocal ? 'LOW' : 'MEDIUM',
           title:      `Unchecked subtraction in ${fn.name}() with no upstream bound`,
           detail:
             `\`${fn.name}()\` performs \`${hit.expr}\` inside an \`unchecked\` block, and no comparison involving ` +
             `\`${rootName(hit.target)}\` or \`${rootName(hit.subtrahend)}\` was found earlier in the function. ` +
             `Outside \`unchecked\`, Solidity 0.8 reverts when a subtraction goes below zero; inside it, the value wraps to near 2^256. ` +
-            `Where the target is a balance or a supply, that wrap is not a rounding error — it is an unbounded credit.`,
-          location:   `${file.path} → ${fn.name}()`,
+            (isLocal
+              ? `\`${rootName(hit.target)}\` is a local, so a wrap is only exploitable if the result is used as an amount downstream — which it usually is. Read it before dismissing it.`
+              : `The target is contract state, so a wrap is not a rounding error — it is a permanent, unbounded credit.`),
+          // The subtraction target is part of the location, not just the
+          // detail. Two unbounded subtractions in one function are two
+          // findings, and buildReport dedupes on id plus location — without a
+          // discriminator here the second silently disappears, which is
+          // exactly how eight dependency advisories once collapsed into one.
+          location:   `${file.path} → ${fn.name}() [${rootName(hit.target)}]`,
           fix:
             'Either drop the `unchecked` — the checked path costs ~20 gas and the compiler does the bound for you — or establish the bound explicitly first ' +
             '(`require(balance >= amount, "insufficient")`) so the `unchecked` block is provably safe and says why in a comment.',

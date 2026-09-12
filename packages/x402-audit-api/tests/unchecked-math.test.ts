@@ -14,8 +14,8 @@ describe('SOL-MATH-001', () => {
   it('flags only the two unbounded subtractions', () => {
     const findings = checkUncheckedMath(file);
     expect(findings.map(f => f.location).sort()).toEqual([
-      'unchecked_vuln.sol → burn()',
-      'unchecked_vuln.sol → withdraw()',
+      'unchecked_vuln.sol → burn() [totalSupply]',
+      'unchecked_vuln.sol → withdraw() [balances]',
     ]);
   });
 
@@ -54,6 +54,44 @@ describe('SOL-MATH-001', () => {
           unchecked { totalSupply -= amount; }
         } }`,
     })).toEqual([]);
+  });
+
+  // Found on the corpus, in Panoptic's PanopticVaultAccountant. A signed
+  // accumulator going negative is the point of it being signed, and the wrap
+  // point is INT256_MIN rather than an unbounded credit.
+  it('does not fire on a signed accumulator', () => {
+    expect(checkUncheckedMath({
+      path: 'Accountant.sol',
+      content: `contract C {
+        function computeNAV() external view returns (uint256 nav) {
+          int256 poolExposure1;
+          unchecked {
+            poolExposure1 += int256(longAmounts.leftSlot()) - int256(shortAmounts.leftSlot());
+            poolExposure1 -= int256(amount1);
+          }
+        } }`,
+    })).toEqual([]);
+  });
+
+  // PoolTogether's Vault._liquidatableBalanceOf, found on the corpus. Still a
+  // finding — the result is returned and used as an amount — but a local
+  // cannot carry a permanent credit the way a stored balance can, and equal
+  // billing for the two makes the HIGH list useless for triage.
+  it('grades a local subtraction below a storage one', () => {
+    const local = checkUncheckedMath({
+      path: 'Vault.sol',
+      content: `contract C { function f() internal view returns (uint256) {
+        uint256 _availableYield = availableYieldBalance();
+        unchecked { return _availableYield -= _fee(_availableYield); }
+      } }`,
+    });
+    expect(local).toHaveLength(1);
+    expect(local[0].severity).toBe('MEDIUM');
+    expect(local[0].confidence).toBe('LOW');
+
+    // The storage case keeps its weight.
+    const stored = checkUncheckedMath(file).find(f => f.location.includes('withdraw()'))!;
+    expect(stored.severity).toBe('HIGH');
   });
 
   it('does nothing on a file with no unchecked block', () => {
