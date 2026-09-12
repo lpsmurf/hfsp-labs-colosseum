@@ -18,6 +18,14 @@ const envSchema = z.object({
   SOLANA_RPC_URL:          z.string().default('https://api.mainnet-beta.solana.com'),
   PAYMENT_RECIPIENT_SOL:   z.string().min(32, 'Must be a valid Solana base58 address'),
 
+  // Celo payment — optional. Offered only when both are set: payai does not
+  // settle Celo, so Celo routes go through Celo Core Co.'s facilitator, whose
+  // /settle is key-gated. Key: x402.celo.org dashboard.
+  PAYMENT_RECIPIENT_CELO:  z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Must be a valid EVM address').optional(),
+  CELO_FACILITATOR_API_KEY: z.string().optional(),
+  // celoSepolia for end-to-end tests before real money moves.
+  CELO_NETWORK:            z.enum(['celo', 'celoSepolia']).default('celo'),
+
   GITHUB_TOKEN:        z.string().optional(),
   // ACE Data Cloud — OpenAI via x402 (AI summary, and the fallback detection
   // transport). The audit service buying its own inference over the protocol it
