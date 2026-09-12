@@ -59,9 +59,18 @@ things matter to us:
    known bugs**, which is exactly what we lack. We currently measure precision
    against clean code (OpenZeppelin) but have no recall measurement at all.
 
-**Highest-value next step for the platform:** run our engines against the
-frontier-evals corpus to get a real recall number. Precision without recall tells
-us we are quiet, not that we are useful.
+**Done — and it changed the roadmap.** Measured against all 40 audits / 118 gold
+vulnerabilities: upper bound 23.3% of gold bugs have a CRITICAL/HIGH finding in
+the right file (6.42x chance), but hand grading all 24 reaches gives a **true
+recall of ~2-4%**. The decisive number is the corpus breakdown: only **18% of
+gold vulnerabilities are even the shape a pattern rule could match**; 81% are
+logic, accounting and protocol-design bugs where the code does exactly what it
+says and what it says is wrong.
+
+That caps *any* pure pattern approach at ~18% on real audit work. Full method,
+grading and reproduction steps in
+`prep-kits/x402-audit-tiers/TEST-PLAN.md` §3; harness in
+`packages/x402-audit-api/scripts/recall-bench.ts`.
 
 ## Current measured behaviour
 

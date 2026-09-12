@@ -68,7 +68,7 @@ pretending the scan was complete.
 
 ---
 
-### T2 — Deep scan *(next to build — highest ROI)*
+### T2 — Deep scan *(worth building, but see the recall note at the end — it is not the recall fix)*
 
 **What runs additionally:**
 
@@ -153,21 +153,47 @@ public reconciliation dashboard instead. Listed here only to close the ladder.
 | T4 | + manual review, signed report | days–weeks | yes | $5k–50k |
 | T5 | Continuous monitoring | ongoing | on-call | — (don't) |
 
-## Sequencing
+## Sequencing *(revised after the recall measurement)*
 
 1. **T0** — trivial, reuses `audit-lite`, immediate funnel value.
-2. **T2** — the real unlock. Needs the VPS and lockfile ingestion. Aderyn first:
-   Rust, fast, no per-project `solc` juggling, closest to drop-in.
-3. **T3** — only once T2 is identifying candidate targets worth fuzzing. The
+2. **Reasoning layer** — rewrite `ai-feedback.ts` to read source with an
+   evmbench-style prompt. Measured evidence puts this ahead of T2: 81% of real
+   paid findings are logic bugs no pattern engine reaches, and this is the only
+   item on the list that addresses them. It also needs no build host.
+3. **T2** — still worth building for cross-file precision and for the 18% that
+   is pattern-shaped. Aderyn first: Rust, fast, no per-project `solc` juggling.
+   Just do not expect it to move recall much.
+4. **T3** — only once T2 is identifying candidate targets worth fuzzing. The
    cache differential test is the most defensible single offering here.
-4. **T4** — gated on having findings worth a signature, which means gated on the
-   recall number from `frontier-evals`. Do not sell a human-backed report while
-   recall is unmeasured.
+5. **T4** — gated on the reasoning layer existing. A signed human report backed
+   by a 3% screen is the wrong product.
 
-## The measurement that prices all of this
+## The measurement that prices all of this — now taken
 
-Everything above assumes we know how good T1 is. We do not — precision is
-measured, recall is not. Run the engines against
-[`frontier-evals`](https://github.com/openai/frontier-evals) before setting any
-price or making any claim about what a tier catches. If T1 recall is 5%, then T2
-is not an upsell, it is the actual product and T1 is the teaser.
+T1's true recall against 118 real, paid audit findings is **~2-4%** (upper bound
+23.3% by file, 6.42x chance; hand-graded down). See
+`prep-kits/x402-audit-tiers/TEST-PLAN.md` §3.
+
+Four consequences for this ladder, and they are not comfortable:
+
+1. **T1 is a screen, not an audit, and the copy must say so.** It catches the
+   known *shapes* — the two genuine catches in 118 were a signature replay and a
+   reentrancy-after-external-call, both exactly matching a rule class. Priced at
+   $0.99 against a 30-second turnaround that is honest value. Priced as "an
+   audit" it would not be.
+
+2. **T2 is a smaller upgrade than assumed.** Only 18% of real findings are
+   pattern-shaped at all, and Aderyn/Slither are better pattern matchers, not
+   reasoners. They should lift access-control and unchecked-return coverage, but
+   they cannot reach the 81% that is logic and accounting. T2 is still worth
+   building; it is not the answer to recall.
+
+3. **The 81% needs reasoning, which points at the AI step, not more rules.**
+   `ai-feedback.ts` currently only summarises findings the regexes already
+   produced — it never sees source, so it cannot add a single finding. Rewriting
+   it to read the code with an evmbench-style `detect.md` prompt is the only
+   route on this list that addresses the majority of real bugs. On measured
+   evidence that outranks T2.
+
+4. **Do not sell T4 on T1's output.** A signed human report backed by a 3%
+   screen is the wrong product. T4 needs the reasoning layer first.
