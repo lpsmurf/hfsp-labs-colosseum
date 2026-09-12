@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import express           from 'express';
 import helmet            from 'helmet';
 import { auditRouter }   from './routes/audit-lite.js';
+import { enabledNetworks } from './x402.js';
 import { config, AUDIT_PRICE_USDC, BASE_USDC } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -35,7 +36,7 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
     contact:     'info@hfsp.xyz',
     category:    'security',
     tags:        ['security', 'audit', 'x402', 'web3', 'defi'],
-    networks:    ['base', 'solana'],
+    networks:    enabledNetworks,
     endpoints: [
       {
         url:         '/audit',

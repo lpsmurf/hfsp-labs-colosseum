@@ -18,34 +18,55 @@ import {
   buildGate,
   multiGate,
   FACILITATORS,
+  type GateOptions,
+  type NetworkName,
   type RoutesConfig,
 } from '@hfsp/x402-common';
 import { config, AUDIT_PRICE_USDC } from './config.js';
 
+/**
+ * Celo is opt-in: a half-configured Celo option would advertise a payment the
+ * facilitator then refuses to settle, which is worse than not offering it.
+ */
+const celoKey = config.PAYMENT_RECIPIENT_CELO && config.CELO_FACILITATOR_API_KEY
+  ? config.CELO_FACILITATOR_API_KEY
+  : undefined;
+
+const options: GateOptions[] = [
+  {
+    price:       AUDIT_PRICE_USDC,
+    payTo:       config.PAYMENT_RECIPIENT_BASE,
+    network:     'base',
+    description: 'x402 security audit (Base USDC)',
+  },
+  {
+    price:       AUDIT_PRICE_USDC,
+    payTo:       config.PAYMENT_RECIPIENT_SOL,
+    network:     'solana',
+    description: 'x402 security audit (Solana USDC)',
+  },
+  ...(celoKey ? [{
+    price:       AUDIT_PRICE_USDC,
+    payTo:       config.PAYMENT_RECIPIENT_CELO!,
+    network:     config.CELO_NETWORK,
+    description: 'x402 security audit (Celo USDC)',
+  }] : []),
+];
+
+export const enabledNetworks: NetworkName[] = options.map(o => o.network);
+
 export const routes: RoutesConfig = {
   'POST /audit': multiGate(
     'x402 security audit — static + dynamic analysis of a public GitHub repo',
-    [
-      {
-        price:       AUDIT_PRICE_USDC,
-        payTo:       config.PAYMENT_RECIPIENT_BASE,
-        network:     'base',
-        description: 'x402 security audit (Base USDC)',
-      },
-      {
-        price:       AUDIT_PRICE_USDC,
-        payTo:       config.PAYMENT_RECIPIENT_SOL,
-        network:     'solana',
-        description: 'x402 security audit (Solana USDC)',
-      },
-    ],
+    options,
   ),
 };
 
 const server = createResourceServer({
-  facilitatorUrl: config.FACILITATOR_URL,
-  families:       ['evm', 'svm'],
-  networks:       ['base', 'solana'],
+  facilitatorUrl:    config.FACILITATOR_URL,
+  families:          ['evm', 'svm'],
+  networks:          enabledNetworks,
+  extraFacilitators: celoKey ? [{ url: FACILITATORS[config.CELO_NETWORK], apiKey: celoKey }] : [],
 });
 
 const gate = buildGate(routes, server);

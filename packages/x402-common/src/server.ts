@@ -38,6 +38,14 @@ export const FACILITATORS = {
   solvador: "https://api.solvador.com",
   /** Multi-network production facilitator, EVM + Solana. Endpoint unverified. */
   corbits:  "https://corbits.dev",
+  /**
+   * Celo Core Co.'s facilitator. Verified against /supported on 2026-09-12 as
+   * serving x402Version 2 `exact` on eip155:42220. Payai does not list Celo, so
+   * Celo routes need this one. `/settle` requires `facilitatorApiKey`.
+   */
+  celo:        "https://api.x402.celo.org",
+  /** Same operator, eip155:11142220. */
+  celoSepolia: "https://api.x402.sepolia.celo.org",
 } as const;
 
 /** Sensible default for anything selling on mainnet. */
@@ -57,6 +65,20 @@ export interface ResourceServerOptions {
    * safety check below.
    */
   networks: NetworkName[];
+  /**
+   * Sent as `X-API-Key` on every facilitator call. The Celo facilitator answers
+   * /verify without it and then 401s on /settle — so a missing key shows up as
+   * payments that verify and never land.
+   */
+  facilitatorApiKey?: string;
+  /**
+   * Further facilitators for networks the primary one does not settle — e.g. the
+   * Celo facilitator next to payai. At boot each is asked for /supported and every
+   * network is routed to the first facilitator that lists it, primary first. One
+   * that is unreachable at boot is skipped with a warning rather than failing the
+   * others.
+   */
+  extraFacilitators?: Array<{ url: string; apiKey?: string }>;
 }
 
 /**
@@ -76,13 +98,33 @@ export function createResourceServer(opts: ResourceServerOptions): x402ResourceS
     );
   }
 
-  const facilitator = new HTTPFacilitatorClient({ url: opts.facilitatorUrl });
-  let server = new x402ResourceServer(facilitator);
+  const specs = [
+    { url: opts.facilitatorUrl, apiKey: opts.facilitatorApiKey },
+    ...(opts.extraFacilitators ?? []),
+  ];
+  let server = new x402ResourceServer(specs.map(facilitatorClient));
 
   if (opts.families.includes("evm")) server = server.register("eip155:*", new ExactEvmScheme());
   if (opts.families.includes("svm")) server = server.register("solana:*", new ExactSvmScheme());
 
   return server;
+}
+
+function facilitatorClient({ url, apiKey }: { url: string; apiKey?: string }): HTTPFacilitatorClient {
+  if (url === FACILITATORS.celo && !apiKey) {
+    throw new Error(
+      "The Celo facilitator rejects /settle without an API key. Pass one " +
+      "(create it at x402.celo.org).",
+    );
+  }
+  if (!apiKey) return new HTTPFacilitatorClient({ url });
+  return new HTTPFacilitatorClient({
+    url,
+    createAuthHeaders: async () => {
+      const h = { "X-API-Key": apiKey };
+      return { verify: h, settle: h, supported: h };
+    },
+  });
 }
 
 export interface GateOptions {

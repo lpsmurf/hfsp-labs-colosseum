@@ -12,6 +12,8 @@ export const NETWORKS = {
   baseSepolia:  "eip155:84532",
   ethereum:     "eip155:1",
   sepolia:      "eip155:11155111",
+  celo:         "eip155:42220",
+  celoSepolia:  "eip155:11142220",
   // Solana CAIP-2 uses the first 32 chars of the genesis hash.
   solana:       "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
   solanaDevnet: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
@@ -26,6 +28,8 @@ export const USDC = {
   baseSepolia:  "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
   ethereum:     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   sepolia:      "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  celo:         "0xcEBA9300f2b948710d2653dD7B07f33A8B32118C",
+  celoSepolia:  "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
   solana:       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   solanaDevnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 } as const satisfies Record<NetworkName, string>;
@@ -43,18 +47,23 @@ export const USDC = {
  * USDC is "USDC". Values below were read from the contracts via `eth_call`
  * (`name()` / `version()`) on 2026-07-30, except Ethereum mainnet — public RPCs
  * refused the call, and we do not currently sell on that network. Verify before
- * enabling it.
+ * enabling it. Celo mainnet and Celo Sepolia were read via forno on 2026-09-12.
+ *
+ * Celo USDT (`0x48065fbb…`) is deliberately absent: its `version()` reverts, so
+ * the domain has to come from `eip712Domain()` before it can be offered.
  */
 export const EIP712_DOMAIN: Partial<Record<NetworkName, { name: string; version: string }>> = {
   base:        { name: "USD Coin", version: "2" },
   baseSepolia: { name: "USDC",     version: "2" },
   sepolia:     { name: "USDC",     version: "2" },
   ethereum:    { name: "USD Coin", version: "2" }, // unverified — see above
+  celo:        { name: "USDC",     version: "2" },
+  celoSepolia: { name: "USDC",     version: "2" },
 };
 
 /** True for networks where a mistake costs real money. */
 export function isMainnet(network: NetworkName): boolean {
-  return network === "base" || network === "ethereum" || network === "solana";
+  return network === "base" || network === "ethereum" || network === "solana" || network === "celo";
 }
 
 /** EVM networks settle via EIP-3009 and need the token's EIP-712 domain. */

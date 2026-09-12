@@ -40,6 +40,33 @@ test("isMainnet flags only real-money networks", () => {
   assert.equal(isMainnet("solana"), true);
   assert.equal(isMainnet("baseSepolia"), false);
   assert.equal(isMainnet("solanaDevnet"), false);
+  assert.equal(isMainnet("celo"), true);
+  assert.equal(isMainnet("celoSepolia"), false);
+});
+
+test("createResourceServer requires an API key for the Celo facilitator", () => {
+  assert.throws(
+    () => createResourceServer({ facilitatorUrl: FACILITATORS.celo, families: ["evm"], networks: ["celo"] }),
+    /API key/,
+  );
+  assert.doesNotThrow(() => createResourceServer({
+    facilitatorUrl: FACILITATORS.celo, families: ["evm"], networks: ["celo"], facilitatorApiKey: "k",
+  }));
+  // The check has to cover extra facilitators too, not just the primary.
+  assert.throws(
+    () => createResourceServer({
+      facilitatorUrl: FACILITATORS.payai, families: ["evm"], networks: ["base", "celo"],
+      extraFacilitators: [{ url: FACILITATORS.celo }],
+    }),
+    /API key/,
+  );
+});
+
+test("gate on Celo carries the on-chain EIP-712 domain", () => {
+  const c = gate({ price: 0.99, payTo: "0x0000000000000000000000000000000000000001", network: "celo", description: "t" });
+  const accepts = c.accepts as Array<{ network: string; price: { asset: string; extra: unknown } }>;
+  assert.equal(accepts[0].network, "eip155:42220");
+  assert.deepEqual(accepts[0].price.extra, { name: "USDC", version: "2" });
 });
 
 // The check that matters: x402.org is a testnet facilitator, and pointing mainnet
