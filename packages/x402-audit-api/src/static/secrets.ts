@@ -1,5 +1,6 @@
 import type { RepoFile } from '../github.js';
 import type { Finding } from '../report.js';
+import { isContractLang } from '../lang.js';
 
 const SECRET_PATTERNS = [
   {
@@ -48,7 +49,14 @@ export function checkSecrets(file: RepoFile): Finding[] {
 
   if (SAFE_FILES.test(path)) return findings;
 
+  // In contract source a bare 32-byte hex literal is a storage slot, a typehash
+  // or a keccak constant — never a private key. Left unfiltered this reported 21
+  // CRITICAL "leaked keys" across openzeppelin-contracts, all of them ERC-7201
+  // namespaced storage slots.
+  const contractSrc = isContractLang(path);
+
   for (const { id, re, label, severity } of SECRET_PATTERNS) {
+    if (contractSrc && id === 'STATIC-SECRET-004') continue;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
       const matched = m[1] ?? m[0];

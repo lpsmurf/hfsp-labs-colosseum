@@ -6,7 +6,7 @@ import { Router }            from 'express';
 import rateLimit             from 'express-rate-limit';
 import { verifyPayment }     from '../verify.js';
 import { fetchRepo, parseRepoUrl } from '../github.js';
-import { runStaticAnalysis } from '../static/index.js';
+import { analyzeStatic }     from '../static/index.js';
 import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
 import { AUDIT_PRICE_USDC, config } from '../config.js';
@@ -120,15 +120,16 @@ auditRouter.post('/', limiter, async (req, res) => {
     const repoMeta = await fetchRepo(repo);
     const liveUrl  = endpoint ?? repoMeta.liveEndpoint;
 
-    const [staticFindings, dynamicFindings] = await Promise.all([
-      runStaticAnalysis(repoMeta.files),
+    const [staticResult, dynamicFindings] = await Promise.all([
+      analyzeStatic(repoMeta.files),
       liveUrl ? runDynamicProbes(liveUrl) : Promise.resolve([]),
     ]);
 
     const report = buildReport(
       repo, repoMeta.commitSha, liveUrl,
       repoMeta.files.length, !!liveUrl,
-      [...staticFindings, ...dynamicFindings],
+      [...staticResult.findings, ...dynamicFindings],
+      staticResult.coverage,
     );
 
     console.log(`[audit-lite] ${repo} → ${report.summary.verdict} (${report.summary.total} findings)`);
