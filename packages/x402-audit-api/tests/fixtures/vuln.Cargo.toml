@@ -1,0 +1,4 @@
+[package]
+name = "vault"
+[profile.release]
+overflow-checks = false

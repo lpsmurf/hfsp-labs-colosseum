@@ -156,11 +156,48 @@ three, which sent us chasing a permissions problem that was actually an empty
 
 ```bash
 cd packages/x402-audit-api
-npx tsc --noEmit          # must be clean
-# precision baseline, fixtures, and tier checks are currently ad-hoc scripts —
-# folding them into a committed test suite is item 0 of the next pass
+
+npm run typecheck          # must be clean
+npm test                   # 55 unit tests, no network, ~0.4s
+npm run test:integration   # 7 precision gates, needs GITHUB_TOKEN, ~35s
 ```
 
-**Known gap in this plan:** none of §1–§3 is a committed test yet. They were run
-as throwaway scripts. Turning §1 and §2 into a real suite with the ≤30-finding
-gate is prerequisite to trusting any future rule change.
+`npm test` from the repo root picks these up via the workspaces script.
+
+### What is committed
+
+| File | Covers | Tests |
+|---|---|---|
+| `tests/engines.test.ts` | §2 fixture pairs, language dispatch, self-describing findings, secret context | 15 |
+| `tests/identifier-spelling.test.ts` | the `\b`-against-underscore trap, in six spellings each way | 19 |
+| `tests/report.test.ts` | dedupe (incl. the DEP-001 collapse regression), ordering, needsReview, verdict | 9 |
+| `tests/tiers.test.ts` | catalog invariants, monotonic depth, parse strictness, redaction leak-check | 12 |
+| `tests/integration/precision.test.ts` | §1 OpenZeppelin ceiling, §1b four-protocol gate, fetcher exclusions | 7 |
+
+Integration tests **skip rather than fail** without a `GITHUB_TOKEN`, since one
+audit costs more than the 60 requests/hour unauthenticated GitHub allows. They
+also run sequentially — parallel runs burn the rate limit and return confusing
+503s instead of results.
+
+### The gates have teeth — verified
+
+Reintroducing the `\b` bug into the slot-context check fails **6 tests**, each
+naming the spelling that breaks (`admin_slot`, `adminSlot`, `ADMIN_SLOT`,
+`_adminSlot`, `_useAdminSlot`, `stored_admin_slot`). A test suite that cannot
+fail is decoration, so this was checked rather than assumed.
+
+Worth noting what that revealed: `\b` does not only break underscore spellings.
+It breaks every *suffixed* identifier, because the preceding character is a word
+character either way — `adminSlot` fails for the same reason `ADMIN_SLOT` does.
+The blast radius of that mistake was wider than the two cases that found it.
+
+### Still not covered
+
+- **Recall** (§3) — the frontier-evals run. Unchanged and still the priority.
+- **Payment paths** — `POST /audit` with a real settled payment. Needs a funded
+  test wallet or a mocked facilitator.
+- **Dynamic probes** — need a deployed x402 target to probe.
+- **The `ISSUES_FOUND` boundary on live repos** — the four-protocol gate asserts
+  no CRITICAL/HIGH but does not pin the MEDIUM/INFO counts, so noise can grow
+  there unnoticed. Deliberate: pinning them would make the gate brittle against
+  upstream commits.
