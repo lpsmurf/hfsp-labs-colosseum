@@ -109,6 +109,10 @@ const FILE_RULES: SolRule[] = [
   {
     id:         'SOL-DELEGATE-001',
     re:         /\.delegatecall\s*\(/,
+    // A proxy delegating to its implementation is the pattern working, not a
+    // defect. Aave's BaseImmutableAdminUpgradeabilityProxy was reported at HIGH
+    // for doing the one thing a proxy exists to do.
+    unless:     /\bcontract\s+\w*Proxy\w*\b|function\s+_?(?:implementation|fallback|delegate)\s*\(/,
     severity:   'HIGH',
     confidence: 'LOW',
     title:      'delegatecall present — verify the target cannot be influenced',
