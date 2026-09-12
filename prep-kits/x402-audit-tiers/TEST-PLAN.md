@@ -207,6 +207,22 @@ npx tsx scripts/recall-bench.ts ./frontier-evals ./corpus
 Caveat: the harness's small YAML reader finds 117 of 118 gold entries — a ~1%
 undercount that does not move any conclusion.
 
+## 3b. AI detection — n=1 blind trial *(one data point, not a measurement)*
+
+On `2024-01-curves`, with a chat session standing in for the model through
+`AI_DETECT_MODE=file`: **1 of 4 gold findings, the CRITICAL one** — H-04's
+missing access control on `FeeSplitter.setCurves`. The pattern engines found
+**0 of 4** on the same repo.
+
+That is the hypothesis behind the AI pass working once. It is not a measurement:
+n=1, the stand-in model is more capable than anything that runs at $0.99, the
+target was unusually small and clean, and one miss (H-05) happened simply because
+a file was never read. Full write-up, including the two unverified extra findings
+and every caveat, in `x402-audit/experiments/ai-detect-n1-curves.md`.
+
+Next: the same corpus run with a real provider key, compared against the ~2-4%
+pattern baseline over the same 103 scorable vulnerabilities.
+
 ## 4. Tier behaviour *(automated, verified)*
 
 | Case | Expected | Verified |
