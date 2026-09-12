@@ -62,6 +62,13 @@ const BODY_GUARD = new RegExp([
   /\bif\s*\(\s*!\s*\w+\s*\[\s*(?:msg\.sender|_msgSender\s*\(\s*\))\s*\]\s*\)/.source,
   // A privileged address compared as the first operand of a require.
   /\brequire\s*\(\s*(?:owner|admin|governance|_owner|_admin|_governance)\b/.source,
+  // A delegatecall-context check. reNFT's Reclaimer is a package meant to run
+  // only inside a rental safe, and authorises with
+  //   if (address(this) == original) revert OnlyDelegateCallAllowed();
+  //   if (address(this) != rentalOrder.rentalWallet) revert OnlyRentalSafe();
+  // That is authorization — it is just asking who *we* are rather than who
+  // called. Reclaimer.reclaimRentalOrder was reported as an unguarded sweep.
+  /\baddress\s*\(\s*this\s*\)\s*(?:==|!=)|(?:==|!=)\s*address\s*\(\s*this\s*\)/.source,
 ].join('|'), 'i');
 
 /**
@@ -150,6 +157,26 @@ function writesCallerOwnRecord(body: string): boolean {
  * wrapper is reporting the absence of evidence. Self-recursion in a setter is
  * not a thing, so matching the function's own name is safe.
  */
+/**
+ * Does the body actually change anything?
+ *
+ * Solidity's `view` keyword is the authority on whether a function *may* write
+ * state, and the inventory relies on that. But a function can decline to be
+ * `view` and still do nothing — phi's PhiNFT1155 has
+ *
+ *     /// @dev just notice to update
+ *     function setContractURI() external { emit ContractURIUpdated(); }
+ *
+ * which matches the configuration-setter name pattern perfectly and writes
+ * nothing at all. There is no state for a guard to protect, so an access
+ * control finding on it is empty. Events are stripped first: emitting is not a
+ * state effect anyone can exploit.
+ */
+function hasStateEffect(body: string): boolean {
+  const stripped = body.replace(/\bemit\s+[^;]*;/g, ';');
+  return /(?:^|[^=!<>])=(?!=)|\+=|-=|\*=|\/=|\|=|&=|\.push\s*\(|\.pop\s*\(|\bdelete\s+|\b\w+\s*\(/.test(stripped);
+}
+
 function forwardsToOverload(name: string, body: string): boolean {
   return new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(`).test(body);
 }
@@ -316,8 +343,9 @@ export function checkAccessControl(file: RepoFile): Finding[] {
       if (guardOf(fn.header, fn.body)) continue;
 
       // An empty body cannot be abused, and abstract contracts declare
-      // functions their children implement.
+      // functions their children implement. Nor can a body that only emits.
       if (!/[^\s{}]/.test(fn.body)) continue;
+      if (!hasStateEffect(fn.body)) continue;
 
       // The caller is the subject, so there is no third party to protect.
       if (writesCallerOwnRecord(fn.body)) continue;
