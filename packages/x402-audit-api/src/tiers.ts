@@ -26,6 +26,7 @@ export type EngineId =
   | 'advisories'
   | 'patch-age'
   | 'ai-summary'
+  | 'ai-detect'
   // T2 — external binaries, needs a build host
   | 'lockfile'
   | 'aderyn'
@@ -42,7 +43,7 @@ export type EngineId =
 export const T1_ENGINES: EngineId[] = [
   'secrets', 'supply-chain', 'cors', 'payment',
   'solidity', 'solana', 'verify-cache',
-  'dynamic', 'advisories', 'patch-age', 'ai-summary',
+  'dynamic', 'advisories', 'patch-age', 'ai-summary', 'ai-detect',
 ];
 
 const T2_ENGINES: EngineId[] = [...T1_ENGINES, 'lockfile', 'aderyn', 'slither', 'semgrep'];
@@ -74,7 +75,7 @@ export const TIERS: Record<TierId, Tier> = {
     id:         'T0',
     name:       'Preview',
     priceUsdc:  null,               // free
-    engines:    T1_ENGINES.filter(e => e !== 'dynamic' && e !== 'ai-summary'),
+    engines:    T1_ENGINES.filter(e => !['dynamic', 'ai-summary', 'ai-detect'].includes(e)),
     detail:     'counts',
     async:      false,
     human:      false,
@@ -92,7 +93,7 @@ export const TIERS: Record<TierId, Tier> = {
     human:      false,
     available:  true,
     turnaround: '~30 seconds',
-    summary:    'All in-process engines: JS/TS, Solidity, Solana/Anchor, verification-cache, supply-chain, live probes, dependency advisories, patch age, AI summary.',
+    summary:    'All in-process engines: JS/TS, Solidity, Solana/Anchor, verification-cache, supply-chain, live probes, dependency advisories, patch age, plus an AI pass that reads the source and proposes findings of its own.',
   },
   T2: {
     id:         'T2',
@@ -130,7 +131,7 @@ export const TIERS: Record<TierId, Tier> = {
     human:      true,
     available:  false,
     turnaround: 'days to weeks',
-    blockedOn:  'Scoping call. Not offered while T1 recall is unmeasured — see the frontier-evals note in x402-audit/references/service-tiers.md.',
+    blockedOn:  'Scoping call, and gated on the AI reasoning layer being proven. T1 pattern recall against 118 real paid findings is ~2-4%; a signed human report backed by that alone is the wrong product. See x402-audit/references/service-tiers.md.',
     summary:    'Everything above plus human review and a signed, publishable report.',
   },
 };
