@@ -59,6 +59,12 @@ const FILE_RULES: SolRule[] = [
   {
     id:         'SOL-RAND-001',
     re:         /keccak256\s*\([^;]{0,200}\bblock\.(?:timestamp|number|difficulty|prevrandao|coinbase)\b|\bblockhash\s*\(/,
+    // Hashing a timestamp is not the same as using it as randomness. Tempo's
+    // TempoStreamChannel derives a channel *id* from
+    // keccak256(abi.encodePacked(msg.sender, payee, token, block.timestamp,
+    // counter)) and was reported at HIGH. Only fire where the file shows the
+    // value is being used to pick an outcome.
+    requires:   /%|\b(?:rand\w*|random\w*|seed|entropy|lottery|raffle|winner|dice|roll|shuffle|draw)\b/i,
     severity:   'HIGH',
     confidence: 'MEDIUM',
     title:      'Randomness derived from block properties',
@@ -347,7 +353,9 @@ function functionRules(path: string, src: string): Finding[] {
     }
 
     // Privileged setter with no zero-address check.
-    if (PRIVILEGED_SETTER.test(header) && !/address\s*\(\s*0\s*\)|!=\s*address\(0\)|ZeroAddress|NoZero/.test(body)) {
+    // `setOperatorFee(uint256)` matches the name pattern and takes no address at
+    // all — a zero-address check on it is meaningless. Found on liquid-ron.
+    if (PRIVILEGED_SETTER.test(header) && /\baddress\s+\w+/.test(header) && !/\bbool\s+\w+\s*\)/.test(header) && !/address\s*\(\s*0\s*\)|!=\s*address\(0\)|ZeroAddress|NoZero/.test(body)) {
       findings.push({
         id:         'SOL-INPUT-001',
         severity:   'MEDIUM',
