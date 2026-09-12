@@ -7,6 +7,7 @@ import { checkSolana }         from './solana.js';
 import { checkVerifyCache }    from './verify-cache.js';
 import { checkSupplyChain }    from './supply-chain.js';
 import { checkUncheckedMath }  from './unchecked-math.js';
+import { checkDos }            from './dos.js';
 import { checkAccessControl, accessControlInventory } from './access-control.js';
 import type { AttackSurface }  from './access-control.js';
 import { langOf }              from '../lang.js';
@@ -69,6 +70,7 @@ export async function analyzeStatic(
         if (on('solidity'))       findings.push(...checkSolidity(file));
         if (on('access-control')) findings.push(...checkAccessControl(file));
         if (on('unchecked-math')) findings.push(...checkUncheckedMath(file));
+        if (on('dos'))            findings.push(...checkDos(file));
         if (on('verify-cache'))   findings.push(...checkVerifyCache(file));
         break;
       case 'rust':
