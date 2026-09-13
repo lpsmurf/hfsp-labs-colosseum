@@ -112,6 +112,7 @@ async function pay() {
   const eth = window.ethereum;
   if (!eth) { setStatus($("pay-status"), "Open this page inside MiniPay, Valora or a wallet browser.", "err"); return; }
   $("pay-btn").disabled = true;
+  let txHash;
   try {
     const [from] = await eth.request({ method: "eth_requestAccounts" });
     if ((await eth.request({ method: "eth_chainId" })) !== CELO_CHAIN) {
@@ -123,13 +124,22 @@ async function pay() {
     if (eth.isMiniPay) tx.feeCurrency = quote.feeCurrency;
 
     setStatus($("pay-status"), "Confirm the payment in your wallet…");
-    const txHash = await eth.request({ method: "eth_sendTransaction", params: [tx] });
+    txHash = await eth.request({ method: "eth_sendTransaction", params: [tx] });
 
-    setStatus($("pay-status"), "Payment sent. Verifying and delivering — this takes up to a minute…");
+    setStatus($("pay-status"), "Payment sent. Confirming it on Celo…");
     clearInterval(timer);
-    const result = await confirmWithRetry(txHash);
-    showDone(result, txHash);
+    const confirmed = await confirmWithRetry(txHash);
+    if (confirmed.ok === false && !confirmed.status) throw new Error(confirmed.error || "Could not confirm the payment.");
+    showProgress(txHash);
+    await trackOrder(confirmed, txHash);
   } catch (e) {
+    if (txHash) {
+      // Money may have moved: never offer the pay button again for this quote.
+      showProgress(txHash);
+      $("done-title").textContent = e.message || "We could not confirm your payment yet.";
+      $("done-title").className = "status err";
+      return;
+    }
     const rejected = e?.code === 4001;
     setStatus($("pay-status"), rejected ? "Payment cancelled." : (e.message || "Payment failed."), "err");
     $("pay-btn").disabled = false;
@@ -137,26 +147,49 @@ async function pay() {
 }
 
 async function confirmWithRetry(txHash) {
-  for (let attempt = 0; attempt < 6; attempt++) {
+  // The server waits briefly for the block and answers 409 until it lands.
+  for (let attempt = 0; attempt < 20; attempt++) {
     const res = await fetch("/api/celo/checkout/confirm", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ orderId: quote.orderId, txHash }),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 409 && /not confirmed/i.test(data.error || "")) { await new Promise(r => setTimeout(r, 5000)); continue; }
+    if (res.status === 409 && /not confirmed/i.test(data.error || "")) { await sleep(3000); continue; }
     return data;
   }
-  return { ok: false, error: "Still confirming. Your payment is safe — check back with the order status link." };
+  return { ok: false, error: "Your payment has not confirmed yet. It is safe — reopen this page later with the order status link." };
 }
 
-function showDone(data, txHash) {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const STAGE_TEXT = {
+  paid: "Payment confirmed. Buying your product…",
+  fulfilling: "Payment confirmed. Buying your product…",
+  delivering: "Bought. The supplier is delivering it — usually 1–15 minutes.",
+  delivered: "Done — your top-up or voucher has been delivered.",
+  failed: "We received your payment, but delivery needs a check.",
+};
+
+function showProgress(txHash) {
   $("step-pay").hidden = true; $("step-done").hidden = false;
-  const ok = data.status === "fulfilled";
-  $("done-title").textContent = ok ? "Done — your top-up is on its way." : "We received your payment, but delivery needs a check.";
-  $("done-title").className = `status ${ok ? "ok" : "err"}`;
   $("done-detail").innerHTML = `Order ${escapeHtml(quote.orderId)} · <a href="https://celoscan.io/tx/${txHash}" target="_blank" rel="noopener">view payment</a>` +
-    (ok ? "" : ` · ${escapeHtml(data.error || "")}`);
-  if (data.result) { $("done-result").hidden = false; $("done-result").textContent = JSON.stringify(data.result, null, 2); }
+    ` · you can close this page; the code or top-up still arrives.`;
+}
+
+// Poll until delivered or failed. Delivery continues server-side if the page closes.
+async function trackOrder(data, txHash) {
+  for (let i = 0; i < 240; i++) {
+    const status = data.status || "fulfilling";
+    const done = status === "delivered", failed = status === "failed";
+    $("done-title").textContent = STAGE_TEXT[status] || "Working on your order…";
+    $("done-title").className = `status ${failed ? "err" : "ok"}`;
+    if (failed && data.error) $("done-detail").innerHTML += ` · ${escapeHtml(data.error)}`;
+    if (done || failed) {
+      if (data.result) { $("done-result").hidden = false; $("done-result").textContent = JSON.stringify(data.result, null, 2); }
+      return;
+    }
+    await sleep(5000);
+    data = await api(`/api/celo/checkout/${quote.orderId}`).catch(() => data);
+  }
 }
 
 function reset() {

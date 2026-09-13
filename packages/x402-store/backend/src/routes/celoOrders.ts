@@ -4,8 +4,11 @@
 //
 //   1st request  → price the order, lock the price, answer 402 (Celo, chosen asset)
 //   paid retry   → settle via the Celo facilitator into the operator wallet (x402
-//                  `upfront` flow), then bridge Celo → Base unless a float covers
-//                  it, pay Cryptorefills on Base, return the top-up / gift card.
+//                  `upfront` flow) and answer 202 with an order id at once; the
+//                  swap/bridge, Cryptorefills purchase and delivery run in the
+//                  background.
+//
+//   GET /api/celo/orders/:orderId → fulfilling | delivering | delivered | failed
 //
 // Money that arrives but cannot be fulfilled is recorded for reconciliation and
 // never retried automatically: a second attempt could buy the product twice.
@@ -16,7 +19,9 @@ import { celoEnv } from "../celoConfig.js";
 import { operatorAddress } from "../services/evm.js";
 import { claimTxSig, redis } from "../services/redis.js";
 import { orderKey, getLock, setLock, dropLock, facilitatorCredits } from "../services/celoState.js";
-import { priceOrder, fulfilPaidOrder, AssetUnavailable } from "../services/celoFulfil.js";
+import { randomBytes } from "node:crypto";
+import { priceOrder, AssetUnavailable } from "../services/celoFulfil.js";
+import { startFulfilment, getProgress } from "../services/celoJobs.js";
 import { OrderRejected, rejectionMessage } from "../services/cryptorefills.js";
 
 const router = Router();
@@ -106,17 +111,34 @@ router.post("/", async (req, res, next) => {
     }
     await dropLock(key);
 
-    try {
-      const { result, bridge } = await fulfilPaidOrder(body, lock, {
-        rail: "x402", tx: paid.transaction, payer: paid.payer, integrator: req.get("x-integrator")?.slice(0, 80),
-      });
-      res.json({ ok: true, data: result, payment: { transaction: paid.transaction, network: paid.network }, bridge });
-    } catch {
-      res.status(502).json({
-        ok: false, code: "FULFILLMENT_FAILED", transaction: paid.transaction,
-        error: "Payment received; fulfilment needs reconciliation. Contact info@hfsp.xyz with your transaction hash.",
-      });
-    }
+    // Paid: answer now, fulfil in the background. The payment is final either way.
+    const orderId = randomBytes(8).toString("hex");
+    const progress = await startFulfilment(orderId, body, lock, {
+      rail: "x402", tx: paid.transaction, payer: paid.payer, integrator: req.get("x-integrator")?.slice(0, 80),
+    });
+    res.status(202).json({
+      ok: true,
+      orderId,
+      status: progress.stage,
+      statusUrl: `/api/celo/orders/${orderId}`,
+      message: "Payment received. Delivery usually takes 1–15 minutes; poll statusUrl.",
+      payment: { transaction: paid.transaction, network: paid.network },
+    });
+  } catch (error) { next(error); }
+});
+
+router.get("/:orderId", async (req, res, next) => {
+  try {
+    const progress = /^[0-9a-f]{16}$/.test(req.params.orderId) ? await getProgress(req.params.orderId) : null;
+    if (!progress) { res.status(404).json({ ok: false, error: "Order not found" }); return; }
+    res.json({
+      ok: progress.stage !== "failed",
+      orderId: req.params.orderId,
+      status: progress.stage,
+      data: progress.result,
+      error: progress.error,
+      updatedAt: new Date(progress.updatedAt).toISOString(),
+    });
   } catch (error) { next(error); }
 });
 
