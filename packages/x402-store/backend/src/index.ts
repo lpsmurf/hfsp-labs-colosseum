@@ -46,6 +46,8 @@ if (celoEnabled) {
   sweepInterrupted()
     .then(n => { if (n) console.error(`[store:celo] ${n} order(s) interrupted by a restart sent to reconciliation`); })
     .catch(err => console.error("[store:celo] interrupted-order sweep failed:", err?.message ?? err));
+  const { startCeloMonitor } = await import("./services/celoMonitor.js");
+  startCeloMonitor();
   app.use("/api/celo/orders", celoOrdersRouter);
   app.use("/api/celo/checkout", celoCheckoutRouter);
   // Browser checkout for wallets that cannot sign x402 (MiniPay, Valora…).
