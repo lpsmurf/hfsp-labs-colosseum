@@ -23,6 +23,7 @@ import { randomBytes } from "node:crypto";
 import { priceOrder, AssetUnavailable } from "../services/celoFulfil.js";
 import { startFulfilment, getProgress, publicResult } from "../services/celoJobs.js";
 import { quoteLimit, statusLimit } from "../middleware/celoRateLimit.js";
+import { integratorSummary } from "../services/celoLedger.js";
 import { OrderRejected, rejectionMessage } from "../services/cryptorefills.js";
 
 const router = Router();
@@ -126,6 +127,17 @@ router.get("/:orderId", statusLimit, async (req, res, next) => {
       error: progress.error,
       updatedAt: new Date(progress.updatedAt).toISOString(),
     });
+  } catch (error) { next(error); }
+});
+
+// Integrator revenue share (read-only). An integrator polls its own accrued
+// share by the id it sends as X-Integrator (its ERC-8004 agent id).
+router.get("/integrators/:id", statusLimit, async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    if (!/^[A-Za-z0-9:_.\-]{1,80}$/.test(id)) { res.status(400).json({ ok: false, error: "Invalid integrator id" }); return; }
+    const summary = await integratorSummary(id);
+    res.json({ ok: true, ...summary });
   } catch (error) { next(error); }
 });
 
