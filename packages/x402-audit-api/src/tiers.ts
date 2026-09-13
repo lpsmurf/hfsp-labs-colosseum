@@ -25,6 +25,7 @@ export type EngineId =
   | 'unchecked-math'
   | 'dos'
   | 'verify-cache'
+  | 'exposure'
   | 'dynamic'
   | 'advisories'
   | 'patch-age'
@@ -45,7 +46,7 @@ export type EngineId =
 
 export const T1_ENGINES: EngineId[] = [
   'secrets', 'supply-chain', 'cors', 'payment',
-  'solidity', 'solana', 'access-control', 'unchecked-math', 'dos', 'verify-cache',
+  'solidity', 'solana', 'access-control', 'unchecked-math', 'dos', 'verify-cache', 'exposure',
   'dynamic', 'advisories', 'patch-age', 'ai-summary', 'ai-detect',
 ];
 

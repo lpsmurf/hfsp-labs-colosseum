@@ -8,6 +8,7 @@ import { checkVerifyCache }    from './verify-cache.js';
 import { checkSupplyChain }    from './supply-chain.js';
 import { checkUncheckedMath }  from './unchecked-math.js';
 import { checkDos }            from './dos.js';
+import { checkExposure }       from './exposure.js';
 import { checkAccessControl, accessControlInventory } from './access-control.js';
 import type { AttackSurface }  from './access-control.js';
 import { langOf }              from '../lang.js';
@@ -65,6 +66,7 @@ export async function analyzeStatic(
         if (on('cors'))         findings.push(...checkCors(file));
         if (on('payment'))      findings.push(...checkPaymentBypass(file));
         if (on('verify-cache')) findings.push(...checkVerifyCache(file));
+        if (on('exposure'))     findings.push(...checkExposure(file));
         break;
       case 'solidity':
         if (on('solidity'))       findings.push(...checkSolidity(file));

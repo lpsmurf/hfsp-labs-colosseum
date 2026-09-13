@@ -31,6 +31,8 @@ describe('rule firing — vulnerable fixtures', () => {
     ['evil-package.json',  3, 'package.json'],
     ['sink.ts',            3],
     ['app.ts',             2],
+    // Two passthroughs (EXPOSE-001) and one stored payload echo (EXPOSE-002).
+    ['exposure_vuln.ts',   3],
   ];
 
   for (const [fixture, expected, asPath] of cases) {
@@ -48,6 +50,7 @@ describe('corrected fixtures are silent', () => {
     ['clean.sol',           undefined],
     ['cache_fixed.rs',      undefined],
     ['clean-package.json',  'package.json'],
+    ['exposure_fixed.ts',   undefined],
   ];
 
   for (const [fixture, asPath] of cases) {
