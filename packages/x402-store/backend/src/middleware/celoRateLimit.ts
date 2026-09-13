@@ -6,7 +6,7 @@
 // routes only. The store keeps no logs: the IP is hashed with a per-process salt
 // and lives only in this process's memory for the length of the window.
 import { createHash, randomBytes } from "node:crypto";
-import type { Request } from "express";
+import type { Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 
 const SALT = randomBytes(16);
@@ -23,19 +23,24 @@ export function clientIp(req: Pick<Request, "socket" | "get">): string {
   return viaProxy && forwarded ? forwarded : peer;
 }
 
-const keyOf = (req: Request) => createHash("sha256").update(SALT).update(clientIp(req)).digest("hex").slice(0, 32);
+const keyOf = (req: Pick<Request, "socket" | "get">) => createHash("sha256").update(SALT).update(clientIp(req)).digest("hex").slice(0, 32);
 
-const limiter = (windowMs: number, limit: number, message: string) => rateLimit({
+// express-rate-limit ships its own @types/express, which may resolve to a
+// different major than the app's (this package runs Express 4; the MCP package
+// pulls Express 5 types). The callbacks below are structurally compatible with
+// both, so they take `any` and the result is exposed as a plain RequestHandler
+// to keep the app's router typing independent of which version wins resolution.
+const limiter = (windowMs: number, limit: number, message: string): RequestHandler => rateLimit({
   windowMs,
   limit,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  keyGenerator: keyOf,
-  skip: req => EXEMPT.has(clientIp(req)),
+  keyGenerator: (req: any) => keyOf(req),
+  skip: (req: any) => EXEMPT.has(clientIp(req)),
   // The key is a salted hash, not an IP; skip express-rate-limit's IP checks.
   validate: false,
-  handler: (_req, res) => { res.status(429).json({ ok: false, code: "RATE_LIMITED", error: message }); },
-});
+  handler: (_req: any, res: any) => { res.status(429).json({ ok: false, code: "RATE_LIMITED", error: message }); },
+}) as unknown as RequestHandler;
 
 /** Pricing: each call costs an upstream quote. */
 export const quoteLimit = limiter(10 * 60_000, 30, "Too many price requests. Wait a few minutes and try again.");

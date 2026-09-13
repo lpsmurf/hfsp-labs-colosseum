@@ -10,21 +10,15 @@
 // Amounts are atomic USDC (6 decimals). One entry per order tx (idempotent), so
 // a retry or a re-read never double-credits.
 import { redis } from "./redis.js";
+import { SHARE_BPS, revenueShare } from "./celoShare.js";
+export { revenueShare } from "./celoShare.js";
 
-// Share of our commission passed to the integrator. 30% by default; tunable
-// without a schema change since it only affects new entries.
-const SHARE_BPS = BigInt(Math.round(Number(process.env.INTEGRATOR_SHARE_BPS ?? "3000")));
 const ENTRY_TTL_SECONDS = 180 * 24 * 3600;
 
 const owedKey = (id: string) => `store:celo:ledger:owed:${id}`;
 const entryKey = (id: string) => `store:celo:ledger:entries:${id}`;
 const seenKey = (tx: string) => `store:celo:ledger:seen:${tx}`;
 
-/** The integrator's cut of a commission, rounded down (we never over-credit). */
-export function revenueShare(commissionAtomic: bigint, shareBps = SHARE_BPS): bigint {
-  if (commissionAtomic <= 0n) return 0n;
-  return (commissionAtomic * shareBps) / 10_000n;
-}
 
 export interface LedgerEntry {
   tx: string;

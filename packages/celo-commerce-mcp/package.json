@@ -1,7 +1,7 @@
 {
   "name": "celo-commerce-mcp",
   "version": "0.1.0",
-  "description": "MCP server for Celo Agent Commerce — browse and buy mobile airtime, data, gift cards and eSIMs, paid over x402 on Celo",
+  "description": "MCP server for Celo Agent Commerce \u2014 browse and buy mobile airtime, data, gift cards and eSIMs, paid over x402 on Celo",
   "private": true,
   "type": "module",
   "bin": {
@@ -16,7 +16,7 @@
   "license": "MIT",
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
-    "@types/express": "^5.0.6",
+    "@types/express": "^4.17.21",
     "@types/node": "^22.20.2",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3"
@@ -27,7 +27,7 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "@x402/core": "~2.25.0",
     "@x402/evm": "~2.25.0",
-    "express": "^5.2.1",
+    "express": "^4.21.2",
     "viem": "^2.56.5",
     "zod": "^4.6.4"
   }
