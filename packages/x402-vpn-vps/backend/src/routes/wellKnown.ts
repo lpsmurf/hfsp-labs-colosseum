@@ -1,5 +1,7 @@
 import { Router } from "express";
 import env from "../config.js";
+import { NETWORKS, STABLECOINS } from "@hfsp/x402-common";
+import { enabledNetworks } from "../middleware/x402.js";
 
 const router = Router();
 
@@ -10,10 +12,19 @@ const REGIONS = [
   { id: "SG_SIN", city: "Singapore",               continent: "APAC" },
 ];
 
+// Every rail a buyer can pay on. The 402 challenge is authoritative; this list
+// only saves crawlers a request per route.
+const acceptedPayments = [
+  { network: NETWORKS.solana, asset: STABLECOINS.solana!.USDC!.address, symbol: "USDC", payTo: env.OPERATOR_SOLANA_ADDRESS },
+  ...(enabledNetworks.includes("celo") ? (["USDC", "USDT"] as const).map(symbol => ({
+    network: NETWORKS.celo, asset: STABLECOINS.celo![symbol]!.address, symbol, payTo: env.CELO_PAYMENT_RECIPIENT!,
+  })) : []),
+];
+
 // x402 discovery manifest — indexed by Agentic.Market, x402scan, pay-skills, and CDP AgentKit
 const manifest = {
   name:        "HFSP VPN x402",
-  description: "Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana. No account, no logs, no identity.",
+  description: `Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana${enabledNetworks.includes("celo") ? ", or USDC/USDT on Celo" : ""}. No account, no logs, no identity.`,
   version:     "2.0.0",
   contact:     "info@hfsp.xyz",
   url:         "https://vpn.hfsp.cloud",
@@ -22,6 +33,7 @@ const manifest = {
   networkId:   "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
   asset:       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   recipient:   env.OPERATOR_SOLANA_ADDRESS,
+  acceptedPayments,
   // Standard V2 header. X-Solana-Tx still works but is not advertised as the
   // primary path — a crawler that reads this should tell agents to use the
   // standard flow, not our custom one.

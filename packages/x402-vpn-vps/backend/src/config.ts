@@ -14,6 +14,13 @@ const env = z.object({
   // verified 2026-07-29 — which is what finally made the SDK path possible here.
   FACILITATOR_URL: z.string().url().default("https://facilitator.payai.network"),
 
+  // Celo payments — optional; offered only when both are set. Settled by Celo
+  // Core Co.'s facilitator, whose /settle requires a key (x402.celo.org).
+  // The recipient should be the wallet registered with the Celo Agents at Work
+  // hackathon: x402 settlements are credited only to that wallet.
+  CELO_PAYMENT_RECIPIENT:   z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+  CELO_FACILITATOR_API_KEY: z.string().optional(),
+
   HETZNER_API_TOKEN: z.string().min(1),
   REDIS_URL:         z.string().url().default("redis://localhost:6379"),
   PORT:              z.coerce.number().default(3001),

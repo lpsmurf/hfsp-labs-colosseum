@@ -3,7 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import env from "./config.js";
 import { noLogs } from "./middleware/noLogs.js";
-import { x402Gate } from "./middleware/x402.js";
+import { x402Gate, enabledNetworks } from "./middleware/x402.js";
 import vpnRouter from "./routes/vpn.js";
 import vpsRouter from "./routes/vps.js";
 import wellKnownRouter from "./routes/wellKnown.js";
@@ -62,7 +62,7 @@ app.use((_req, res) => {
   try {
     await startLeaseExpiryCron();
     app.listen(env.PORT, () => {
-      console.log(`[server] :${env.PORT}  DEV_MODE=${env.DEV_MODE}  network=solana`);
+      console.log(`[server] :${env.PORT}  DEV_MODE=${env.DEV_MODE}  network=solana${enabledNetworks.includes("celo") ? "+celo" : ""}`);
     });
   } catch (err) {
     console.error("[server] Failed to start lease expiry cron:", err);

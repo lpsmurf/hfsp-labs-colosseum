@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@hfsp/x402-common": "file:../../x402-common",
-    "@x402/core": "~2.20.0",
-    "@x402/evm": "~2.20.0",
-    "@x402/express": "~2.20.0",
-    "@x402/svm": "~2.20.0",
+    "@x402/core": "~2.25.0",
+    "@x402/evm": "~2.25.0",
+    "@x402/express": "~2.25.0",
+    "@x402/svm": "~2.25.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^4.19.0",
@@ -29,5 +29,5 @@
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"
   },
-  "description": "Backend for x402-vpn-vps \u2014 VPN/VPS provisioning, lease expiry, Solana USDC payment verification"
+  "description": "Backend for x402-vpn-vps — VPN/VPS provisioning, lease expiry, Solana USDC payment verification"
 }

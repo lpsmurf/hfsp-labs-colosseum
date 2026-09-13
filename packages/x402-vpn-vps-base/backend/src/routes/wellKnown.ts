@@ -1,5 +1,7 @@
 import { Router } from "express";
 import env from "../config.js";
+import { NETWORKS, STABLECOINS } from "@hfsp/x402-common";
+import { rails } from "../middleware/x402.js";
 
 const router = Router();
 
@@ -10,19 +12,33 @@ const REGIONS = [
   { id: "SG_SIN", city: "Singapore",               continent: "APAC" },
 ];
 
+// Every rail a buyer can pay on. The 402 challenge is authoritative; this list
+// only saves crawlers a request per route.
+const PRIMARY_NETWORK = NETWORKS[rails.primary];
+const PRIMARY_USDC = STABLECOINS[rails.primary]!.USDC!.address;
+
+const acceptedPayments = [
+  { network: PRIMARY_NETWORK, asset: PRIMARY_USDC, symbol: "USDC", payTo: env.OPERATOR_BASE_ADDRESS },
+  ...(rails.celo ? rails.celoAssets.map(symbol => ({
+    network: NETWORKS[rails.celo!], asset: STABLECOINS[rails.celo!]![symbol]!.address, symbol, payTo: env.CELO_PAYMENT_RECIPIENT!,
+  })) : []),
+];
+
 // x402 discovery manifest — indexed by Agentic.Market, x402scan, and CDP AgentKit
 const manifest = {
   name:        "HFSP VPN x402 (Base)",
-  description: "Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Base. No account, no logs, no identity.",
+  description: `Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Base${rails.celo ? `, or ${rails.celoAssets.join("/")} on Celo` : ""}. No account, no logs, no identity.`,
   version:     "1.0.0",
   contact:     "info@hfsp.xyz",
   url:         "https://vpn-base.hfsp.cloud",
   x402Version: 2,
-  network:     "eip155:8453",
-  networkId:   "eip155:8453",
-  asset:       "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  network:     PRIMARY_NETWORK,
+  networkId:   PRIMARY_NETWORK,
+  asset:       PRIMARY_USDC,
   recipient:   env.OPERATOR_BASE_ADDRESS,
-  facilitator: "https://x402.org/facilitator",
+  facilitator: rails.facilitator,
+  ...(rails.celoFacilitator ? { celoFacilitator: rails.celoFacilitator } : {}),
+  acceptedPayments,
   // V2 header. X-PAYMENT was the V1 name and is no longer what clients send.
   paymentHeader: "PAYMENT-SIGNATURE",
   regions:     REGIONS,
@@ -36,7 +52,7 @@ const manifest = {
       price:       "0.20",
       priceAtomic: 200000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "DE_NBG|FI_HEL|US_HIL|SG_SIN", clientWgPublicKey: "string (base64 X25519, generated client-side)" },
       output:      { ip: "string", serverWgPubKey: "string (base64)", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 1-hour burner. Generate X25519 keypair client-side, send public key, get server IP + pubkey back.",
@@ -49,7 +65,7 @@ const manifest = {
       price:       "0.79",
       priceAtomic: 790000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "string", clientWgPublicKey: "string" },
       output:      { ip: "string", serverWgPubKey: "string", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 24-hour pass.",
@@ -62,7 +78,7 @@ const manifest = {
       price:       "2.99",
       priceAtomic: 2990000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "string", clientWgPublicKey: "string" },
       output:      { ip: "string", serverWgPubKey: "string", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 7-day pass.",
@@ -75,7 +91,7 @@ const manifest = {
       price:       "7.99",
       priceAtomic: 7990000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "string", clientWgPublicKey: "string" },
       output:      { ip: "string", serverWgPubKey: "string", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 30-day pass.",
@@ -89,7 +105,7 @@ const manifest = {
       price:       "0.25",
       priceAtomic: 250000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "string", sshPublicKey: "string (OpenSSH Ed25519, generated client-side)" },
       output:      { ip: "string", wireguardClientConf: "string (base64)", expiresAt: "ISO8601" },
       description: "Ephemeral Ubuntu VPS — 1-hour burner. SSH public key generated client-side; private key never leaves the client.",
@@ -102,7 +118,7 @@ const manifest = {
       price:       "0.99",
       priceAtomic: 990000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "string", sshPublicKey: "string" },
       output:      { ip: "string", wireguardClientConf: "string", expiresAt: "ISO8601" },
       description: "Ephemeral Ubuntu VPS — 24-hour.",
@@ -115,7 +131,7 @@ const manifest = {
       price:       "3.99",
       priceAtomic: 3990000,
       currency:    "USDC",
-      network:     "eip155:8453",
+      network:     PRIMARY_NETWORK,
       input:       { region: "string", sshPublicKey: "string" },
       output:      { ip: "string", wireguardClientConf: "string", expiresAt: "ISO8601" },
       description: "Ephemeral Ubuntu VPS — 7-day.",
