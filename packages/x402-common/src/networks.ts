@@ -49,8 +49,7 @@ export const USDC = {
  * refused the call, and we do not currently sell on that network. Verify before
  * enabling it. Celo mainnet and Celo Sepolia were read via forno on 2026-09-12.
  *
- * Celo USDT (`0x48065fbb…`) is deliberately absent: its `version()` reverts, so
- * the domain has to come from `eip712Domain()` before it can be offered.
+ * USDC only. Other stablecoins (Celo USDT/USAT) live in `STABLECOINS` below.
  */
 export const EIP712_DOMAIN: Partial<Record<NetworkName, { name: string; version: string }>> = {
   base:        { name: "USD Coin", version: "2" },
@@ -60,6 +59,43 @@ export const EIP712_DOMAIN: Partial<Record<NetworkName, { name: string; version:
   celo:        { name: "USDC",     version: "2" },
   celoSepolia: { name: "USDC",     version: "2" },
 };
+
+export type StablecoinSymbol = "USDC" | "USDT" | "USAT";
+
+export interface StablecoinInfo {
+  address: string;
+  /** EIP-712 domain for EIP-3009 signing; absent for SVM. */
+  domain?: { name: string; version: string };
+}
+
+/**
+ * Every EIP-3009 stablecoin we can price in, per network. All are 6 decimals.
+ *
+ * Celo USDT and USAT domains come from the facilitator's authoritative table
+ * (x402.celo.org/SKILL.md and /api/config, 2026-09-12), not from the chain:
+ * both tokens revert on `version()` and `eip712Domain()`, so there is nothing
+ * on-chain to read. Note `name` is not the symbol ("Tether USD", not "USDT").
+ *
+ * Never put a Celo fee-currency adapter address here — the adapters report 18
+ * decimals and a price quoted against one is off by 10^12.
+ */
+export const STABLECOINS: Partial<Record<NetworkName, Partial<Record<StablecoinSymbol, StablecoinInfo>>>> = {
+  ...Object.fromEntries(
+    (Object.keys(USDC) as NetworkName[]).map(n => [n, { USDC: { address: USDC[n], domain: EIP712_DOMAIN[n] } }]),
+  ),
+  celo: {
+    USDC: { address: USDC.celo, domain: EIP712_DOMAIN.celo },
+    USDT: { address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", domain: { name: "Tether USD", version: "1" } },
+    USAT: { address: "0xD2ab3C9A02DBBAB236BfEC45D1d755DF4267F771", domain: { name: "Tether America USD", version: "1" } },
+  },
+};
+
+/** Look up a stablecoin, failing loudly rather than pricing against nothing. */
+export function stablecoin(network: NetworkName, symbol: StablecoinSymbol = "USDC"): StablecoinInfo {
+  const info = STABLECOINS[network]?.[symbol];
+  if (!info) throw new Error(`${symbol} is not configured on ${network}`);
+  return info;
+}
 
 /** True for networks where a mistake costs real money. */
 export function isMainnet(network: NetworkName): boolean {

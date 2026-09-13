@@ -8,6 +8,10 @@ export {
   NETWORKS,
   USDC,
   EIP712_DOMAIN,
+  STABLECOINS,
+  stablecoin,
+  type StablecoinSymbol,
+  type StablecoinInfo,
   isMainnet,
   isEvm,
   usdc,
@@ -18,6 +22,7 @@ export {
 
 export {
   FACILITATORS,
+  DEFAULT_FACILITATOR,
   createResourceServer,
   gate,
   multiGate,
@@ -28,6 +33,8 @@ export {
   type RouteConfig,
   type PaymentOption,
 } from "./server.js";
+
+export { createPrepaidGate, type SettledPayment } from './prepaid.js';
 
 export {
   HEADER,
