@@ -47,9 +47,10 @@ const provider = new ethers.JsonRpcProvider(net.rpc, net.chainId);
 const wallet   = new ethers.Wallet(key, provider);
 const registry = new ethers.Contract(net.registry, ABI, wallet);
 
-function registrationFile(agentId?: bigint) {
-  return {
-    type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+// --profile commerce registers the hackathon project; the default stays the audit service.
+// Only list services that resolve today — setAgentURI can add endpoints once they are live.
+const PROFILES = {
+  audit: {
     name: 'HFSP x402 Security Auditor',
     description:
       'Security audits for x402 payment services, paid per call over x402. Pay $0.99 USDC on ' +
@@ -61,6 +62,28 @@ function registrationFile(agentId?: bigint) {
       { name: 'A2A',  endpoint: `${endpoint}/.well-known/agent-card.json`, version: '0.3.0' },
       { name: 'email', endpoint: 'info@hfsp.xyz' },
     ],
+  },
+  commerce: {
+    name: 'Celo Agent Commerce',
+    description:
+      'x402 payment rails on Celo for mobile airtime, data bundles, gift cards and eSIMs — ' +
+      'callable by any agent, bot or app with one HTTP request. Settles in USDT, USAT or USDC ' +
+      'through the Celo x402 facilitator; integrators earn a revenue share on independent buyers.',
+    image: 'https://github.com/lpsmurf.png',
+    services: [
+      { name: 'web',  endpoint: 'https://github.com/lpsmurf/celo-agent-commerce' },
+      { name: 'email', endpoint: 'info@hfsp.xyz' },
+    ],
+  },
+} as const;
+const profileName = arg('profile', 'audit') as keyof typeof PROFILES;
+const profile = PROFILES[profileName];
+if (!profile) throw new Error(`--profile must be one of ${Object.keys(PROFILES).join(', ')}`);
+
+function registrationFile(agentId?: bigint) {
+  return {
+    type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+    ...profile,
     x402Support: true,
     active: true,
     registrations: agentId === undefined ? [] : [
