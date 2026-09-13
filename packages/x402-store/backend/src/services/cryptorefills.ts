@@ -75,6 +75,13 @@ const SUPPLIER_REASONS: Record<string, string> = {
 
 export const rejectionMessage = (e: OrderRejected) => SUPPLIER_REASONS[e.reason] ?? "The supplier refused this order. Check the product, amount and phone number.";
 
+// Cryptorefills requires beneficiary_account on every item. Top-ups use the phone
+// number; for gift cards and eSIMs it is the buyer's email, so default to that.
+const withBeneficiary = (body: CrOrderBody): CrOrderBody => ({
+  ...body,
+  items: body.items.map(item => ({ ...item, beneficiary_account: item.beneficiary_account ?? body.email })),
+});
+
 export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
   const res = await fetch(`${CR_API}/orders`, {
     method: "POST",
@@ -82,7 +89,7 @@ export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
       "Content-Type":       "application/json",
       "X-Preferred-Network": body.network ?? "solana",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(withBeneficiary(body)),
   });
 
   if (res.status !== 402) {
@@ -139,7 +146,7 @@ export async function crPhase2(body: CrOrderBody, sessionId: string, paymentSigH
   const res = await fetch(`${CR_API}/orders`, {
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(withBeneficiary(body)),
   });
 
   if (!res.ok) {

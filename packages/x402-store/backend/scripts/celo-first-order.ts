@@ -30,7 +30,7 @@ const send = process.argv.includes("--send");
 const maxUsd = Number(arg("max-usd", "2"));
 const phone = arg("phone");
 const email = arg("email");
-if (!phone || !email) throw new Error("--phone +<country code><number> and --email are required");
+if (!email) throw new Error("--email is required (gift card codes are delivered there); add --phone +<country code><number> for top-ups");
 
 // ₦1,540 MTN Nigeria airtime by default — the order the price checks used.
 const countryCode = arg("country", "ng")!;
@@ -43,7 +43,7 @@ if (!product) throw new Error(`No product found for ${brandName} in ${countryCod
 
 const body = {
   email,
-  items: [{ product_id: product.product_id, beneficiary_account: phone, ...(product.is_range ? { product_value: productValue } : {}) }],
+  items: [{ product_id: product.product_id, ...(phone ? { beneficiary_account: phone } : {}), ...(product.is_range ? { product_value: productValue } : {}) }],
 };
 const url = `${store}/api/celo/orders?asset=${assetName}`;
 const post = (headers: Record<string, string> = {}) =>
