@@ -14,7 +14,7 @@ import type { RoutesConfig, RouteConfig } from "@x402/core/server";
 import type { PaymentOption } from "@x402/core/http";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { ExactSvmScheme } from "@x402/svm/exact/server";
-import { NETWORKS, USDC, EIP712_DOMAIN, isMainnet, isEvm, usdc, type NetworkName } from "./networks.js";
+import { NETWORKS, isMainnet, isEvm, usdc, stablecoin, type NetworkName, type StablecoinSymbol, type StablecoinInfo } from "./networks.js";
 
 /**
  * Facilitators we have verified as supporting mainnet settlement.
@@ -134,6 +134,8 @@ export interface GateOptions {
   payTo: string;
   /** Which network to settle on. */
   network: NetworkName;
+  /** Which stablecoin to price in. Defaults to USDC. */
+  asset?: StablecoinSymbol;
   /** Human-readable description — surfaces in discovery and in the 402 body. */
   description: string;
   mimeType?: string;
@@ -175,29 +177,29 @@ export function multiGate(
 }
 
 function paymentOption(opts: GateOptions): PaymentOption {
+  const coin = stablecoin(opts.network, opts.asset);
   return {
     scheme:  "exact",
     payTo:   opts.payTo,
     // EVM clients need the token's EIP-712 domain to sign the EIP-3009
     // authorization; without it they cannot build a payment payload at all.
-    price:   { asset: USDC[opts.network], amount: usdc(opts.price), ...evmExtra(opts.network) },
+    price:   { asset: coin.address, amount: usdc(opts.price), ...evmExtra(opts.network, opts.asset ?? "USDC", coin) },
     network: NETWORKS[opts.network],
     ...(opts.maxTimeoutSeconds ? { maxTimeoutSeconds: opts.maxTimeoutSeconds } : {}),
   };
 }
 
 /** EIP-712 domain for EVM assets; nothing for SVM, which does not use EIP-3009. */
-function evmExtra(network: NetworkName): { extra?: Record<string, unknown> } {
+function evmExtra(network: NetworkName, symbol: StablecoinSymbol, coin: StablecoinInfo): { extra?: Record<string, unknown> } {
   if (!isEvm(network)) return {};
-  const domain = EIP712_DOMAIN[network];
-  if (!domain) {
+  if (!coin.domain) {
     throw new Error(
-      `No EIP-712 domain recorded for ${network}. EVM payments cannot be signed ` +
+      `No EIP-712 domain recorded for ${symbol} on ${network}. EVM payments cannot be signed ` +
       `without the token's name and version — read them from the contract with ` +
-      `name() / version() and add them to EIP712_DOMAIN.`,
+      `name() / version() and add them to STABLECOINS.`,
     );
   }
-  return { extra: { ...domain } };
+  return { extra: { ...coin.domain } };
 }
 
 /**

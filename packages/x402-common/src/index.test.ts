@@ -62,6 +62,18 @@ test("createResourceServer requires an API key for the Celo facilitator", () => 
   );
 });
 
+test("gate prices Celo USDT and USAT with the facilitator's domain, not the symbol", () => {
+  const opts = { price: 1.5, payTo: "0x0000000000000000000000000000000000000001", network: "celo" as const, description: "t" };
+  const pick = (c: ReturnType<typeof gate>) => (c.accepts as Array<{ price: { asset: string; amount: string; extra: unknown } }>)[0].price;
+  const usdt = pick(gate({ ...opts, asset: "USDT" }));
+  assert.equal(usdt.asset, "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e");
+  assert.equal(usdt.amount, "1500000");
+  assert.deepEqual(usdt.extra, { name: "Tether USD", version: "1" });
+  assert.deepEqual(pick(gate({ ...opts, asset: "USAT" })).extra, { name: "Tether America USD", version: "1" });
+  // USDT is not configured on Base — fail loudly instead of pricing against USDC.
+  assert.throws(() => gate({ ...opts, network: "base", asset: "USDT" }), /not configured/);
+});
+
 test("gate on Celo carries the on-chain EIP-712 domain", () => {
   const c = gate({ price: 0.99, payTo: "0x0000000000000000000000000000000000000001", network: "celo", description: "t" });
   const accepts = c.accepts as Array<{ network: string; price: { asset: string; extra: unknown } }>;
