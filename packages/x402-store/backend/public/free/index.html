@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free Airtime on Celo</title>
+<meta name="description" content="Claim free USA₮ from the Self × Google Cloud faucet and top up airtime, data, gift cards and eSIMs on Celo. No CELO for gas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  :root{
+    --paper:#F4F7F2; --card:#FFFFFF; --ink:#14261A; --ink-soft:#47584D; --line:#DCE4DA;
+    --yellow:#FCE300; --yellow-deep:#C9B400; --green:#2FA36B; --green-ink:#1C6E45; --coral:#E8552D;
+    --shadow:0 1px 2px rgba(20,38,26,.05),0 12px 30px -18px rgba(20,38,26,.35);
+    --gutter:clamp(16px,5vw,40px);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#0E1611; --card:#17231C; --ink:#EAF2E8; --ink-soft:#9DB0A4; --line:#29382E;
+    --yellow:#FCE300; --yellow-deep:#FCE300; --green:#48C588; --green-ink:#7FE0AE; --coral:#FF7A55;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 16px 34px -18px rgba(0,0,0,.7);
+  }}
+  :root[data-theme="dark"]{
+    --paper:#0E1611; --card:#17231C; --ink:#EAF2E8; --ink-soft:#9DB0A4; --line:#29382E;
+    --yellow:#FCE300; --yellow-deep:#FCE300; --green:#48C588; --green-ink:#7FE0AE; --coral:#FF7A55;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 16px 34px -18px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans",system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  img{max-width:100%;}
+  [hidden]{display:none!important;}
+  .wrap{max-width:780px;margin:0 auto;padding-inline:var(--gutter);}
+  h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;line-height:1.02;text-wrap:balance;margin:0;letter-spacing:-.02em;}
+  .mono{font-family:"Space Mono",ui-monospace,monospace;}
+  .eyebrow{font-family:"Space Mono",monospace;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:var(--green-ink);}
+  a{color:inherit;}
+  :focus-visible{outline:2.5px solid var(--green-ink);outline-offset:2px;border-radius:6px;}
+
+  /* top bar */
+  .bar{display:flex;align-items:center;justify-content:space-between;padding-block:16px;gap:12px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1rem;}
+  .dot{width:22px;height:22px;border-radius:7px;background:var(--yellow);border:1.5px solid var(--ink);display:grid;place-items:center;font-size:12px;color:#14261A;}
+  .lang{display:flex;gap:4px;background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:3px;box-shadow:var(--shadow);}
+  .lang button{font-family:"Space Mono",monospace;font-size:.72rem;font-weight:700;border:0;background:transparent;color:var(--ink-soft);padding:5px 11px;border-radius:999px;cursor:pointer;letter-spacing:.04em;}
+  .lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper);}
+
+  /* country tabs */
+  .countries{display:flex;gap:8px;overflow-x:auto;padding-block:6px 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .countries::-webkit-scrollbar{display:none;}
+  .country-tab{flex:0 0 auto;display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:9px 14px;cursor:pointer;font-weight:600;font-size:.92rem;color:var(--ink);transition:transform .1s ease;}
+  .country-tab .cc{font-family:"Space Mono",monospace;font-size:.66rem;font-weight:700;letter-spacing:.08em;border:1.3px solid currentColor;border-radius:5px;padding:1px 5px;color:var(--ink-soft);}
+  .country-tab[aria-pressed="true"]{border-color:var(--ink);box-shadow:3px 3px 0 var(--yellow-deep);}
+  .country-tab[aria-pressed="true"] .cc{color:var(--green-ink);}
+
+  /* hero — big CTA */
+  .hero{padding-block:clamp(22px,6vw,40px) clamp(24px,6vw,40px);}
+  .free-badge{display:inline-flex;align-items:center;gap:8px;background:var(--yellow);color:#14261A;border:1.6px solid var(--ink);border-radius:999px;padding:6px 14px 6px 10px;font-family:"Space Mono",monospace;font-weight:700;font-size:.78rem;box-shadow:3px 3px 0 var(--ink);margin-bottom:20px;}
+  .free-badge b{background:#14261A;color:var(--yellow);border-radius:999px;padding:1px 8px;font-size:.72rem;}
+  h1{font-size:clamp(2.5rem,10vw,4.4rem);}
+  h1 .swap{color:var(--green-ink);}
+  .lede{font-size:clamp(1.05rem,3.4vw,1.22rem);color:var(--ink-soft);margin-top:18px;max-width:34ch;}
+  .cta-block{margin-top:26px;}
+  .btn-claim{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;text-decoration:none;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(1.25rem,4.6vw,1.6rem);letter-spacing:-.01em;background:var(--ink);color:var(--paper);border:2px solid var(--ink);border-radius:16px;padding:20px 24px;box-shadow:6px 6px 0 var(--yellow-deep);transition:transform .12s ease,box-shadow .12s ease;}
+  .btn-claim:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 var(--yellow-deep);}
+  .btn-claim .pulse{width:11px;height:11px;border-radius:50%;background:var(--yellow);box-shadow:0 0 0 0 var(--yellow);animation:pulse 2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--yellow) 70%,transparent);}70%{box-shadow:0 0 0 12px transparent;}100%{box-shadow:0 0 0 0 transparent;}}
+  .cta-sub{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:14px;}
+  .btn-ghost{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:600;border:1.6px solid var(--ink);border-radius:12px;padding:11px 18px;background:var(--card);color:var(--ink);box-shadow:var(--shadow);}
+  .btn-ghost:hover{transform:translate(-2px,-2px);}
+  .tc-inline{font-size:.8rem;color:var(--ink-soft);}
+  .tc-inline a{color:var(--green-ink);font-weight:600;}
+
+  /* fx strip */
+  .fx{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);border:1.5px solid var(--line);border-left:5px solid var(--green-ink);border-radius:12px;padding:12px 16px;margin-top:8px;box-shadow:var(--shadow);}
+  .fx .k{font-family:"Space Mono",monospace;font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-soft);}
+  .fx .rate{font-family:"Space Mono",monospace;font-weight:700;font-size:1.05rem;}
+
+  section{padding-block:clamp(28px,6vw,46px);}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
+  .sec-head h2{font-size:clamp(1.45rem,5vw,2rem);}
+
+  /* services */
+  .services{display:grid;gap:14px;}
+  @media(min-width:560px){.services{grid-template-columns:repeat(3,1fr);}}
+  .svc{background:var(--card);border:1.5px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;}
+  .svc .st{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+  .svc .brand-tag{font-weight:600;font-size:.88rem;color:var(--ink-soft);}
+  .svc .tag{font-family:"Space Mono",monospace;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:2px 7px;border-radius:5px;background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green-ink);}
+  .svc .get{padding:0 16px 12px;font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1.22rem;line-height:1.1;}
+  .svc .pr{margin-top:auto;border-top:1.5px dashed var(--line);padding:12px 16px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;background:repeating-linear-gradient(90deg,transparent,transparent 8px,color-mix(in srgb,var(--yellow) 12%,transparent) 8px,color-mix(in srgb,var(--yellow) 12%,transparent) 9px);}
+  .svc .usdt{font-family:"Space Mono",monospace;font-weight:700;font-size:1.32rem;color:var(--coral);}
+  .svc .local{font-family:"Space Mono",monospace;font-size:.72rem;color:var(--ink-soft);text-align:right;}
+  .svc-note{font-size:.82rem;color:var(--ink-soft);margin-top:14px;}
+
+  /* steps */
+  .steps{display:grid;gap:14px;}
+  @media(min-width:620px){.steps{grid-template-columns:repeat(3,1fr);}}
+  .step{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;}
+  .step .n{font-family:"Space Mono",monospace;font-weight:700;font-size:.8rem;color:var(--paper);background:var(--green-ink);width:30px;height:30px;border-radius:9px;display:grid;place-items:center;}
+  .step h3{font-size:1.06rem;}
+  .step p{margin:0;color:var(--ink-soft);font-size:.93rem;}
+  .step p a{color:var(--green-ink);font-weight:600;}
+
+  /* proof */
+  .proof{background:var(--ink);color:var(--paper);border-radius:20px;padding:clamp(22px,5vw,34px);display:grid;gap:16px;}
+  .proof .eyebrow{color:var(--yellow);}
+  .proof h2{color:var(--paper);font-size:clamp(1.35rem,4.6vw,1.85rem);}
+  .proof p{margin:0;color:color-mix(in srgb,var(--paper) 75%,transparent);}
+  .facts{display:grid;gap:10px;}
+  @media(min-width:560px){.facts{grid-template-columns:repeat(3,1fr);}}
+  .fact{border:1px solid color-mix(in srgb,var(--paper) 18%,transparent);border-radius:12px;padding:13px 15px;}
+  .fact .k{font-family:"Space Mono",monospace;font-size:.64rem;text-transform:uppercase;letter-spacing:.12em;color:var(--yellow);}
+  .fact .v{font-family:"Space Mono",monospace;font-size:.9rem;margin-top:5px;word-break:break-all;}
+
+  /* agents */
+  .agents{background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:clamp(20px,4vw,28px);box-shadow:var(--shadow);}
+  .agents h2{font-size:clamp(1.25rem,4.4vw,1.65rem);margin-bottom:8px;}
+  .agents p{color:var(--ink-soft);margin:0 0 16px;}
+  .endpoints{display:grid;gap:8px;}
+  .endpoint{display:flex;align-items:center;gap:10px;font-family:"Space Mono",monospace;font-size:.8rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 12px;word-break:break-all;}
+  .endpoint .m{color:var(--green-ink);font-weight:700;flex-shrink:0;}
+
+  /* terms */
+  .terms{font-size:.8rem;color:var(--ink-soft);border-top:1.5px solid var(--line);padding-block:22px;}
+  .terms h3{font-size:.82rem;font-family:"Space Mono",monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--ink);margin-bottom:8px;}
+  footer{padding-block:24px 44px;}
+  .foot-links{display:flex;flex-wrap:wrap;gap:18px;font-size:.9rem;}
+  .foot-links a{color:var(--green-ink);text-decoration:none;font-weight:600;}
+  .foot-meta{color:var(--ink-soft);font-size:.8rem;margin-top:14px;}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div class="brand"><span class="dot">◎</span> Celo Agent Commerce</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="lang-native" type="button" aria-pressed="true">—</button>
+      <button id="lang-en" type="button" aria-pressed="false">EN</button>
+    </div>
+  </div>
+  <div class="countries" id="countries" role="tablist" aria-label="Country"></div>
+</div>
+
+<header class="wrap hero">
+  <span class="free-badge"><b data-i18n="freeWord">FREE</b> <span data-i18n="badge">first top-up*</span></span>
+  <h1><span data-i18n="h1a">Claim free money.</span><br><span class="swap" data-i18n="h1b">Top up your phone.</span></h1>
+  <p class="lede" data-i18n="lede">Airtime, data, gift cards and eSIMs — paid with stablecoins on Celo. No CELO for gas, no bank, no card.</p>
+  <div class="cta-block">
+    <a class="btn-claim" href="https://cloud.google.com/application/web3/faucet/celo/mainnet" target="_blank" rel="noopener">
+      <span class="pulse" aria-hidden="true"></span><span data-i18n="ctaClaim">Claim my free top-up</span> <span aria-hidden="true">→</span>
+    </a>
+    <div class="cta-sub">
+      <a class="btn-ghost" href="https://store.hfsp.cloud/checkout/" target="_blank" rel="noopener" data-i18n="ctaShop">Go to checkout</a>
+      <span class="tc-inline"><span data-i18n="tcInline">*First top-up free via the Self × Google Cloud faucet.</span> <a href="#terms" data-i18n="tcLink">T&amp;Cs apply</a></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="fx">
+    <span class="k" data-i18n="fxLabel">Today's rate</span>
+    <span class="rate" id="fx-rate">—</span>
+  </div>
+</div>
+
+<section class="wrap">
+  <div class="sec-head">
+    <span class="eyebrow" data-i18n="popEyebrow">Live prices</span>
+    <h2 id="pop-title">Popular top-ups</h2>
+  </div>
+  <div class="services" id="services"></div>
+  <p class="svc-note" data-i18n="svcNote">Prices are live from the store and settle in stablecoin — no hidden FX. The supplier minimum is about $0.55, so a small data bundle is often the best first buy. 175+ more countries are in the checkout.</p>
+</section>
+
+<section class="wrap">
+  <div class="sec-head"><span class="eyebrow" data-i18n="stepsEyebrow">Three taps</span><h2 data-i18n="stepsTitle">How it works</h2></div>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><h3 data-i18n="s1h">Verify &amp; claim</h3><p data-i18n="s1p">Prove you're a real person with Self, then claim free USA₮ from the Google Cloud faucet. It lands in your Celo wallet.</p></div>
+    <div class="step"><span class="n">2</span><h3 data-i18n="s2h">Pick your top-up</h3><p data-i18n="s2p">Open the checkout, choose your country, network and bundle. MiniPay and Valora work out of the box.</p></div>
+    <div class="step"><span class="n">3</span><h3 data-i18n="s3h">Pay &amp; receive</h3><p data-i18n="s3p">Pay in USA₮, USD₮ or USDC. Gas is paid in the stablecoin — you never need CELO. Your top-up arrives by email.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="proof">
+    <span class="eyebrow" data-i18n="proofEyebrow">Not a demo</span>
+    <h2 data-i18n="proofTitle">Already live on Celo mainnet</h2>
+    <p data-i18n="proofP">The first end-to-end order ran on 13 Sep 2026: USA₮ paid over x402, swapped, bridged, and a gift card delivered by email — all on mainnet.</p>
+    <div class="facts">
+      <div class="fact"><div class="k" data-i18n="fPay">Payment tx</div><div class="v">0xfb6403…18e0</div></div>
+      <div class="fact"><div class="k" data-i18n="fAgent">Agent (ERC-8004)</div><div class="v">#9844</div></div>
+      <div class="fact"><div class="k" data-i18n="fSettle">Settled in</div><div class="v">USA₮ · USD₮ · USDC</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="agents">
+    <span class="eyebrow">For builders &amp; agents</span>
+    <h2>Buy programmatically over x402</h2>
+    <p>Any AI agent, bot or app can browse and buy with one HTTP request — or connect the MCP server. Route orders under your ERC-8004 id and earn a share of the commission.</p>
+    <div class="endpoints">
+      <div class="endpoint"><span class="m">POST</span> store.hfsp.cloud/api/celo/orders</div>
+      <div class="endpoint"><span class="m">MCP</span> store.hfsp.cloud/mcp</div>
+      <div class="endpoint"><span class="m">GET</span> store.hfsp.cloud/.well-known/x402</div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="terms" id="terms">
+    <h3 data-i18n="termsTitle">Terms &amp; conditions</h3>
+    <p data-i18n="termsBody">“First top-up free” means the free USA₮ available to verified users from the Self × Google Cloud faucet is enough to cover a first small top-up. The faucet is operated by third parties (Self and Google Cloud); Celo Agent Commerce does not run it and cannot guarantee its availability, amount or eligibility, which are subject to their terms — typically one claim per verified person. Prices shown are live and may change; the supplier's minimum order is about US$0.55. Exchange rates are indicative and refreshed periodically. Products are fulfilled by Cryptorefills. Not available where prohibited.</p>
+  </div>
+  <footer>
+    <div class="foot-links">
+      <a href="https://store.hfsp.cloud/checkout/" target="_blank" rel="noopener" data-i18n="ctaShop">Go to checkout</a>
+      <a href="https://cloud.google.com/application/web3/faucet/celo/mainnet" target="_blank" rel="noopener">Claim USA₮ →</a>
+      <a href="https://github.com/lpsmurf/celo-agent-commerce" target="_blank" rel="noopener">Code →</a>
+    </div>
+    <p class="foot-meta">Orders fulfilled by Cryptorefills (10,500+ brands, 180+ countries). Built for the Celo Agents at Work Hackathon. Contact: info@hfsp.xyz</p>
+  </footer>
+</div>
+
+<script>
+// ---- country data: live USDT prices + local face, indicative FX (1 USDT ≈ local) ----
+const COUNTRIES = {
+  NG:{label:"Nigeria", cc:"NG", cur:"₦", fx:1327, lang:"en", fxText:"1 USDT ≈ ₦1,327",
+    svc:[
+      {brand:"Airtel", tag:"data", get:{en:"3GB mobile data"}, usdt:0.59},
+      {brand:"MTN", tag:"airtime", get:{en:"₦750 airtime"}, usdt:0.59},
+      {brand:"Razer Gold", tag:"gift card", get:{en:"$1 Razer Gold"}, usdt:1.12}
+    ]},
+  KE:{label:"Kenya", cc:"KE", cur:"KES", fx:129, lang:"sw", fxText:"1 USDT ≈ KES 129",
+    svc:[
+      {brand:"Safaricom", tag:"airtime", get:{en:"Airtime, any amount", sw:"Salio, kiasi chochote"}, usdt:1.16, from:true},
+      {brand:"Airtel", tag:"airtime", get:{en:"Airtime, any amount", sw:"Salio, kiasi chochote"}, usdt:1.16, from:true},
+      {brand:"Razer Gold", tag:"gift card", get:{en:"$1 Razer Gold", sw:"Razer Gold ya $1"}, usdt:1.12}
+    ]},
+  GH:{label:"Ghana", cc:"GH", cur:"GH₵", fx:11.4, lang:"en", fxText:"1 USDT ≈ GH₵11.4",
+    svc:[
+      {brand:"AT Ghana", tag:"data", get:{en:"500MB data, no expiry"}, usdt:0.66},
+      {brand:"MTN", tag:"data", get:{en:"~719MB data (₵10)"}, usdt:0.97},
+      {brand:"MTN", tag:"airtime", get:{en:"Airtime from ₵14"}, usdt:1.23, from:true}
+    ]},
+  PH:{label:"Philippines", cc:"PH", cur:"₱", fx:62.7, lang:"fil", fxText:"1 USDT ≈ ₱62.7",
+    svc:[
+      {brand:"Smart", tag:"data", get:{en:"All Data 50 bundle", fil:"All Data 50 bundle"}, usdt:0.86},
+      {brand:"Globe", tag:"data", get:{en:"SURF4ALL99 (₱99)", fil:"SURF4ALL99 (₱99)"}, usdt:1.74},
+      {brand:"Lazada", tag:"gift card", get:{en:"₱100 Lazada voucher", fil:"₱100 Lazada voucher"}, usdt:1.80}
+    ]},
+  BR:{label:"Brazil", cc:"BR", cur:"R$", fx:5.11, lang:"pt", fxText:"1 USDT ≈ R$5,11",
+    svc:[
+      {brand:"Claro", tag:"airtime", get:{en:"R$15 credit", pt:"Crédito de R$15"}, usdt:3.20},
+      {brand:"Vivo", tag:"airtime", get:{en:"R$15 credit", pt:"Crédito de R$15"}, usdt:3.32},
+      {brand:"Shopee", tag:"gift card", get:{en:"R$30 gift card", pt:"Vale-presente R$30"}, usdt:6.29}
+    ]}
+};
+
+// ---- translations (marketing strings; agent/dev section stays English) ----
+const T = {
+  en:{ langBtn:"EN",
+    freeWord:"FREE", badge:"first top-up*", h1a:"Claim free money.", h1b:"Top up your phone.",
+    lede:"Airtime, data, gift cards and eSIMs — paid with stablecoins on Celo. No CELO for gas, no bank, no card.",
+    ctaClaim:"Claim my free top-up", ctaShop:"Go to checkout",
+    tcInline:"*First top-up free via the Self × Google Cloud faucet.", tcLink:"T&Cs apply",
+    fxLabel:"Today's rate", popEyebrow:"Live prices", popTitle:"Popular in {c}",
+    fromWord:"from", inUsdt:"in USDT",
+    svcNote:"Prices are live from the store and settle in stablecoin — no hidden FX. The supplier minimum is about $0.55, so a small data bundle is often the best first buy. 175+ more countries are in the checkout.",
+    stepsEyebrow:"Three taps", stepsTitle:"How it works",
+    s1h:"Verify & claim", s1p:"Prove you're a real person with Self, then claim free USA₮ from the Google Cloud faucet. It lands in your Celo wallet.",
+    s2h:"Pick your top-up", s2p:"Open the checkout, choose your country, network and bundle. MiniPay and Valora work out of the box.",
+    s3h:"Pay & receive", s3p:"Pay in USA₮, USD₮ or USDC. Gas is paid in the stablecoin — you never need CELO. Your top-up arrives by email.",
+    proofEyebrow:"Not a demo", proofTitle:"Already live on Celo mainnet",
+    proofP:"The first end-to-end order ran on 13 Sep 2026: USA₮ paid over x402, swapped, bridged, and a gift card delivered by email — all on mainnet.",
+    fPay:"Payment tx", fAgent:"Agent (ERC-8004)", fSettle:"Settled in",
+    termsTitle:"Terms & conditions",
+    termsBody:"“First top-up free” means the free USA₮ available to verified users from the Self × Google Cloud faucet is enough to cover a first small top-up. The faucet is operated by third parties (Self and Google Cloud); Celo Agent Commerce does not run it and cannot guarantee its availability, amount or eligibility, which are subject to their terms — typically one claim per verified person. Prices shown are live and may change; the supplier's minimum order is about US$0.55. Exchange rates are indicative and refreshed periodically. Products are fulfilled by Cryptorefills. Not available where prohibited." },
+  sw:{ langBtn:"SW",
+    freeWord:"BURE", badge:"malipo ya kwanza*", h1a:"Pata pesa za bure.", h1b:"Ongeza salio la simu.",
+    lede:"Salio, data, kadi za zawadi na eSIM — hulipwa kwa sarafu-thabiti kwenye Celo. Huhitaji CELO kwa gesi, benki wala kadi.",
+    ctaClaim:"Dai malipo yangu ya bure", ctaShop:"Nenda kwenye malipo",
+    tcInline:"*Malipo ya kwanza ni bure kupitia bomba la Self × Google Cloud.", tcLink:"Masharti yanatumika",
+    fxLabel:"Kiwango cha leo", popEyebrow:"Bei za sasa", popTitle:"Maarufu nchini {c}",
+    fromWord:"kuanzia", inUsdt:"kwa USDT",
+    svcNote:"Bei ni za moja kwa moja kutoka dukani na hulipwa kwa sarafu-thabiti — hakuna FX iliyofichwa. Kiwango cha chini cha muuzaji ni takriban $0.55, hivyo kifurushi kidogo cha data mara nyingi ndicho ununuzi bora wa kwanza. Nchi 175+ zaidi zipo kwenye malipo.",
+    stepsEyebrow:"Hatua tatu", stepsTitle:"Jinsi inavyofanya kazi",
+    s1h:"Thibitisha na udai", s1p:"Thibitisha kuwa wewe ni mtu halisi kwa Self, kisha dai USA₮ ya bure kutoka bomba la Google Cloud. Itafika kwenye pochi yako ya Celo.",
+    s2h:"Chagua malipo yako", s2p:"Fungua malipo, chagua nchi, mtandao na kifurushi chako. MiniPay na Valora hufanya kazi moja kwa moja.",
+    s3h:"Lipa na upokee", s3p:"Lipa kwa USA₮, USD₮ au USDC. Gesi hulipwa kwa sarafu-thabiti — huhitaji CELO kamwe. Malipo yako yatafika kwa barua pepe.",
+    proofEyebrow:"Sio onyesho", proofTitle:"Tayari inafanya kazi kwenye Celo mainnet",
+    proofP:"Agizo la kwanza kamili lilifanyika tarehe 13 Sep 2026: USA₮ ililipwa kupitia x402, ikabadilishwa, ikahamishwa, na kadi ya zawadi ikatumwa kwa barua pepe — yote kwenye mainnet.",
+    fPay:"Muamala wa malipo", fAgent:"Wakala (ERC-8004)", fSettle:"Imelipwa kwa",
+    termsTitle:"Masharti na vigezo",
+    termsBody:"“Malipo ya kwanza ni bure” maana yake ni kwamba USA₮ ya bure inayopatikana kwa watumiaji waliothibitishwa kutoka bomba la Self × Google Cloud inatosha kugharamia malipo madogo ya kwanza. Bomba linaendeshwa na wahusika wengine (Self na Google Cloud); Celo Agent Commerce hailiendeshi na haiwezi kuhakikisha upatikanaji, kiasi au ustahiki wake, ambavyo viko chini ya masharti yao — kwa kawaida dai moja kwa kila mtu aliyethibitishwa. Bei zinazoonyeshwa ni za sasa na zinaweza kubadilika; kiwango cha chini cha muuzaji ni takriban US$0.55. Viwango vya ubadilishaji ni vya makadirio. Bidhaa hutolewa na Cryptorefills." },
+  fil:{ langBtn:"FIL",
+    freeWord:"LIBRE", badge:"unang top-up*", h1a:"Mag-claim ng libreng pera.", h1b:"Mag-top up ng load.",
+    lede:"Load, data, gift card at eSIM — bayad gamit ang stablecoin sa Celo. Walang CELO para sa gas, walang bangko, walang card.",
+    ctaClaim:"I-claim ang libreng top-up", ctaShop:"Pumunta sa checkout",
+    tcInline:"*Libre ang unang top-up gamit ang Self × Google Cloud faucet.", tcLink:"May mga tuntunin",
+    fxLabel:"Palitan ngayon", popEyebrow:"Live na presyo", popTitle:"Sikat sa {c}",
+    fromWord:"mula", inUsdt:"sa USDT",
+    svcNote:"Live ang mga presyo mula sa tindahan at binabayaran sa stablecoin — walang nakatagong FX. Ang minimum ng supplier ay mga $0.55, kaya madalas na ang maliit na data bundle ang pinakamahusay na unang bili. 175+ pang bansa ang nasa checkout.",
+    stepsEyebrow:"Tatlong tap", stepsTitle:"Paano ito gumagana",
+    s1h:"I-verify at i-claim", s1p:"Patunayan na totoong tao ka gamit ang Self, tapos mag-claim ng libreng USA₮ mula sa Google Cloud faucet. Dadating ito sa iyong Celo wallet.",
+    s2h:"Pumili ng top-up", s2p:"Buksan ang checkout, piliin ang bansa, network at bundle mo. Gumagana ang MiniPay at Valora agad.",
+    s3h:"Magbayad at tumanggap", s3p:"Magbayad sa USA₮, USD₮ o USDC. Ang gas ay bayad sa stablecoin — hindi mo kailangan ng CELO. Darating ang top-up mo sa email.",
+    proofEyebrow:"Hindi demo", proofTitle:"Live na sa Celo mainnet",
+    proofP:"Ang unang buong order ay noong 13 Sep 2026: USA₮ na binayad via x402, na-swap, na-bridge, at naihatid ang gift card sa email — lahat sa mainnet.",
+    fPay:"Payment tx", fAgent:"Agent (ERC-8004)", fSettle:"Bayad sa",
+    termsTitle:"Mga tuntunin at kundisyon",
+    termsBody:"Ang ibig sabihin ng “libreng unang top-up” ay sapat ang libreng USA₮ na makukuha ng mga na-verify na user mula sa Self × Google Cloud faucet para sa isang maliit na unang top-up. Ang faucet ay pinapatakbo ng ibang partido (Self at Google Cloud); hindi ito pinapatakbo ng Celo Agent Commerce at hindi magagarantiya ang availability, halaga o pagiging kwalipikado nito, na nasa ilalim ng kanilang mga tuntunin — karaniwang isang claim bawat na-verify na tao. Ang mga presyo ay live at maaaring magbago; ang minimum ng supplier ay mga US$0.55. Ang palitan ay pagtantiya lamang. Ang mga produkto ay hatid ng Cryptorefills." },
+  pt:{ langBtn:"PT",
+    freeWord:"GRÁTIS", badge:"1ª recarga*", h1a:"Ganhe dinheiro grátis.", h1b:"Recarregue o celular.",
+    lede:"Recarga, dados, vales-presente e eSIMs — pagos com stablecoins na Celo. Sem CELO para gás, sem banco, sem cartão.",
+    ctaClaim:"Resgatar minha recarga grátis", ctaShop:"Ir para o checkout",
+    tcInline:"*Primeira recarga grátis via faucet Self × Google Cloud.", tcLink:"Termos se aplicam",
+    fxLabel:"Câmbio de hoje", popEyebrow:"Preços ao vivo", popTitle:"Populares no {c}",
+    fromWord:"a partir de", inUsdt:"em USDT",
+    svcNote:"Os preços são ao vivo da loja e liquidados em stablecoin — sem câmbio oculto. O pedido mínimo do fornecedor é cerca de US$0,55, então um pacote pequeno de dados costuma ser a melhor primeira compra. Mais de 175 países estão no checkout.",
+    stepsEyebrow:"Três toques", stepsTitle:"Como funciona",
+    s1h:"Verifique e resgate", s1p:"Prove que você é uma pessoa real com o Self, depois resgate USA₮ grátis no faucet do Google Cloud. Ele cai na sua carteira Celo.",
+    s2h:"Escolha sua recarga", s2p:"Abra o checkout, escolha seu país, operadora e pacote. MiniPay e Valora funcionam de imediato.",
+    s3h:"Pague e receba", s3p:"Pague em USA₮, USD₮ ou USDC. O gás é pago na própria stablecoin — você nunca precisa de CELO. Sua recarga chega por e-mail.",
+    proofEyebrow:"Não é demo", proofTitle:"Já no ar na mainnet da Celo",
+    proofP:"O primeiro pedido completo foi em 13/09/2026: USA₮ pago via x402, trocado, transferido via bridge, e um vale-presente entregue por e-mail — tudo na mainnet.",
+    fPay:"Transação", fAgent:"Agente (ERC-8004)", fSettle:"Liquidado em",
+    termsTitle:"Termos e condições",
+    termsBody:"“Primeira recarga grátis” significa que o USA₮ gratuito disponível para usuários verificados no faucet Self × Google Cloud é suficiente para cobrir uma primeira recarga pequena. O faucet é operado por terceiros (Self e Google Cloud); a Celo Agent Commerce não o opera e não pode garantir sua disponibilidade, valor ou elegibilidade, que estão sujeitos aos termos deles — normalmente um resgate por pessoa verificada. Os preços exibidos são ao vivo e podem mudar; o pedido mínimo do fornecedor é cerca de US$0,55. As taxas de câmbio são indicativas. Os produtos são fornecidos pela Cryptorefills." }
+};
+
+let current = { country:"NG", lang:"en" };
+
+function fmt(str, c){ return str.replace("{c}", c); }
+
+function renderServices(){
+  const c = COUNTRIES[current.country];
+  const t = T[current.lang] || T.en;
+  const host = document.getElementById("services");
+  host.innerHTML = "";
+  c.svc.forEach(s => {
+    const get = (s.get[current.lang] || s.get.en);
+    const price = "$" + s.usdt.toFixed(2);
+    const el = document.createElement("div");
+    el.className = "svc";
+    el.innerHTML =
+      '<div class="st"><span class="brand-tag"></span><span class="tag"></span></div>' +
+      '<div class="get"></div>' +
+      '<div class="pr"><span class="usdt"></span><span class="local"></span></div>';
+    const localAmt = Math.round(s.usdt * c.fx);
+    const sep = c.cur.length > 1 ? " " : "";
+    const localStr = "≈ " + c.cur + sep + localAmt.toLocaleString("en-US") + (s.from ? "+" : "");
+    el.querySelector(".brand-tag").textContent = s.brand;
+    el.querySelector(".tag").textContent = s.tag;
+    el.querySelector(".get").textContent = get;
+    el.querySelector(".usdt").textContent = (s.from ? (t.fromWord + " ") : "") + price;
+    el.querySelector(".local").innerHTML = '<span style="display:block">' + t.inUsdt + '</span>' + localStr;
+    host.appendChild(el);
+  });
+  document.getElementById("fx-rate").textContent = c.fxText;
+  document.getElementById("pop-title").textContent = fmt(t.popTitle, c.label);
+}
+
+function applyLang(){
+  const t = T[current.lang] || T.en;
+  document.querySelectorAll("[data-i18n]").forEach(node => {
+    const key = node.getAttribute("data-i18n");
+    if (t[key] != null) node.textContent = t[key];
+  });
+  document.documentElement.lang = current.lang === "fil" ? "fil" : current.lang;
+  // language toggle labels
+  const nativeBtn = document.getElementById("lang-native");
+  const enBtn = document.getElementById("lang-en");
+  const nativeLang = COUNTRIES[current.country].lang;
+  nativeBtn.textContent = (T[nativeLang] || T.en).langBtn;
+  nativeBtn.setAttribute("aria-pressed", String(current.lang === nativeLang));
+  enBtn.setAttribute("aria-pressed", String(current.lang === "en"));
+  nativeBtn.hidden = nativeLang === "en";
+  renderServices();
+}
+
+function renderCountryTabs(){
+  const host = document.getElementById("countries");
+  host.innerHTML = "";
+  Object.keys(COUNTRIES).forEach(code => {
+    const c = COUNTRIES[code];
+    const b = document.createElement("button");
+    b.className = "country-tab";
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(code === current.country));
+    b.innerHTML = '<span class="name"></span><span class="cc"></span>';
+    b.querySelector(".name").textContent = c.label;
+    b.querySelector(".cc").textContent = c.cc;
+    b.addEventListener("click", () => {
+      current.country = code;
+      current.lang = c.lang;           // switch to that country's native language
+      renderCountryTabs();
+      applyLang();
+    });
+    host.appendChild(b);
+  });
+}
+
+document.getElementById("lang-en").addEventListener("click", () => { current.lang = "en"; applyLang(); });
+document.getElementById("lang-native").addEventListener("click", () => { current.lang = COUNTRIES[current.country].lang; applyLang(); });
+
+renderCountryTabs();
+applyLang();
+</script>
+</body>
+</html>
