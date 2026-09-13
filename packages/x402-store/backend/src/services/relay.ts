@@ -6,6 +6,7 @@
 //
 // USDT and USDC bridge directly. USAT has no bridge route (checked 2026-09-13),
 // so it goes in two legs: swap USAT → USDT on Celo, then bridge the USDT.
+import { ethers } from "ethers";
 import { celoEnv } from "../celoConfig.js";
 import { BASE_CHAIN_ID, CELO_CHAIN_ID, TOKENS, tagged, wallets, type CeloAsset } from "./evm.js";
 
@@ -67,9 +68,16 @@ export async function quoteExactOutput(asset: CeloAsset, usdcOut: bigint): Promi
   return { asset, legs: [swap, bridge], amountIn: swap.amountIn, amountOut: bridge.amountOut };
 }
 
-async function executeLeg(leg: RelayLeg, timeoutMs: number): Promise<{ requestId: string; txHashes: string[] }> {
+const usdtBalance = () =>
+  new ethers.Contract(TOKENS.celo.USDT, ["function balanceOf(address) view returns (uint256)"], wallets().celo)
+    .balanceOf(wallets().celo.address) as Promise<bigint>;
+
+async function executeLeg(leg: RelayLeg, timeoutMs: number, sameChain = false): Promise<{ requestId: string; txHashes: string[] }> {
   const { celo } = wallets();
   const txHashes: string[] = [];
+  // A same-chain swap settles inside our own transaction; Relay's intent status
+  // stays "waiting" forever for it (seen 2026-09-13), so trust the balance instead.
+  const usdtBefore = sameChain ? await usdtBalance() : 0n;
   let requestId = "";
   for (const step of leg.steps) {
     if (step.kind !== "transaction") throw new Error(`Relay step ${step.id} is ${step.kind}; only transaction steps are supported`);
@@ -83,6 +91,12 @@ async function executeLeg(leg: RelayLeg, timeoutMs: number): Promise<{ requestId
     }
   }
   if (!requestId) throw new Error("Relay quote carried no requestId to track");
+
+  if (sameChain) {
+    const received = (await usdtBalance()) - usdtBefore;
+    if (received < leg.amountOut) throw new Error(`swap ${requestId} delivered ${received} USDT, expected ${leg.amountOut}`);
+    return { requestId, txHashes };
+  }
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -107,7 +121,7 @@ export async function executeBridge(quote: RelayQuote, timeoutMs = 120_000): Pro
   if (quote.legs.length === 1) return executeLeg(quote.legs[0], timeoutMs);
 
   const [swap, staleBridge] = quote.legs;
-  const swapped = await executeLeg(swap, timeoutMs);
+  const swapped = await executeLeg(swap, timeoutMs, true);
   const bridge = await bridgeLeg("USDT", staleBridge.amountOut);
   if (bridge.amountIn > swap.amountOut) {
     throw new Error(`bridge now needs ${bridge.amountIn} USDT, swap produced ${swap.amountOut} (swap ${swapped.requestId} done)`);
