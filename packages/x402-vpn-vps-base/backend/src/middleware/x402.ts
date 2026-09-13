@@ -1,75 +1,85 @@
-// x402 payment gate for Base mainnet.
-// Uses the x402.org facilitator to verify USDC payments on Base.
+// x402 payment gate for Base, with Celo as an optional second rail.
 // Each route has its price set here; the facilitator validates amount + recipient on-chain.
-// No private keys. Payment goes directly to OPERATOR_BASE_ADDRESS.
-import { paymentMiddleware, x402ResourceServer } from "@x402/express";
-import type { RoutesConfig } from "@x402/core/server";
-import type { Network } from "@x402/core/types";
-import { HTTPFacilitatorClient } from "@x402/core/server";
-import { ExactEvmScheme } from "@x402/evm/exact/server";
+// No private keys. Payment goes directly to the configured recipients.
+//
+// Built on @hfsp/x402-common rather than hand-rolled requirements: the shared
+// package owns asset addresses, EIP-712 domains, facilitator routing and the
+// mainnet-facilitator safety check, which this file used to duplicate.
+import {
+  createResourceServer,
+  buildGate,
+  multiGate,
+  FACILITATORS,
+  type GateOptions,
+  type NetworkName,
+  type RoutesConfig,
+} from "@hfsp/x402-common";
 import env from "../config.js";
 
-// ── Networks ───────────────────────────────────────────────────────────────
-// DEV_MODE uses Base Sepolia so real USDC is not required during development
-const BASE_NETWORK: Network = env.DEV_MODE ? "eip155:84532" : "eip155:8453";
+// DEV_MODE runs on testnets so real funds are never required during development.
+const baseNetwork: NetworkName = env.DEV_MODE ? "baseSepolia" : "base";
+const celoNetwork: NetworkName = env.DEV_MODE ? "celoSepolia" : "celo";
 
-// ── Assets ─────────────────────────────────────────────────────────────────
-const BASE_USDC = env.DEV_MODE
-  ? "0x036CbD53842c5426634e7929541eC2318f3dCF7e"   // Base Sepolia USDC
-  : "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";  // Base mainnet USDC
+// Celo is opt-in: half-configured, it would advertise a payment the facilitator
+// then refuses to settle.
+const celoRecipient = env.CELO_PAYMENT_RECIPIENT && env.CELO_FACILITATOR_API_KEY
+  ? env.CELO_PAYMENT_RECIPIENT
+  : undefined;
 
-// ── Route builder ──────────────────────────────────────────────────────────
-// amount is in atomic units (USDC has 6 decimals: $0.20 = 200000)
-function gate(amount: string, description: string) {
-  return {
-    accepts: [
-      {
-        scheme:  "exact",
-        payTo:   env.OPERATOR_BASE_ADDRESS,
-        price:   { asset: BASE_USDC, amount },
-        network: BASE_NETWORK,
-      },
-    ],
-    description,
-    mimeType: "application/json",
-  };
+/**
+ * Payment options for one route, same dollar price on every rail.
+ *
+ * On Celo, USDC is listed before USDT: stock x402 clients (≥ 2.23) accept only
+ * default assets unless the buyer opts in, and USDC is the Celo default. Celo
+ * Sepolia has no USDT, so testnet offers USDC only.
+ */
+function options(price: number, description: string): GateOptions[] {
+  return [
+    { price, payTo: env.OPERATOR_BASE_ADDRESS, network: baseNetwork, description },
+    ...(celoRecipient ? [
+      { price, payTo: celoRecipient, network: celoNetwork, asset: "USDC" as const, description },
+      ...(env.DEV_MODE ? [] : [{ price, payTo: celoRecipient, network: celoNetwork, asset: "USDT" as const, description }]),
+    ] : []),
+  ];
 }
 
-// ── Routes config ──────────────────────────────────────────────────────────
+const route = (price: number, description: string) => multiGate(description, options(price, description));
+
+// Prices in dollars (USDC/USDT have 6 decimals: $0.20 = 200000 atomic).
 export const routes: RoutesConfig = {
-  "/api/vpn/hour":  gate("200000",   "Anonymous WireGuard VPN — 1-hour pass"),
-  "/api/vpn/day":   gate("790000",   "Anonymous WireGuard VPN — 24-hour pass"),
-  "/api/vpn/week":  gate("2990000",  "Anonymous WireGuard VPN — 7-day pass"),
-  "/api/vpn/month": gate("7990000",  "Anonymous WireGuard VPN — 30-day pass"),
-  "/api/vps/hour":  gate("250000",   "Ephemeral VPS — 1-hour pass"),
-  "/api/vps/day":   gate("990000",   "Ephemeral VPS — 24-hour pass"),
-  "/api/vps/week":  gate("3990000",  "Ephemeral VPS — 7-day pass"),
+  "/api/vpn/hour":  route(0.20, "Anonymous WireGuard VPN — 1-hour pass"),
+  "/api/vpn/day":   route(0.79, "Anonymous WireGuard VPN — 24-hour pass"),
+  "/api/vpn/week":  route(2.99, "Anonymous WireGuard VPN — 7-day pass"),
+  "/api/vpn/month": route(7.99, "Anonymous WireGuard VPN — 30-day pass"),
+  "/api/vps/hour":  route(0.25, "Ephemeral VPS — 1-hour pass"),
+  "/api/vps/day":   route(0.99, "Ephemeral VPS — 24-hour pass"),
+  "/api/vps/week":  route(3.99, "Ephemeral VPS — 7-day pass"),
 };
 
-// ── Resource server ────────────────────────────────────────────────────────
-// On testnet the x402.org facilitator is the right default; on mainnet it is not
-// a supported production path, so an operator who leaves FACILITATOR_URL unset
-// still gets a sane choice for whichever network DEV_MODE selects.
-const X402ORG = "https://x402.org/facilitator";
-const facilitatorUrl = env.DEV_MODE ? X402ORG : env.FACILITATOR_URL;
+export const enabledNetworks: NetworkName[] = celoRecipient ? [baseNetwork, celoNetwork] : [baseNetwork];
 
-if (!env.DEV_MODE && facilitatorUrl === X402ORG) {
-  throw new Error(
-    "FACILITATOR_URL is set to the x402.org facilitator on Base mainnet. That is " +
-    "a testnet/quickstart service — payments may verify and never settle. Use a " +
-    "production facilitator (facilitator.payai.network, api.solvador.com, " +
-    "corbits.dev) or self-host.",
-  );
-}
+/** Runtime rail descriptors, shared with the discovery manifest. */
+export const rails = {
+  primary:         baseNetwork,
+  celo:            celoRecipient ? celoNetwork : undefined,
+  celoAssets:      (env.DEV_MODE ? ["USDC"] : ["USDC", "USDT"]) as Array<"USDC" | "USDT">,
+  facilitator:     env.DEV_MODE ? FACILITATORS.x402org : env.FACILITATOR_URL,
+  celoFacilitator: celoRecipient ? FACILITATORS[env.DEV_MODE ? "celoSepolia" : "celo"] : undefined,
+};
 
-const facilitator = new HTTPFacilitatorClient({ url: facilitatorUrl });
-const server      = new x402ResourceServer(facilitator)
-  .register("eip155:*", new ExactEvmScheme());
+// On testnet the x402.org facilitator is the right default; on mainnet
+// createResourceServer refuses it, so a misconfigured FACILITATOR_URL fails at
+// boot instead of producing payments that verify and never settle.
+const server = createResourceServer({
+  facilitatorUrl:    rails.facilitator,
+  families:          ["evm"],
+  networks:          enabledNetworks,
+  extraFacilitators: celoRecipient
+    ? [{ url: rails.celoFacilitator!, apiKey: env.CELO_FACILITATOR_API_KEY }]
+    : [],
+});
 
-// syncFacilitatorOnStart must stay true (the SDK default). It is the startup
-// fetch that tells the server which scheme/network pairs the facilitator settles.
-// This was previously false — "boots fast, validates lazily" — but there is no
-// lazy path: without that list every payment is rejected with "Facilitator does
-// not support exact on eip155:8453". The service booted, served correct-looking
-// 402 challenges, and 500'd on any real payment attempt.
-export const x402Gate = paymentMiddleware(routes, server, undefined, undefined, true);
+// syncFacilitatorOnStart stays true (buildGate's default). It is the startup
+// fetch that tells the server which scheme/network pairs each facilitator
+// settles; without it every payment is rejected at request time.
+export const x402Gate = buildGate(routes, server);

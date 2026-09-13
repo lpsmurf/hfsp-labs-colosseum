@@ -14,9 +14,12 @@ import type { Request, Response, NextFunction } from "express";
 import {
   createResourceServer,
   buildGate,
-  gate,
+  multiGate,
+  FACILITATORS,
   NETWORKS,
   USDC,
+  type GateOptions,
+  type NetworkName,
   type RoutesConfig,
 } from "@hfsp/x402-common";
 import env from "../config.js";
@@ -44,24 +47,56 @@ const PRICES = {
   vpsWeek:  3.99,
 } as const;
 
-function solanaGate(price: number, description: string) {
-  return gate({ price, payTo: env.OPERATOR_SOLANA_ADDRESS, network: "solana", description });
-}
+// Celo is opt-in: half-configured, it would advertise a payment the facilitator
+// then refuses to settle.
+const celoRecipient = env.CELO_PAYMENT_RECIPIENT && env.CELO_FACILITATOR_API_KEY
+  ? env.CELO_PAYMENT_RECIPIENT
+  : undefined;
 
-export const routes: RoutesConfig = {
-  "POST /api/vpn/hour":  solanaGate(PRICES.vpnHour,  "Anonymous WireGuard VPN — 1-hour pass"),
-  "POST /api/vpn/day":   solanaGate(PRICES.vpnDay,   "Anonymous WireGuard VPN — 24-hour pass"),
-  "POST /api/vpn/week":  solanaGate(PRICES.vpnWeek,  "Anonymous WireGuard VPN — 7-day pass"),
-  "POST /api/vpn/month": solanaGate(PRICES.vpnMonth, "Anonymous WireGuard VPN — 30-day pass"),
-  "POST /api/vps/hour":  solanaGate(PRICES.vpsHour,  "Ephemeral Hetzner VPS — 1-hour pass"),
-  "POST /api/vps/day":   solanaGate(PRICES.vpsDay,   "Ephemeral Hetzner VPS — 24-hour pass"),
-  "POST /api/vps/week":  solanaGate(PRICES.vpsWeek,  "Ephemeral Hetzner VPS — 7-day pass"),
+/**
+ * Payment options for one route, same dollar price on every rail.
+ *
+ * On Celo, USDC is listed before USDT: stock x402 clients (≥ 2.23) accept only
+ * default assets unless the buyer opts in, and USDC is the Celo default.
+ */
+// DEV_MODE runs on testnets so real funds are never required during development.
+// Celo Sepolia has no USDT, so testnet offers USDC only.
+export const rails = {
+  primary:            (env.DEV_MODE ? "solanaDevnet" : "solana") as NetworkName,
+  celo:               celoRecipient ? (env.DEV_MODE ? "celoSepolia" : "celo") as NetworkName : undefined,
+  celoAssets:         (env.DEV_MODE ? ["USDC"] : ["USDC", "USDT"]) as Array<"USDC" | "USDT">,
+  facilitator:        env.FACILITATOR_URL,
+  celoFacilitator:    celoRecipient ? FACILITATORS[env.DEV_MODE ? "celoSepolia" : "celo"] : undefined,
 };
 
+function options(price: number, description: string): GateOptions[] {
+  return [
+    { price, payTo: env.OPERATOR_SOLANA_ADDRESS, network: rails.primary, description },
+    ...(celoRecipient && rails.celo ? rails.celoAssets.map(asset => (
+      { price, payTo: celoRecipient, network: rails.celo!, asset, description }
+    )) : []),
+  ];
+}
+
+const route = (price: number, description: string) => multiGate(description, options(price, description));
+
+export const routes: RoutesConfig = {
+  "POST /api/vpn/hour":  route(PRICES.vpnHour,  "Anonymous WireGuard VPN — 1-hour pass"),
+  "POST /api/vpn/day":   route(PRICES.vpnDay,   "Anonymous WireGuard VPN — 24-hour pass"),
+  "POST /api/vpn/week":  route(PRICES.vpnWeek,  "Anonymous WireGuard VPN — 7-day pass"),
+  "POST /api/vpn/month": route(PRICES.vpnMonth, "Anonymous WireGuard VPN — 30-day pass"),
+  "POST /api/vps/hour":  route(PRICES.vpsHour,  "Ephemeral Hetzner VPS — 1-hour pass"),
+  "POST /api/vps/day":   route(PRICES.vpsDay,   "Ephemeral Hetzner VPS — 24-hour pass"),
+  "POST /api/vps/week":  route(PRICES.vpsWeek,  "Ephemeral Hetzner VPS — 7-day pass"),
+};
+
+export const enabledNetworks: NetworkName[] = rails.celo ? [rails.primary, rails.celo] : [rails.primary];
+
 const server = createResourceServer({
-  facilitatorUrl: env.FACILITATOR_URL,
-  families:       ["svm"],
-  networks:       ["solana"],
+  facilitatorUrl:    env.FACILITATOR_URL,
+  families:          celoRecipient ? ["svm", "evm"] : ["svm"],
+  networks:          enabledNetworks,
+  extraFacilitators: rails.celoFacilitator ? [{ url: rails.celoFacilitator, apiKey: env.CELO_FACILITATOR_API_KEY }] : [],
 });
 
 const sdkGate = buildGate(routes, server);

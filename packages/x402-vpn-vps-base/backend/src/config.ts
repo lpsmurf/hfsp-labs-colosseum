@@ -14,6 +14,13 @@ const env = z.object({
   // choice for mainnet routes". DEV_MODE runs on Base Sepolia, where x402.org is
   // the right choice — see the override below.
   FACILITATOR_URL:   z.string().url().default("https://facilitator.payai.network"),
+  // Celo payments — optional; offered only when both are set. Settled by Celo
+  // Core Co.'s facilitator, whose /settle requires a key (x402.celo.org).
+  // The recipient should be the wallet registered with the Celo Agents at Work
+  // hackathon: x402 settlements are credited only to that wallet.
+  CELO_PAYMENT_RECIPIENT:   z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+  CELO_FACILITATOR_API_KEY: z.string().optional(),
+
   HETZNER_API_TOKEN: z.string().min(1),
   REDIS_URL:         z.string().url().default("redis://localhost:6379"),
   PORT:              z.coerce.number().default(3002),
