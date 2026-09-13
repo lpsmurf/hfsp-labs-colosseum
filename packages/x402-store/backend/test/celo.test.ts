@@ -1,6 +1,6 @@
 // Unit tests for the Celo rail's security-relevant rules. No chain, network,
 // redis or configuration needed:  npm test
-import { test, describe } from "node:test";
+import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { ethers } from "ethers";
 import { toDataSuffix } from "@celo/attribution-tags";
@@ -194,4 +194,67 @@ test("revenueShare takes the configured cut and rounds down", async () => {
   assert.equal(revenueShare(0n, 3000n), 0n);
   assert.equal(revenueShare(-5n, 3000n), 0n);
   assert.equal(revenueShare(1_000_000n, 10_000n), 1_000_000n); // 100%
+});
+
+// ── Cryptorefills 402 attestation ────────────────────────────────────────────
+
+import { webcrypto, createHash } from "node:crypto";
+
+describe("verifyAttestation", async () => {
+  const { verifyAttestation, AttestationError } = await import("../src/services/crAttestation.js");
+  const ORIGIN = "https://x402.cryptorefills.com";
+  const b64url = (b: Buffer | Uint8Array) => Buffer.from(b).toString("base64url");
+
+  // A local ES256 key stood up as the gateway's JWKS, so the test signs real tokens.
+  const { publicKey, privateKey } = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const jwk = await webcrypto.subtle.exportKey("jwk", publicKey) as any;
+  const kid = "testkid";
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: any) =>
+    String(url).endsWith("/.well-known/x402-jwks.json")
+      ? new Response(JSON.stringify({ keys: [{ kty: "EC", crv: "P-256", kid, x: jwk.x, y: jwk.y, alg: "ES256" }] }), { headers: { "content-type": "application/json" } })
+      : origFetch(url)) as typeof fetch;
+
+  const prHeader = Buffer.from(JSON.stringify({ x402Version: 2, accepts: [{ payTo: "0xPay", network: "eip155:8453" }] })).toString("base64url");
+  const now = 1_800_000_000_000;
+  async function token(over: Record<string, unknown> = {}) {
+    const claims = { iss: ORIGIN, iat: now / 1000 - 5, exp: now / 1000 + 55, sid: "sess-1",
+      pr_sha256: createHash("sha256").update(prHeader, "ascii").digest("base64url"), pay_to: "0xPay", network: "eip155:8453", ...over };
+    const signingInput = `${b64url(Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT", kid })))}.${b64url(Buffer.from(JSON.stringify(claims)))}`;
+    const sig = await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, privateKey, Buffer.from(signingInput, "ascii"));
+    return `${signingInput}.${b64url(new Uint8Array(sig))}`;
+  }
+  const base = async (over = {}, jwsOver?: string) => verifyAttestation({
+    origin: ORIGIN, prHeader, sessionId: "sess-1", jws: jwsOver ?? await token(over), accept: { payTo: "0xPay", network: "eip155:8453" }, now });
+
+  test("accepts a correctly signed attestation", async () => { await base(); });
+
+  test("rejects a missing signature", async () => {
+    await assert.rejects(verifyAttestation({ origin: ORIGIN, prHeader, sessionId: "sess-1", jws: null, accept: { payTo: "0xPay", network: "eip155:8453" }, now }), AttestationError);
+  });
+
+  test("rejects wrong issuer, expiry, session, and future iat", async () => {
+    await assert.rejects(base({ iss: "https://evil.example" }), /issuer/);
+    await assert.rejects(base({ exp: now / 1000 - 120 }), /expired/);
+    await assert.rejects(base({ sid: "other" }), /session/);
+    await assert.rejects(base({ iat: now / 1000 + 120 }), /future/);
+  });
+
+  test("rejects a payTo or network the attestation did not sign", async () => {
+    await assert.rejects(base({ pay_to: "0xEvil" }), /payTo/);
+    await assert.rejects(base({ network: "eip155:1" }), /network/);
+  });
+
+  test("rejects a tampered PAYMENT-REQUIRED (hash mismatch)", async () => {
+    const good = await token();
+    await assert.rejects(verifyAttestation({ origin: ORIGIN, prHeader: prHeader + "x", sessionId: "sess-1", jws: good, accept: { payTo: "0xPay", network: "eip155:8453" }, now }), /altered in transit/);
+  });
+
+  test("rejects a forged signature", async () => {
+    const t = await token();
+    const bad = t.slice(0, -6) + "AAAAAA";
+    await assert.rejects(base({}, bad), AttestationError);
+  });
+
+  after(() => { globalThis.fetch = origFetch; });
 });

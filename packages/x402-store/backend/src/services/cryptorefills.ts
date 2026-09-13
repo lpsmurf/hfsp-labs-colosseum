@@ -2,6 +2,7 @@
 // Phase 1 (get payment requirements) and Phase 2 (fulfill with signed payment).
 // Catalog endpoints are public and free — no payment needed.
 import env from "../config.js";
+import { verifyAttestation } from "./crAttestation.js";
 
 const CR_HOST = env.CR_HOST;
 const CR_API  = `${CR_HOST}/v1`;
@@ -131,6 +132,18 @@ export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
   } catch (err: any) {
     throw new Error(`CR Phase 1: invalid amount in accept: ${rawAmount} (${err?.message ?? err})`);
   }
+
+  // Verify the gateway's signature over this 402 before the amount or payTo is
+  // trusted anywhere. payTo is a per-session wallet, so this is the only proof
+  // (beyond TLS) that it is really Cryptorefills' — a tampered payTo must never
+  // be paid. Fail closed.
+  await verifyAttestation({
+    origin: CR_HOST,
+    prHeader,
+    sessionId,
+    jws: res.headers.get("X-Payment-Required-Signature") ?? res.headers.get("x-payment-required-signature"),
+    accept: { payTo: accept.payTo, network: accept.network },
+  });
 
   return {
     paymentRequired: pr,
