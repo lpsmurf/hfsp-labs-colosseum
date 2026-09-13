@@ -19,9 +19,14 @@ import env from "../config.js";
 import { crPhase1, getOrder } from "../services/cryptorefills.js";
 import { payAndFulfill } from "../services/paysolana.js";
 import { verifyHeliusTx } from "../services/heliusVerify.js";
-import { claimTxSig, releaseTxSig } from "../services/redis.js";
+import { claimTxSig, redis } from "../services/redis.js";
 import { TxAlreadyUsed } from "../errors.js";
 
+import { createResourceServer, createPrepaidGate, gate, DEFAULT_FACILITATOR } from '@hfsp/x402-common';
+const settle = createPrepaidGate(createResourceServer({
+  facilitatorUrl: process.env.FACILITATOR_URL ?? DEFAULT_FACILITATOR,
+  families: ['svm'], networks: ['solana'],
+}));
 const router = Router();
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -84,104 +89,44 @@ function make402(ourAmount: bigint, crAmount: bigint, url: string) {
 }
 
 // POST /api/orders
-router.post("/", async (req, res) => {
-  // Accept the standard V2 header as well as our own. Standard clients send
-  // PAYMENT-SIGNATURE; existing integrations send X-Solana-Tx.
-  const txSig  = ((req.headers["payment-signature"] as string | undefined)?.trim()
-                || (req.headers["x-solana-tx"] as string | undefined)?.trim()) || undefined;
-  const url    = `https://store.hfsp.cloud${req.originalUrl.split("?")[0]}`;
-
-  // ── Phase 1: no payment header → return 402 ──────────────────────────────
-  // x402 gate runs before body validation so probes always see a 402.
-  if (!txSig) {
+router.post("/", async (req, res, next) => {
+  try {
     const parsed = OrderBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      // Body missing or invalid — return 402 with a $1 placeholder so discovery
-      // probes (which send no body) receive a valid x402 challenge.
-      const placeholder = BigInt(1_000_000);
-      const { headers, body: resBody } = make402(placeholder, placeholder, url);
-      res.set(headers).status(402).json(resBody);
-      return;
+      res.status(400).json({ error: 'Invalid order', details: parsed.error.flatten() }); return;
     }
-
     const body = parsed.data;
-    let crResult;
-    try {
-      crResult = await crPhase1({ ...body, network: "solana" });
-    } catch (e: any) {
-      res.status(502).json({ ok: false, error: `Failed to get price from Cryptorefills: ${e.message}` });
-      return;
-    }
-
+    const crResult = await crPhase1({ ...body, network: 'solana' });
     const ourAmount = applyCommission(crResult.crAmount);
-    const { headers, body: resBody } = make402(ourAmount, crResult.crAmount, url);
-    res.set(headers).status(402).json(resBody);
-    return;
-  }
-
-  // ── Phase 2: payment header present → validate body, verify, fulfill ─────
-  const parsed = OrderBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ ok: false, error: "Invalid request body", details: parsed.error.flatten() });
-    return;
-  }
-  const body = parsed.data;
-
-  const claimed = await claimTxSig(txSig);
-  if (!claimed) {
-    const err = new TxAlreadyUsed(txSig);
-    res.status(err.httpStatus).json(err.toResponse());
-    return;
-  }
-
-  // Get a fresh CR Phase 1 to know the exact price we need to verify
-  let crResult;
-  try {
-    crResult = await crPhase1({ ...body, network: "solana" });
-  } catch (e: any) {
-    await releaseTxSig(txSig);
-    res.status(502).json({ ok: false, error: `Cryptorefills unavailable: ${e.message}` });
-    return;
-  }
-
-  const crAmount  = crResult.crAmount;
-  const ourAmount = applyCommission(crAmount);
-
-  const verification = await verifyHeliusTx(txSig, USDC_MINT, OPERATOR, ourAmount);
-  if (!verification.ok) {
-    await releaseTxSig(txSig);
-    res.status(402).json({
-      ok:   false,
-      error: verification.error,
-      hint: `Required: $${(Number(ourAmount) / 1_000_000).toFixed(4)} USDC`,
-      txSig,
-    });
-    return;
-  }
-
-  // Payment verified — now pay Cryptorefills and get the gift card
-  try {
-    const result = await payAndFulfill(
-      { ...body, network: "solana" },
-      crResult.sessionId,
-      crResult.paymentRequired,
-    );
-    res.json({ ok: true, data: result });
-  } catch (e: any) {
-    // Payment verified but CR fulfillment failed. DO NOT release txSig (payment already consumed).
-    // Log the order body so we can manually refund if needed.
-    console.error("[store] fulfillment failed after payment verified", {
-      txSig: txSig.slice(0, 16),
-      error: e.message,
-      email: body.email,
-    });
-    res.status(502).json({
-      ok:    false,
-      error: "Order fulfillment failed after payment. Contact info@hfsp.xyz with your transaction signature for a refund.",
-      txSig,
-      code:  "FULFILLMENT_FAILED",
-    });
-  }
+    const v2 = req.get('payment-signature')?.trim();
+    let txSig = !v2 ? req.get('x-solana-tx')?.trim() : undefined;
+    if (!txSig) {
+      // Do not accept a payment if the durable fulfillment guard is unavailable.
+      if (v2) await redis.ping();
+      const paid = await settle(req, res, gate({
+        price: Number(ourAmount) / 1e6, payTo: OPERATOR, network: 'solana',
+        description: 'Cryptorefills gift card / top-up / eSIM',
+      }));
+      if (!paid) return;
+      txSig = paid.transaction;
+    } else {
+      const verified = await verifyHeliusTx(txSig, USDC_MINT, OPERATOR, ourAmount);
+      if (!verified.ok) { res.status(402).json({ error: verified.error }); return; }
+    }
+    if (!await claimTxSig(txSig)) {
+      const err = new TxAlreadyUsed(txSig);
+      res.status(err.httpStatus).json(err.toResponse()); return;
+    }
+    try {
+      const result = await payAndFulfill({ ...body, network: 'solana' }, crResult.sessionId, crResult.paymentRequired);
+      res.json({ ok: true, data: result });
+    } catch (fulfillError) {
+      // An uncertain external purchase is never retried automatically.
+      console.error("[store] fulfillment failed — needs reconciliation", { txSig, sessionId: crResult.sessionId }, fulfillError);
+      res.status(502).json({ ok: false, code: 'FULFILLMENT_FAILED', txSig,
+        error: 'Payment received; fulfillment needs reconciliation. Contact info@hfsp.xyz with your transaction signature.' });
+    }
+  } catch (error) { next(error); }
 });
 
 // GET /api/orders/:id — poll order status (free, no payment required)
