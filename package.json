@@ -1,7 +1,7 @@
 {
   "name": "clawdrop",
   "version": "1.0.0",
-  "description": "Deploy per-user autonomous Solana AI agents powered by SendAI Agent Kit. Free trial chatbot \u2192 paid agent running 24/7.",
+  "description": "Deploy per-user autonomous Solana AI agents powered by SendAI Agent Kit. Free trial chatbot → paid agent running 24/7.",
   "private": true,
   "license": "MIT",
   "engines": {
@@ -37,7 +37,8 @@
     "packages/x402-wallet",
     "packages/x402-vpn-vps/backend",
     "packages/x402-vpn-vps-base/backend",
-    "packages/x402-store/backend"
+    "packages/x402-store/backend",
+    "packages/celo-commerce-mcp"
   ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
