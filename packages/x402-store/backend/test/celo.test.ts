@@ -184,3 +184,14 @@ test("X-Real-IP is trusted only from the local proxy", async () => {
   assert.equal(clientIp(req("198.51.100.9", "203.0.113.7")), "198.51.100.9"); // spoofed header from outside
   assert.equal(clientIp(req("127.0.0.1")), "127.0.0.1");
 });
+
+// ── Revenue-share math ───────────────────────────────────────────────────────
+
+test("revenueShare takes the configured cut and rounds down", async () => {
+  const { revenueShare } = await import("../src/services/celoLedger.js");
+  assert.equal(revenueShare(10_000n, 3000n), 3000n);      // 30% of 0.01 USDC
+  assert.equal(revenueShare(3_333n, 3000n), 999n);        // 999.9 → 999, never over-credit
+  assert.equal(revenueShare(0n, 3000n), 0n);
+  assert.equal(revenueShare(-5n, 3000n), 0n);
+  assert.equal(revenueShare(1_000_000n, 10_000n), 1_000_000n); // 100%
+});

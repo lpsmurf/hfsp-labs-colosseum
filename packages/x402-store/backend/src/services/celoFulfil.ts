@@ -8,6 +8,7 @@ import { quoteExactOutput, executeBridge } from "./relay.js";
 import { baseUsdcBalance, type CeloAsset } from "./evm.js";
 import { redis } from "./redis.js";
 import { recordReconciliation, type PriceLock } from "./celoState.js";
+import { creditIntegrator } from "./celoLedger.js";
 
 export type CeloOrderBody = Omit<CrOrderBody, "network">;
 
@@ -84,6 +85,13 @@ export async function fulfilPaidOrder(body: CeloOrderBody, lock: PriceLock, paid
     await redis.lpush("store:celo:orders", JSON.stringify({
       at: new Date().toISOString(), ...record, crAtomic: fresh.crAmount.toString(), bridge: bridge?.requestId,
     }));
+    // Book the integrator's revenue share. Best-effort: the order is already
+    // delivered, so a ledger hiccup must not surface as a fulfilment failure.
+    if (paid.integrator) {
+      await creditIntegrator(paid.integrator, {
+        tx: paid.tx, payer: paid.payer, asset: lock.asset, commissionAtomic: commission(fresh.crAmount),
+      }).catch(err => console.error("[store:celo] ledger credit failed:", err instanceof Error ? err.message : err));
+    }
     return { result, bridge };
   } catch (error) {
     await recordReconciliation({ ...record, error: error instanceof Error ? error.message : String(error) });
