@@ -8,6 +8,7 @@ import ordersRouter  from "./routes/orders.js";
 import wellKnownRouter from "./routes/wellKnown.js";
 import healthRouter  from "./routes/health.js";
 import openapiRouter from "./routes/openapi.js";
+import { celoEnabled } from "./celoConfig.js";
 
 const app = express();
 
@@ -36,6 +37,17 @@ app.use("/api", catalogRouter);
 // x402-gated orders
 app.use("/api/orders", ordersRouter);
 
+// Celo rail — mounted only when fully configured, so a missing key cannot
+// half-enable a route that takes payments it cannot fulfil.
+if (celoEnabled) {
+  const { default: celoOrdersRouter } = await import("./routes/celoOrders.js");
+  const { default: celoCheckoutRouter } = await import("./routes/celoCheckout.js");
+  app.use("/api/celo/orders", celoOrdersRouter);
+  app.use("/api/celo/checkout", celoCheckoutRouter);
+  // Browser checkout for wallets that cannot sign x402 (MiniPay, Valora…).
+  app.use("/checkout", express.static(new URL("../public/checkout", import.meta.url).pathname));
+}
+
 app.use((err: any, _req: any, res: any, _next: any) => {
   console.error("[store] unhandled error:", err?.message ?? err);
   const status = err?.httpStatus ?? err?.status ?? 500;
@@ -49,5 +61,5 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 app.use((_req, res) => { res.status(404).json({ ok: false, error: "Not found" }); });
 
 app.listen(env.PORT, () => {
-  console.log(`[store] :${env.PORT}  commission=${(env.COMMISSION_RATE * 100).toFixed(1)}%  network=solana`);
+  console.log(`[store] :${env.PORT}  commission=${(env.COMMISSION_RATE * 100).toFixed(1)}%  network=solana${celoEnabled ? "+celo" : ""}`);
 });

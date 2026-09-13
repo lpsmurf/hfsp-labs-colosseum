@@ -9,16 +9,22 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@celo/attribution-tags": "^0.3.0",
+    "@hfsp/x402-common": "*",
     "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.98.0",
+    "@x402/core": "~2.25.0",
+    "@x402/evm": "~2.25.0",
     "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
+    "ethers": "^6.17.0",
     "express": "^4.19.0",
     "express-rate-limit": "^7.3.0",
     "helmet": "^7.1.0",
     "ioredis": "^5.3.0",
     "uuid": "^9.0.0",
+    "viem": "^2.48.11",
     "zod": "^3.23.0"
   },
   "devDependencies": {
@@ -29,5 +35,5 @@
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"
   },
-  "description": "Backend for x402-store \u2014 Cryptorefills proxy, order lifecycle, Solana USDC payment verification"
+  "description": "Backend for x402-store — Cryptorefills proxy, order lifecycle, Solana USDC payment verification"
 }

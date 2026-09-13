@@ -60,19 +60,38 @@ export async function getCatalog(countryCode: string, brandName: string) {
 
 // Phase 1: call Cryptorefills to get their exact payment requirements.
 // No payment happens here — just negotiation.
-// network = "solana" pins to Solana SPL USDC flow.
+// body.network pins the settlement chain: "solana" (SPL USDC) or "base" (EIP-3009 USDC).
+/** The supplier refused the order itself (below minimum, out of stock, bad number…). */
+export class OrderRejected extends Error {
+  constructor(readonly status: number, readonly reason: string, text: string) {
+    super(`CR Phase 1 expected 402, got ${status}: ${text.slice(0, 200)}`);
+  }
+}
+
+const SUPPLIER_REASONS: Record<string, string> = {
+  AMOUNT_LESS_THEN_MINIMUM_ALLOWED: "This product is below the supplier's minimum order (about €0.50). Pick a larger amount.",
+  OUT_OF_STOCK: "This product or amount is not available right now. For airtime, check the amount is within the product's range.",
+};
+
+export const rejectionMessage = (e: OrderRejected) => SUPPLIER_REASONS[e.reason] ?? "The supplier refused this order. Check the product, amount and phone number.";
+
 export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
   const res = await fetch(`${CR_API}/orders`, {
     method: "POST",
     headers: {
       "Content-Type":       "application/json",
-      "X-Preferred-Network": "solana",
+      "X-Preferred-Network": body.network ?? "solana",
     },
     body: JSON.stringify(body),
   });
 
   if (res.status !== 402) {
     const text = await res.text();
+    if (res.status >= 400 && res.status < 500) {
+      // The upstream nests the supplier's JSON inside an escaped message string.
+      const reason = text.replace(/\\/g, "").match(/"detail"\s*:\s*"([A-Z_]+)"/)?.[1] ?? "REJECTED";
+      throw new OrderRejected(res.status, reason, text);
+    }
     throw new Error(`CR Phase 1 expected 402, got ${res.status}: ${text.slice(0, 200)}`);
   }
 
@@ -113,7 +132,7 @@ export async function crPhase2(body: CrOrderBody, sessionId: string, paymentSigH
   const headers: Record<string, string> = {
     "Content-Type":       "application/json",
     "PAYMENT-SIGNATURE":  paymentSigHeader,
-    "X-Preferred-Network": "solana",
+    "X-Preferred-Network": body.network ?? "solana",
   };
   if (sessionId) headers["X-Session-Id"] = sessionId;
 
