@@ -1,0 +1,37 @@
+# Smithery listing for the Celo Agent Commerce MCP server.
+# https://smithery.ai/docs
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      storeUrl:
+        type: string
+        default: https://store.hfsp.cloud
+        description: Store API base that prices, settles and fulfils orders.
+      celoBuyerPrivateKey:
+        type: string
+        description: >-
+          Optional local payer key. When set, buy_product pays from this wallet
+          up to MAX_ORDER_USD. Leave unset to use the x402 MCP payment flow.
+      maxOrderUsd:
+        type: number
+        default: 10
+        description: Hard per-order spending cap for the local payer.
+      integratorId:
+        type: string
+        description: Your ERC-8004 agent id, sent as X-Integrator for revenue share.
+    required: []
+  commandFunction: |-
+    (config) => ({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: {
+        STORE_URL: config.storeUrl || 'https://store.hfsp.cloud',
+        ...(config.celoBuyerPrivateKey ? { CELO_BUYER_PRIVATE_KEY: config.celoBuyerPrivateKey } : {}),
+        ...(config.maxOrderUsd ? { MAX_ORDER_USD: String(config.maxOrderUsd) } : {}),
+        ...(config.integratorId ? { INTEGRATOR_ID: config.integratorId } : {})
+      }
+    })
+build:
+  dockerfile: Dockerfile

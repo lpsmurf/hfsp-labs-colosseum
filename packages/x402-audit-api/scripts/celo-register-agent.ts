@@ -36,6 +36,9 @@ function arg(name: string, fallback: string): string {
 
 const networkName = arg('network', 'celoSepolia') as keyof typeof NETWORKS;
 const endpoint    = arg('endpoint', 'https://audit.hfsp.cloud').replace(/\/$/, '');
+const commerceBase = arg('commerce-base', 'https://store.hfsp.cloud').replace(/\/$/, '');
+// Update an existing agent's URI instead of registering a new one (one tx).
+const updateId    = arg('agent-id', '');
 const send        = process.argv.includes('--send');
 const net = NETWORKS[networkName];
 if (!net) throw new Error(`--network must be one of ${Object.keys(NETWORKS).join(', ')}`);
@@ -70,9 +73,15 @@ const PROFILES = {
       'callable by any agent, bot or app with one HTTP request. Settles in USDT, USAT or USDC ' +
       'through the Celo x402 facilitator; integrators earn a revenue share on independent buyers.',
     image: 'https://github.com/lpsmurf.png',
+    // Only endpoints that resolve today. The store base is the x402 resource; the
+    // MCP server and OpenAPI spec make it discoverable to agents and tooling.
     services: [
-      { name: 'web',  endpoint: 'https://github.com/lpsmurf/celo-agent-commerce' },
-      { name: 'email', endpoint: 'info@hfsp.xyz' },
+      { name: 'x402',    endpoint: `${commerceBase}/api/celo/orders` },
+      { name: 'mcp',     endpoint: `${commerceBase}/mcp` },
+      { name: 'openapi', endpoint: `${commerceBase}/openapi.json` },
+      { name: 'checkout', endpoint: `${commerceBase}/checkout` },
+      { name: 'web',     endpoint: 'https://github.com/lpsmurf/celo-agent-commerce' },
+      { name: 'email',   endpoint: 'info@hfsp.xyz' },
     ],
   },
 } as const;
@@ -100,6 +109,20 @@ console.log(`network   ${networkName} (${net.chainId})`);
 console.log(`registry  ${net.registry}`);
 console.log(`owner     ${wallet.address}`);
 console.log(`balance   ${ethers.formatEther(await provider.getBalance(wallet.address))} CELO`);
+// Updating an existing agent: one setAgentURI tx, no mint. The file already
+// carries this id's registrations entry.
+if (updateId) {
+  const agentId = BigInt(updateId);
+  console.log(`update    agentId ${agentId} (setAgentURI only)`);
+  console.log('file      ', JSON.stringify(registrationFile(agentId), null, 2));
+  if (!send) { console.log('\nDry run. Re-run with --send to update (1 transaction).'); process.exit(0); }
+  const tx = await registry.setAgentURI(agentId, toDataUri(registrationFile(agentId)));
+  console.log(`setURI    ${net.explorer}/tx/${tx.hash}`);
+  await tx.wait();
+  console.log(`\nDone. Updated agentId ${agentId} on eip155:${net.chainId}:${net.registry}`);
+  process.exit(0);
+}
+
 console.log('file      ', JSON.stringify(registrationFile(0n), null, 2));
 
 if (!send) {
