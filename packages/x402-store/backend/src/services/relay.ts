@@ -31,6 +31,7 @@ const SWAP_MARGIN_BPS = 50n;
 async function quoteLeg(destinationChainId: number, originCurrency: string, destinationCurrency: string, amountOut: bigint): Promise<RelayLeg> {
   const address = wallets().celo.address;
   const res = await fetch(`${celoEnv.RELAY_API}/quote`, {
+    signal: AbortSignal.timeout(20_000),
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -100,8 +101,9 @@ async function executeLeg(leg: RelayLeg, timeoutMs: number, sameChain = false): 
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const res = await fetch(`${celoEnv.RELAY_API}/intents/status?requestId=${requestId}`);
-    const status = res.ok ? (await res.json() as any).status : undefined;
+    const res = await fetch(`${celoEnv.RELAY_API}/intents/status?requestId=${requestId}`, { signal: AbortSignal.timeout(10_000) })
+      .catch(() => undefined);
+    const status = res?.ok ? (await res.json() as any).status : undefined;
     if (status === "success") return { requestId, txHashes };
     if (status === "failure" || status === "refund") throw new Error(`Relay request ${requestId} ended as ${status}`);
     await new Promise(r => setTimeout(r, 2000));

@@ -13,7 +13,7 @@
 // Money that arrives but cannot be fulfilled is recorded for reconciliation and
 // never retried automatically: a second attempt could buy the product twice.
 import { Router } from "express";
-import { z } from "zod";
+import { OrderBodySchema, AssetSchema } from "./celoSchemas.js";
 import { createResourceServer, createPrepaidGate, gate, FACILITATORS } from "@hfsp/x402-common";
 import { celoEnv } from "../celoConfig.js";
 import { operatorAddress } from "../services/evm.js";
@@ -21,7 +21,8 @@ import { claimTxSig, redis } from "../services/redis.js";
 import { orderKey, getLock, setLock, dropLock, facilitatorCredits } from "../services/celoState.js";
 import { randomBytes } from "node:crypto";
 import { priceOrder, AssetUnavailable } from "../services/celoFulfil.js";
-import { startFulfilment, getProgress } from "../services/celoJobs.js";
+import { startFulfilment, getProgress, publicResult } from "../services/celoJobs.js";
+import { quoteLimit, statusLimit } from "../middleware/celoRateLimit.js";
 import { OrderRejected, rejectionMessage } from "../services/cryptorefills.js";
 
 const router = Router();
@@ -33,23 +34,9 @@ const settle = createPrepaidGate(createResourceServer({
   networks: ["celo"],
 }));
 
-export const OrderBodySchema = z.object({
-  email: z.string().email(),
-  items: z.array(z.object({
-    product_id: z.string().min(1),
-    product_value: z.number().positive().optional(),
-    beneficiary_account: z.string().optional()
-      // Validate phone numbers before quoting (E.164): the supplier rejects
-      // anything else, but only after a price has been locked.
-      .refine(v => v === undefined || !/^[\d\s()-]+$/.test(v), "Phone numbers need international format: + and country code, e.g. +2348031234567")
-      .refine(v => v === undefined || !v.startsWith("+") || /^\+[1-9]\d{6,14}$/.test(v), "Phone number must be + followed by 7–15 digits, e.g. +2348031234567"),
-  })).length(1), // one item per order keeps pricing, bridging and refunds unambiguous
-});
+export { OrderBodySchema, AssetSchema } from "./celoSchemas.js";
 
-// USAT is swapped to USDT on Celo before bridging (no direct USAT → Base route).
-export const AssetSchema = z.enum(["USDT", "USDC", "USAT"]);
-
-router.post("/", async (req, res, next) => {
+router.post("/", quoteLimit, async (req, res, next) => {
   try {
     const parsed = OrderBodySchema.safeParse(req.body);
     const asset = AssetSchema.safeParse(req.query.asset ?? "USDT");
@@ -127,7 +114,7 @@ router.post("/", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.get("/:orderId", async (req, res, next) => {
+router.get("/:orderId", statusLimit, async (req, res, next) => {
   try {
     const progress = /^[0-9a-f]{16}$/.test(req.params.orderId) ? await getProgress(req.params.orderId) : null;
     if (!progress) { res.status(404).json({ ok: false, error: "Order not found" }); return; }
@@ -135,7 +122,7 @@ router.get("/:orderId", async (req, res, next) => {
       ok: progress.stage !== "failed",
       orderId: req.params.orderId,
       status: progress.stage,
-      data: progress.result,
+      data: publicResult(progress.result),
       error: progress.error,
       updatedAt: new Date(progress.updatedAt).toISOString(),
     });
