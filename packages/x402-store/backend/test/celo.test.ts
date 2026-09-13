@@ -188,7 +188,7 @@ test("X-Real-IP is trusted only from the local proxy", async () => {
 // ── Revenue-share math ───────────────────────────────────────────────────────
 
 test("revenueShare takes the configured cut and rounds down", async () => {
-  const { revenueShare } = await import("../src/services/celoLedger.js");
+  const { revenueShare } = await import("../src/services/celoShare.js");
   assert.equal(revenueShare(10_000n, 3000n), 3000n);      // 30% of 0.01 USDC
   assert.equal(revenueShare(3_333n, 3000n), 999n);        // 999.9 → 999, never over-credit
   assert.equal(revenueShare(0n, 3000n), 0n);
