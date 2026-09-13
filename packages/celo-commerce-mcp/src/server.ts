@@ -49,7 +49,8 @@ export function createServer(): McpServer {
     {
       instructions:
         "Buy mobile airtime, data bundles, gift cards and eSIMs, paid in stablecoins on Celo over x402. " +
-        "Flow: list_brands → list_products → get_quote → buy_product. Top-ups need the phone number in +<country code> format. " +
+        "Flow: list_brands → list_products → get_quote → buy_product → get_order_status. Top-ups need the phone number in +<country code> format. " +
+        "buy_product returns an orderId as soon as payment settles; delivery usually takes 1–15 minutes, so poll get_order_status. " +
         "One product per order. Prices include delivery and any bridging cost.",
     },
   );
@@ -117,7 +118,8 @@ export function createServer(): McpServer {
         (wallet
           ? `This server pays from its configured wallet ${wallet}, up to max_usd (hard limit $${MAX_ORDER_USD}).`
           : "Payment uses the x402 MCP flow: the first call returns the payment requirements; retry with the signed payment in _meta[\"x402/payment\"].") +
-        " Spends real money and cannot be undone once delivered.",
+        " Returns an orderId once payment settles; delivery continues in the background (check get_order_status)." +
+        " Spends real money and cannot be undone.",
       inputSchema: z.object({
         ...orderFields,
         max_usd: z.number().positive().describe("The most you are willing to pay for this order, in dollars. The purchase is refused above it."),
@@ -157,6 +159,25 @@ export function createServer(): McpServer {
       }
       if (res.kind === "payment-required") return paymentRequiredResult(res.paymentRequired);
       return failure(`Order failed (HTTP ${res.status}): ${JSON.stringify(res.body)}`);
+    },
+  );
+
+  server.registerTool(
+    "get_order_status",
+    {
+      title: "Check an order",
+      description:
+        "Status of an order placed with buy_product: fulfilling (buying from the supplier), delivering (supplier " +
+        "is delivering), delivered (done — voucher codes are emailed; top-ups land on the phone), or failed " +
+        "(payment is safe; contact info@hfsp.xyz with the transaction hash). Free.",
+      inputSchema: z.object({
+        order_id: z.string().regex(/^[0-9a-f]{16}$/).describe("orderId returned by buy_product"),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ order_id }) => {
+      try { return text(await getJson(`/api/celo/orders/${order_id}`)); }
+      catch (e) { return failure(`Could not read the order: ${(e as Error).message}`); }
     },
   );
 

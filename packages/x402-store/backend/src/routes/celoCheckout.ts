@@ -20,7 +20,8 @@ import { fromDataSuffix, toDataSuffix } from "@celo/attribution-tags";
 import { celoEnv } from "../celoConfig.js";
 import { TOKENS, operatorAddress, wallets, type CeloAsset } from "../services/evm.js";
 import { claimTxSig, redis } from "../services/redis.js";
-import { priceOrder, fulfilPaidOrder, AssetUnavailable, type CeloOrderBody } from "../services/celoFulfil.js";
+import { priceOrder, AssetUnavailable, type CeloOrderBody } from "../services/celoFulfil.js";
+import { startFulfilment, getProgress } from "../services/celoJobs.js";
 import { OrderRejected, rejectionMessage } from "../services/cryptorefills.js";
 import type { PriceLock } from "../services/celoState.js";
 import { OrderBodySchema, AssetSchema } from "./celoOrders.js";
@@ -48,7 +49,8 @@ const ORDER_TTL_SECONDS = 7 * 24 * 3600;
 const TRANSFER_TOPIC = ethers.id("Transfer(address,address,uint256)");
 const ERC20 = new ethers.Interface(["function transfer(address to, uint256 amount)"]);
 
-type Status = "awaiting_payment" | "verifying" | "fulfilled" | "failed";
+// Before payment the checkout order tracks itself; after it, the background job does.
+type Status = "awaiting_payment" | "paid";
 
 interface CheckoutOrder {
   orderId: string;
@@ -61,8 +63,6 @@ interface CheckoutOrder {
   status: Status;
   txHash?: string;
   payer?: string;
-  result?: unknown;
-  error?: string;
 }
 
 const key = (id: string) => `store:celo:checkout:${id}`;
@@ -74,12 +74,16 @@ async function load(id: string): Promise<CheckoutOrder | null> {
 }
 const save = (o: CheckoutOrder) => redis.set(key(o.orderId), JSON.stringify(o), "EX", ORDER_TTL_SECONDS);
 
-const publicView = (o: CheckoutOrder) => ({
-  ok: true, orderId: o.orderId, status: o.status, asset: o.lock.asset,
-  amount: o.lock.priceAtomic, amountDisplay: (Number(o.lock.priceAtomic) / 1e6).toFixed(6),
-  expiresAt: new Date(o.expiresAt * 1000).toISOString(),
-  txHash: o.txHash, result: o.result, error: o.error,
-});
+async function publicView(o: CheckoutOrder) {
+  const progress = o.status === "paid" ? await getProgress(o.orderId) : null;
+  const status = progress?.stage ?? o.status;
+  return {
+    ok: status !== "failed", orderId: o.orderId, status, asset: o.lock.asset,
+    amount: o.lock.priceAtomic, amountDisplay: (Number(o.lock.priceAtomic) / 1e6).toFixed(6),
+    expiresAt: new Date(o.expiresAt * 1000).toISOString(),
+    txHash: o.txHash, result: progress?.result, error: progress?.error,
+  };
+}
 
 router.post("/quote", async (req, res, next) => {
   try {
@@ -120,7 +124,7 @@ router.post("/quote", async (req, res, next) => {
       + toDataSuffix([celoEnv.ATTRIBUTION_TAG, orderCode(orderId)]).slice(2);
 
     res.json({
-      ...publicView(order),
+      ...(await publicView(order)),
       transaction: { chainId: 42220, to: order.token, data, value: "0x0" },
       // For wallets that support Celo fee abstraction (MiniPay): pay gas in the same stablecoin.
       feeCurrency: FEE_CURRENCY[lock.asset],
@@ -141,10 +145,10 @@ router.post("/confirm", async (req, res, next) => {
 
     const order = await load(orderId);
     if (!order) { res.status(404).json({ ok: false, error: "Order not found" }); return; }
-    if (order.status !== "awaiting_payment") { res.json(publicView(order)); return; }
+    if (order.status !== "awaiting_payment") { res.json(await publicView(order)); return; }
 
     const provider = wallets().celo.provider!;
-    const receipt = await provider.waitForTransaction(txHash, 1, 90_000).catch(() => null);
+    const receipt = await provider.waitForTransaction(txHash, 1, 15_000).catch(() => null);
     const tx = await provider.getTransaction(txHash);
     const fail = (status: number, error: string) => res.status(status).json({ ok: false, orderId, error });
     if (!receipt || !tx) return void fail(409, "Transaction not confirmed yet — try again in a moment.");
@@ -174,27 +178,22 @@ router.post("/confirm", async (req, res, next) => {
     // One transaction pays for exactly one order, once.
     if (!await claimTxSig(txHash)) return void fail(409, "This transaction was already used for an order.");
 
-    order.status = "verifying"; order.txHash = txHash; order.payer = tx.from;
+    order.status = "paid"; order.txHash = txHash; order.payer = tx.from;
     await save(order);
-
-    try {
-      const { result } = await fulfilPaidOrder(order.body, order.lock, {
-        rail: "checkout", tx: txHash, payer: tx.from, integrator: order.integrator,
-      });
-      order.status = "fulfilled"; order.result = result;
-    } catch {
-      order.status = "failed";
-      order.error = "Payment received; fulfilment needs reconciliation. Contact info@hfsp.xyz with your transaction hash.";
-    }
-    await save(order);
-    res.status(order.status === "fulfilled" ? 200 : 502).json(publicView(order));
+    // Answer now; the swap/bridge, purchase and delivery run in the background.
+    await startFulfilment(orderId, order.body, order.lock, {
+      rail: "checkout", tx: txHash, payer: tx.from, integrator: order.integrator,
+    });
+    res.status(202).json(await publicView(order));
   } catch (error) { next(error); }
 });
 
-router.get("/:orderId", async (req, res) => {
-  const order = /^[0-9a-f]{10}$/.test(req.params.orderId) ? await load(req.params.orderId) : null;
-  if (!order) { res.status(404).json({ ok: false, error: "Order not found" }); return; }
-  res.json(publicView(order));
+router.get("/:orderId", async (req, res, next) => {
+  try {
+    const order = /^[0-9a-f]{10}$/.test(req.params.orderId) ? await load(req.params.orderId) : null;
+    if (!order) { res.status(404).json({ ok: false, error: "Order not found" }); return; }
+    res.json(await publicView(order));
+  } catch (error) { next(error); }
 });
 
 export default router;
