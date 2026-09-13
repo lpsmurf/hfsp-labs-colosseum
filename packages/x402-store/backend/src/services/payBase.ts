@@ -39,8 +39,33 @@ export async function payAndFulfillBase(
   if (amount === 0n || amount > maxAtomic) {
     throw new Error(`Cryptorefills now asks ${amount} atomic USDC, above the ${maxAtomic} budgeted for this order`);
   }
-  const payload = await client().createPaymentPayload(crPR as any);
-  const header = client().encodePaymentSignatureHeader(payload);
-  const value = header["PAYMENT-SIGNATURE"] ?? Object.values(header)[0];
+  // Cryptorefills labels its 402 x402Version 2 but sends V1-shaped accepts
+  // (seen 2026-09-13): `maxAmountRequired` instead of `amount`, and no
+  // `maxTimeoutSeconds`. SDK 2.25 reads both (spend controls, the EIP-3009
+  // validBefore), so fill them in: the amount as given, the timeout from the
+  // challenge's top-level expiresAt, capped at five minutes.
+  const expiresAt = (crPR as { expiresAt?: string | number }).expiresAt;
+  const expiresMs = typeof expiresAt === "number" ? (expiresAt < 1e12 ? expiresAt * 1000 : expiresAt) : Date.parse(expiresAt ?? "");
+  const secondsLeft = Number.isFinite(expiresMs) ? Math.floor((expiresMs - Date.now()) / 1000) : 300;
+  const normalized = {
+    ...crPR,
+    accepts: crPR.accepts.map(a => ({
+      ...a,
+      amount: a.amount ?? a.maxAmountRequired,
+      maxTimeoutSeconds: (a as { maxTimeoutSeconds?: number }).maxTimeoutSeconds ?? Math.max(30, Math.min(300, secondsLeft)),
+    })),
+  };
+  const payload = await client().createPaymentPayload(normalized as any);
+  // Cryptorefills decodes the same wrapper as its Solana flow — base64url of
+  // {x402Version, scheme, network, payload} — and rejects the SDK's standard
+  // base64 V2 envelope ("Failed to decode PAYMENT-SIGNATURE header", 2026-09-13).
+  // The EIP-3009 signature inside is still produced by the SDK.
+  const wrapper = {
+    x402Version: 2,
+    scheme: "exact",
+    network: BASE,
+    payload: (payload as { payload: unknown }).payload,
+  };
+  const value = Buffer.from(JSON.stringify(wrapper)).toString("base64url");
   return crPhase2({ ...orderBody, network: "base" }, sessionId, value);
 }
