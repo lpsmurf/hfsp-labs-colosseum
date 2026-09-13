@@ -396,6 +396,7 @@ function renderCountryTabs(){
     b.addEventListener("click", () => {
       current.country = code;
       current.lang = c.lang;           // switch to that country's native language
+      current.manual = true;           // stop any in-flight geo detection from overriding
       renderCountryTabs();
       applyLang();
     });
@@ -403,11 +404,46 @@ function renderCountryTabs(){
   });
 }
 
-document.getElementById("lang-en").addEventListener("click", () => { current.lang = "en"; applyLang(); });
-document.getElementById("lang-native").addEventListener("click", () => { current.lang = COUNTRIES[current.country].lang; applyLang(); });
+document.getElementById("lang-en").addEventListener("click", () => { current.lang = "en"; current.manual = true; applyLang(); });
+document.getElementById("lang-native").addEventListener("click", () => { current.lang = COUNTRIES[current.country].lang; current.manual = true; applyLang(); });
 
+// Render immediately at the default (page must be correct at rest), then adjust.
 renderCountryTabs();
 applyLang();
+
+// --- auto-detect country + language ---
+const SUPPORTED = Object.keys(COUNTRIES);
+function pickFromLocale(){
+  const langs = navigator.languages || (navigator.language ? [navigator.language] : []);
+  for (const l of langs){
+    const m = /-([A-Za-z]{2})\b/.exec(l || "");
+    if (m && SUPPORTED.includes(m[1].toUpperCase())){
+      const country = m[1].toUpperCase();
+      const primary = (l.split("-")[0] || "").toLowerCase();
+      return { country, lang: primary === "en" ? "en" : COUNTRIES[country].lang };
+    }
+  }
+  return null;
+}
+function selectDetected(loc){
+  if (current.manual) return;            // never override a manual choice
+  current.country = loc.country;
+  current.lang = loc.lang;
+  renderCountryTabs();
+  applyLang();
+}
+(async function geoInit(){
+  const fromLocale = pickFromLocale();
+  if (fromLocale){ selectDetected(fromLocale); return; }
+  try {
+    const opts = typeof AbortSignal !== "undefined" && AbortSignal.timeout ? { signal: AbortSignal.timeout(3000) } : {};
+    const res = await fetch("https://ipapi.co/json/", opts);
+    if (!res.ok) return;
+    const d = await res.json();
+    const cc = (d && d.country_code || "").toUpperCase();
+    if (SUPPORTED.includes(cc)) selectDetected({ country: cc, lang: COUNTRIES[cc].lang });
+  } catch (_) { /* keep the default; detection is best-effort */ }
+})();
 </script>
 </body>
 </html>
