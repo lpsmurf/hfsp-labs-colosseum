@@ -5,6 +5,11 @@ import env from "../config.js";
 
 const CR_HOST = env.CR_HOST;
 const CR_API  = `${CR_HOST}/v1`;
+// A hung upstream call must not stall the serial fulfilment queue. Phase 2 gets
+// longer: it settles our signed payment, and cutting it short sends the order to
+// reconciliation even if the purchase went through.
+const TIMEOUT_MS = 20_000;
+const SETTLE_TIMEOUT_MS = 90_000;
 
 export interface CrPaymentAccept {
   scheme:            string;
@@ -44,14 +49,14 @@ export interface CrOrderItem {
 // ── Catalog (public, no auth) ──────────────────────────────────────────────
 
 export async function getBrands(countryCode: string) {
-  const res = await fetch(`${CR_API}/brands?country_code=${encodeURIComponent(countryCode)}`);
+  const res = await fetch(`${CR_API}/brands?country_code=${encodeURIComponent(countryCode)}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`CR brands error: ${res.status}`);
   return res.json();
 }
 
 export async function getCatalog(countryCode: string, brandName: string) {
   const url = `${CR_API}/catalog?country_code=${encodeURIComponent(countryCode)}&brand_name=${encodeURIComponent(brandName)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`CR catalog error: ${res.status}`);
   return res.json();
 }
@@ -84,6 +89,7 @@ const withBeneficiary = (body: CrOrderBody): CrOrderBody => ({
 
 export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
   const res = await fetch(`${CR_API}/orders`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type":       "application/json",
@@ -144,6 +150,7 @@ export async function crPhase2(body: CrOrderBody, sessionId: string, paymentSigH
   if (sessionId) headers["X-Session-Id"] = sessionId;
 
   const res = await fetch(`${CR_API}/orders`, {
+    signal: AbortSignal.timeout(SETTLE_TIMEOUT_MS),
     method: "POST",
     headers,
     body: JSON.stringify(withBeneficiary(body)),
@@ -160,6 +167,7 @@ export async function crPhase2(body: CrOrderBody, sessionId: string, paymentSigH
 // Poll order status
 export async function getOrder(orderId: string) {
   const res = await fetch(`${CR_API}/orders/${encodeURIComponent(orderId)}`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: { "X-Preferred-Network": "solana" },
   });
   if (!res.ok) throw new Error(`CR getOrder ${orderId} failed: ${res.status}`);

@@ -11,6 +11,7 @@ import { redis } from "./redis.js";
 import { getOrder } from "./cryptorefills.js";
 import { fulfilPaidOrder, type CeloOrderBody, type PaidOrder } from "./celoFulfil.js";
 import { recordReconciliation, type PriceLock } from "./celoState.js";
+export { publicResult } from "./crWire.js";
 
 export type Stage = "fulfilling" | "delivering" | "delivered" | "failed";
 

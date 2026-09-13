@@ -48,7 +48,7 @@ let credits: { value: number; at: number } | undefined;
 /** Mainnet settlement credits left on the facilitator account (cached 60 s). */
 export async function facilitatorCredits(): Promise<number> {
   if (credits && Date.now() - credits.at < 60_000) return credits.value;
-  const res = await fetch(`https://api.x402.celo.org/api/account?address=${celoEnv.FACILITATOR_ACCOUNT_ADDRESS}`);
+  const res = await fetch(`https://api.x402.celo.org/api/account?address=${celoEnv.FACILITATOR_ACCOUNT_ADDRESS}`, { signal: AbortSignal.timeout(10_000) });
   const body = await res.json() as { exists?: boolean; balances?: { mainnet?: number } };
   const value = body.exists ? Number(body.balances?.mainnet ?? 0) : 0;
   credits = { value, at: Date.now() };

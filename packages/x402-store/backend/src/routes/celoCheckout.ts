@@ -16,17 +16,21 @@ import { Router } from "express";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { ethers } from "ethers";
-import { fromDataSuffix, toDataSuffix } from "@celo/attribution-tags";
+import { toDataSuffix } from "@celo/attribution-tags";
+import { verifyCheckoutPayment, orderCode, GRACE_SECONDS } from "../services/checkoutVerify.js";
 import { celoEnv } from "../celoConfig.js";
 import { TOKENS, operatorAddress, wallets, type CeloAsset } from "../services/evm.js";
 import { claimTxSig, redis } from "../services/redis.js";
 import { priceOrder, AssetUnavailable, type CeloOrderBody } from "../services/celoFulfil.js";
-import { startFulfilment, getProgress } from "../services/celoJobs.js";
+import { startFulfilment, getProgress, publicResult } from "../services/celoJobs.js";
 import { OrderRejected, rejectionMessage } from "../services/cryptorefills.js";
-import type { PriceLock } from "../services/celoState.js";
+import { recordReconciliation, type PriceLock } from "../services/celoState.js";
 import { OrderBodySchema, AssetSchema } from "./celoOrders.js";
+import { quoteLimit, confirmLimit, statusLimit } from "../middleware/celoRateLimit.js";
 
 const router = Router();
+
+
 
 // Fee-currency adapters (18-decimal wrappers registered in Celo's
 // FeeCurrencyDirectory), verified on-chain 2026-09-13. Passed as `feeCurrency`
@@ -40,13 +44,11 @@ const FEE_CURRENCY: Record<CeloAsset, string> = {
 
 // A human needs longer than an agent between quote and signature.
 const QUOTE_SECONDS = 600;
-// A transfer mined this long after its quote expired is still honoured; beyond
-// it the price may no longer cover fulfilment.
-const GRACE_SECONDS = 120;
-// Orders stay readable long after the quote for status polling and support.
+// Paid orders stay readable for status polling and support; unpaid quotes are
+// dropped soon after they can no longer be paid, so quote spam cannot fill redis.
 const ORDER_TTL_SECONDS = 7 * 24 * 3600;
+const UNPAID_TTL_SECONDS = QUOTE_SECONDS + GRACE_SECONDS + 3600;
 
-const TRANSFER_TOPIC = ethers.id("Transfer(address,address,uint256)");
 const ERC20 = new ethers.Interface(["function transfer(address to, uint256 amount)"]);
 
 // Before payment the checkout order tracks itself; after it, the background job does.
@@ -66,13 +68,13 @@ interface CheckoutOrder {
 }
 
 const key = (id: string) => `store:celo:checkout:${id}`;
-const orderCode = (id: string) => `o${id}`; // ERC-8021 codes: ^[a-z0-9_]{1,32}$
 
 async function load(id: string): Promise<CheckoutOrder | null> {
   const raw = await redis.get(key(id));
   return raw ? JSON.parse(raw) : null;
 }
-const save = (o: CheckoutOrder) => redis.set(key(o.orderId), JSON.stringify(o), "EX", ORDER_TTL_SECONDS);
+const save = (o: CheckoutOrder) =>
+  redis.set(key(o.orderId), JSON.stringify(o), "EX", o.status === "awaiting_payment" ? UNPAID_TTL_SECONDS : ORDER_TTL_SECONDS);
 
 async function publicView(o: CheckoutOrder) {
   const progress = o.status === "paid" ? await getProgress(o.orderId) : null;
@@ -81,11 +83,11 @@ async function publicView(o: CheckoutOrder) {
     ok: status !== "failed", orderId: o.orderId, status, asset: o.lock.asset,
     amount: o.lock.priceAtomic, amountDisplay: (Number(o.lock.priceAtomic) / 1e6).toFixed(6),
     expiresAt: new Date(o.expiresAt * 1000).toISOString(),
-    txHash: o.txHash, result: progress?.result, error: progress?.error,
+    txHash: o.txHash, result: publicResult(progress?.result), error: progress?.error,
   };
 }
 
-router.post("/quote", async (req, res, next) => {
+router.post("/quote", quoteLimit, async (req, res, next) => {
   try {
     const parsed = OrderBodySchema.safeParse(req.body);
     const asset = AssetSchema.safeParse(req.body?.asset ?? "USDT");
@@ -137,7 +139,7 @@ const ConfirmSchema = z.object({
   txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
 });
 
-router.post("/confirm", async (req, res, next) => {
+router.post("/confirm", confirmLimit, async (req, res, next) => {
   try {
     const parsed = ConfirmSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ ok: false, error: "orderId and txHash required" }); return; }
@@ -145,38 +147,36 @@ router.post("/confirm", async (req, res, next) => {
 
     const order = await load(orderId);
     if (!order) { res.status(404).json({ ok: false, error: "Order not found" }); return; }
-    if (order.status !== "awaiting_payment") { res.json(await publicView(order)); return; }
+    // Re-confirming the transaction that paid this order just reports progress.
+    // Any other transaction is still verified below: if it is a real second
+    // payment for an already-paid order, it must reach reconciliation.
+    if (order.status !== "awaiting_payment" && order.txHash?.toLowerCase() === txHash.toLowerCase()) {
+      res.json(await publicView(order)); return;
+    }
 
     const provider = wallets().celo.provider!;
     const receipt = await provider.waitForTransaction(txHash, 1, 15_000).catch(() => null);
     const tx = await provider.getTransaction(txHash);
     const fail = (status: number, error: string) => res.status(status).json({ ok: false, orderId, error });
     if (!receipt || !tx) return void fail(409, "Transaction not confirmed yet — try again in a moment.");
-    if (receipt.status !== 1) return void fail(402, "Transaction failed on-chain.");
-
-    // Bind the transfer to this order: right token, our tag + this order's code.
-    if (tx.to?.toLowerCase() !== order.token.toLowerCase()) return void fail(402, "Transaction is not a transfer of the quoted token.");
-    const codes = fromDataSuffix(tx.data as `0x${string}`)?.codes ?? [];
-    if (!codes.includes(orderCode(orderId)) || !codes.includes(celoEnv.ATTRIBUTION_TAG)) {
-      return void fail(402, "Transaction does not carry this order's reference.");
-    }
-
-    // Trust the token's Transfer event, not the calldata: it is what actually moved.
-    const paid = receipt.logs.find(l =>
-      l.address.toLowerCase() === order.token.toLowerCase()
-      && l.topics[0] === TRANSFER_TOPIC
-      && ethers.getAddress(ethers.dataSlice(l.topics[1], 12)) === ethers.getAddress(tx.from)
-      && ethers.getAddress(ethers.dataSlice(l.topics[2], 12)) === ethers.getAddress(order.payTo)
-      && BigInt(l.data) >= BigInt(order.lock.priceAtomic));
-    if (!paid) return void fail(402, "No transfer of the quoted amount to the store was found in this transaction.");
 
     const block = await provider.getBlock(receipt.blockNumber);
-    if (!block || block.timestamp > order.expiresAt + GRACE_SECONDS) {
-      return void fail(402, "Payment arrived after the quote expired. Contact info@hfsp.xyz for a refund.");
-    }
+    const problem = verifyCheckoutPayment(order, {
+      from: tx.from, to: tx.to, data: tx.data, status: receipt.status,
+      logs: receipt.logs.map(l => ({ address: l.address, topics: [...l.topics], data: l.data })),
+      blockTimestamp: block?.timestamp,
+    }, celoEnv.ATTRIBUTION_TAG);
+    if (problem) return void fail(402, problem);
 
     // One transaction pays for exactly one order, once.
     if (!await claimTxSig(txHash)) return void fail(409, "This transaction was already used for an order.");
+    // And one order is fulfilled once: a second valid payment (double tap, two
+    // tabs) is money we hold for nothing, so it goes to a human for a refund.
+    const firstPayment = await redis.set(`store:celo:checkout:paid:${orderId}`, txHash, "EX", ORDER_TTL_SECONDS, "NX");
+    if (firstPayment !== "OK") {
+      await recordReconciliation({ rail: "checkout", reason: "duplicate payment", orderId, tx: txHash, payer: tx.from, asset: order.lock.asset, paidAtomic: order.lock.priceAtomic });
+      return void fail(409, "This order was already paid. Your extra payment was recorded — contact info@hfsp.xyz for a refund.");
+    }
 
     order.status = "paid"; order.txHash = txHash; order.payer = tx.from;
     await save(order);
@@ -188,7 +188,7 @@ router.post("/confirm", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.get("/:orderId", async (req, res, next) => {
+router.get("/:orderId", statusLimit, async (req, res, next) => {
   try {
     const order = /^[0-9a-f]{10}$/.test(req.params.orderId) ? await load(req.params.orderId) : null;
     if (!order) { res.status(404).json({ ok: false, error: "Order not found" }); return; }

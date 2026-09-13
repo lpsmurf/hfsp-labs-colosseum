@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "NODE_ENV=development DEV_MODE=true tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
@@ -35,5 +36,5 @@
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"
   },
-  "description": "Backend for x402-store — Cryptorefills proxy, order lifecycle, Solana USDC payment verification"
+  "description": "Backend for x402-store \u2014 Cryptorefills proxy, order lifecycle, Solana USDC payment verification"
 }
