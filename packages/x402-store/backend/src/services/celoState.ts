@@ -3,6 +3,7 @@
 import { createHash } from "crypto";
 import { celoEnv } from "../celoConfig.js";
 import { redis } from "./redis.js";
+import { alert } from "./alert.js";
 import type { CeloAsset } from "./evm.js";
 
 export interface PriceLock {
@@ -41,6 +42,9 @@ export async function dropLock(key: string): Promise<void> {
 export async function recordReconciliation(entry: Record<string, unknown>): Promise<void> {
   await redis.lpush("store:celo:recon", JSON.stringify({ at: new Date().toISOString(), ...entry }));
   console.error("[store:celo] RECONCILE", entry);
+  // Money is held with nothing delivered — surface it immediately, don't wait
+  // for the periodic monitor. Best-effort; alert() never throws.
+  await alert("Order needs reconciliation (paid, not delivered)", entry);
 }
 
 let credits: { value: number; at: number } | undefined;
