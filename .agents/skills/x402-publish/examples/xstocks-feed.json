@@ -1,0 +1,140 @@
+{
+  "name": "xstocks-feed",
+  "title": "xStocks Price Feed",
+  "description": "Pay-per-request xStocks price oracle powered by Backed Assets. Real-time NAV prices, proof-of-reserves, on-chain oracles, and corporate actions for 100+ tokenized equities.",
+  "baseUrl": "https://feed.xstocks.hfsp.cloud",
+  "version": "1.0.0",
+  "categories": ["data", "finance"],
+  "contact": { "email": "info@hfsp.xyz", "url": "https://hfsp.xyz" },
+  "price": {
+    "amount": "5000",
+    "currency": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "payTo": "GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY"
+  },
+  "freeEndpoints": [
+    {
+      "path": "/health",
+      "method": "GET",
+      "summary": "Health check"
+    }
+  ],
+  "endpoints": [
+    {
+      "path": "/assets",
+      "method": "GET",
+      "summary": "List all xStock assets",
+      "params": [
+        { "name": "network", "in": "query", "required": false, "schema": { "type": "string", "example": "Solana" }, "description": "Filter by network" },
+        { "name": "page",    "in": "query", "required": false, "schema": { "type": "integer", "default": 1 } },
+        { "name": "pageSize","in": "query", "required": false, "schema": { "type": "integer", "default": 10, "maximum": 100 } }
+      ],
+      "responseSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id":               { "type": "string", "format": "uuid" },
+            "symbol":           { "type": "string", "example": "AAPLx" },
+            "name":             { "type": "string" },
+            "underlyingSymbol": { "type": "string", "example": "AAPL" },
+            "isTradingHalted":  { "type": "boolean" }
+          }
+        }
+      }
+    },
+    {
+      "path": "/assets/{symbol}",
+      "method": "GET",
+      "summary": "Get asset details by symbol",
+      "params": [
+        { "name": "symbol",  "in": "path",  "required": true,  "schema": { "type": "string" }, "description": "xStock symbol (e.g. AAPLx)" },
+        { "name": "network", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Filter deployments by network" }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" }, "symbol": { "type": "string" },
+          "name": { "type": "string" }, "isin": { "type": "string" },
+          "underlyingSymbol": { "type": "string" }, "isTradingHalted": { "type": "boolean" },
+          "deployments": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    {
+      "path": "/assets/{symbol}/price",
+      "method": "GET",
+      "summary": "Get live NAV price for a symbol",
+      "params": [
+        { "name": "symbol", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "properties": { "value": { "type": "number", "description": "Current price in USD" } },
+        "required": ["value"]
+      }
+    },
+    {
+      "path": "/assets/{symbol}/supply",
+      "method": "GET",
+      "summary": "Get circulating supply for a symbol",
+      "params": [
+        { "name": "symbol", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "symbol": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "circulatingSupply": { "type": "string" },
+          "sharesHeld": { "type": "string" }
+        }
+      }
+    },
+    {
+      "path": "/status/{symbol}",
+      "method": "GET",
+      "summary": "Get trading halt / market status for a symbol",
+      "params": [
+        { "name": "symbol", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "symbol": { "type": "string" },
+          "isMarketTradingHalted": { "type": "boolean" },
+          "isAtomicTradingHalted": { "type": "boolean" }
+        },
+        "required": ["symbol", "isMarketTradingHalted", "isAtomicTradingHalted"]
+      }
+    },
+    {
+      "path": "/corporate-actions/history",
+      "method": "GET",
+      "summary": "List historical corporate actions (dividends, splits)",
+      "params": [
+        { "name": "symbol",   "in": "query", "required": false, "schema": { "type": "string" } },
+        { "name": "from",     "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
+        { "name": "to",       "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
+        { "name": "page",     "in": "query", "required": false, "schema": { "type": "integer", "default": 1 } },
+        { "name": "pageSize", "in": "query", "required": false, "schema": { "type": "integer", "default": 10 } }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "page":  { "type": "object" },
+          "nodes": { "type": "array", "items": {
+            "type": "object",
+            "properties": {
+              "eventId": { "type": "string" },
+              "xstockSymbol": { "type": "string" },
+              "caType": { "type": "string", "enum": ["CashDividend", "StockSplit", "Merger"] },
+              "effectiveTimeUtc": { "type": "string", "format": "date-time" },
+              "grossCashflowUsd": { "type": ["string", "null"] },
+              "netCashflowUsd": { "type": ["string", "null"] }
+            }
+          }}
+        }
+      }
+    }
+  ]
+}

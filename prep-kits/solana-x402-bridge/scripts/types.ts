@@ -34,10 +34,21 @@ export interface SafetyResult {
   usedRpc: string;
 }
 
+/** Quote terms execution must honour. */
+export interface ExecutionTerms {
+  minAmountOut: number;
+}
+
 export interface BridgeResult {
   sourceTx: string;
   destTx: string;
   statusId: string;
   sourceExplorer: string;
   destExplorer: string;
+}
+
+export interface AggregatedQuoteResult<TQuote extends BridgeQuote = BridgeQuote> {
+  best: TQuote | null;
+  ranked: TQuote[];
+  relayer: TQuote | null;
 }

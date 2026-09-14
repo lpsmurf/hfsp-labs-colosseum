@@ -16,6 +16,7 @@ import {
   buildGate,
   NETWORKS,
   USDC,
+  EIP712_DOMAIN,
   usdc,
   usdcToDollars,
   type RoutesConfig,
@@ -41,6 +42,7 @@ export const routes: RoutesConfig = {
       // Dynamic: the donor chooses the amount, so it cannot be baked into config.
       price: (ctx) => ({
         asset:  USDC.base,
+        extra: EIP712_DOMAIN.base,
         amount: usdc(resolveAmount(ctx.adapter.getQueryParams?.().amount)),
       }),
       maxTimeoutSeconds: 300,

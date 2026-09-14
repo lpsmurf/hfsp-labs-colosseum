@@ -8,11 +8,12 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
-import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER , EIP712_DOMAIN} from '@hfsp/x402-common';
+import { NETWORKS, usdc, createResourceServer, createPrepaidGate, multiGate, attachReceipt } from '@hfsp/x402-common';
+import { assertPaymentStoreReady } from '../services/nullifier.js';
 import { USDC_MINT, BASE_USDC, HELIUS_RPC, type SourceChain, config } from '../config.js';
 
 const MAX_AGE_SECS   = 300;
-const usedSignatures = new Set<string>();
+
 
 // ── Solana verification ───────────────────────────────────────────────────────
 
@@ -21,7 +22,6 @@ async function verifySolana(
   recipientWallet: string,
   minUsdc: number,
 ): Promise<{ ok: boolean; error?: string; paid: number }> {
-  if (usedSignatures.has(signature)) return { ok: false, error: 'Signature already used', paid: 0 };
 
   const res = await fetch(HELIUS_RPC, {
     method: 'POST',
@@ -44,18 +44,15 @@ async function verifySolana(
   const post = meta?.postTokenBalances as Array<Record<string, unknown>> ?? [];
   const pre  = meta?.preTokenBalances  as Array<Record<string, unknown>> ?? [];
 
-  let paid = 0;
+  let received = 0n;
   for (const pb of post) {
     if (pb.mint !== USDC_MINT || pb.owner !== recipientWallet) continue;
-    const preBal  = (pre.find(p => p.accountIndex === pb.accountIndex)?.uiTokenAmount as Record<string, unknown>)?.uiAmount as number ?? 0;
-    const postBal = (pb.uiTokenAmount as Record<string, unknown>)?.uiAmount as number ?? 0;
-    paid += postBal - preBal;
+    const before = pre.find(p => p.accountIndex === pb.accountIndex)?.uiTokenAmount as { amount: string } | undefined;
+    const after = pb.uiTokenAmount as { amount: string };
+    received += BigInt(after.amount) - BigInt(before?.amount ?? '0');
   }
-
-  if (paid < minUsdc * 0.95) return { ok: false, error: `Underpaid: $${paid.toFixed(4)} received, $${minUsdc} required`, paid };
-
-  usedSignatures.add(signature);
-  setTimeout(() => usedSignatures.delete(signature), 900_000);
+  const paid = Number(received) / 1e6;
+  if (received < BigInt(usdc(minUsdc))) return { ok: false, error: 'Payment is below the required amount', paid };
   return { ok: true, paid };
 }
 
@@ -68,7 +65,6 @@ async function verifyBase(
   recipientWallet: string,
   minUsdc: number,
 ): Promise<{ ok: boolean; error?: string; paid: number }> {
-  if (usedSignatures.has(txHash)) return { ok: false, error: 'Transaction already used', paid: 0 };
 
   const provider = new ethers.JsonRpcProvider(config.BASE_RPC_URL);
 
@@ -80,6 +76,7 @@ async function verifyBase(
   if (!receipt) return { ok: false, error: 'Transaction not found on Base', paid: 0 };
   if (receipt.status !== 1) return { ok: false, error: 'Transaction reverted', paid: 0 };
 
+  if (!block) return { ok: false, error: 'Payment block not found', paid: 0 };
   if (block) {
     const ageSecs = Date.now() / 1000 - block.timestamp;
     if (ageSecs > MAX_AGE_SECS) return { ok: false, error: `Payment expired (${Math.round(ageSecs)}s)`, paid: 0 };
@@ -87,114 +84,64 @@ async function verifyBase(
 
   // Find USDC Transfer log to our wallet
   const recipientPadded = recipientWallet.toLowerCase().replace('0x', '0x000000000000000000000000');
-  let paid = 0;
-
+  let received = 0n;
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== BASE_USDC.toLowerCase()) continue;
     if (log.topics[0] !== ERC20_TRANSFER_TOPIC) continue;
-    if (!log.topics[2]?.toLowerCase().endsWith(recipientWallet.slice(2).toLowerCase())) continue;
-    paid += Number(BigInt(log.data)) / 1e6;
+    if (log.topics[2]?.toLowerCase() !== recipientPadded) continue;
+    received += BigInt(log.data);
   }
-
-  void recipientPadded; // suppress unused warning
-
-  if (paid < minUsdc * 0.95) return { ok: false, error: `Underpaid: $${paid.toFixed(4)} received, $${minUsdc} required`, paid };
-
-  usedSignatures.add(txHash);
-  setTimeout(() => usedSignatures.delete(txHash), 900_000);
+  const paid = Number(received) / 1e6;
+  if (received < BigInt(usdc(minUsdc))) return { ok: false, error: 'Payment is below the required amount', paid };
   return { ok: true, paid };
 }
 
-// ── Gate factory ──────────────────────────────────────────────────────────────
+// V2 authorizations settle before any principal is bridged. X-Payment remains
+// an explicit legacy broadcast-transaction flow.
+const settle = createPrepaidGate(createResourceServer({
+  facilitatorUrl: config.FACILITATOR_URL,
+  families: ['evm', 'svm'], networks: ['base', 'solana'],
+}));
 
-/**
- * Payment gate for routes whose price comes from the request body.
- *
- * These cannot use the x402 SDK's route config: its dynamic-price callback only
- * sees the path, method and query string — never the parsed body — so a top-up of
- * "$25" priced from `req.body.amount` is not expressible there. Settlement stays
- * on our own verifier as a result.
- *
- * What this DOES do is speak the V2 wire format: a `PAYMENT-REQUIRED` header with
- * CAIP-2 networks and `x402Version: 2`, acceptance of `PAYMENT-SIGNATURE`, and a
- * `PAYMENT-RESPONSE` receipt. That makes the endpoint discoverable and parseable
- * by standard clients even though settlement is still ours.
- *
- * Fixed-price routes should use `sdkGate` below instead — it is fully standard.
- */
 export function makeX402Gate(opts: {
-  amountUsdc:   number | ((req: Request) => number);
-  description:  string | ((req: Request) => string);
-  resource?:    string;
+  amountUsdc: number | ((req: Request) => number);
+  description: string | ((req: Request) => string);
+  resource?: string;
 }) {
-  return function x402Gate(req: Request, res: Response, next: NextFunction) {
-    const amount      = typeof opts.amountUsdc  === 'function' ? opts.amountUsdc(req)  : opts.amountUsdc;
-    const description = typeof opts.description === 'function' ? opts.description(req) : opts.description;
-    const resource    = opts.resource ?? `${req.protocol}://${req.get('host')}${req.path}`;
-
-    const proof = readProof(req.headers as Record<string, unknown>, 'X-Payment');
-
-    if (!proof) {
-      const challenge = {
-        x402Version: 2 as const,
-        resource: { url: resource, description, mimeType: 'application/json' },
-        accepts: [
-          {
-            scheme:            'exact',
-            network:           NETWORKS.solana,
-            amount:            usdc(amount),
-            asset:             USDC_MINT,
-            payTo:             config.WALLET_PUBLIC_KEY,
-            maxTimeoutSeconds: 300,
-            extra:             {},
-          },
-          {
-            scheme:            'exact',
-            network:           NETWORKS.base,
-            amount:            usdc(amount),
-            asset:             BASE_USDC,
-            payTo:             config.EVM_WALLET_ADDRESS,
-            maxTimeoutSeconds: 300,
-            // Required for EIP-3009 signing — see EIP712_DOMAIN.
-            extra:             EIP712_DOMAIN.base,
-          },
-        ],
-      };
-      res.set(HEADER.required, encode(challenge))
-         .status(402)
-         .json({ ...challenge, error: 'Payment required', description });
-      return;
-    }
-
-    const chain = detectChain(req, proof.value);
-
-    const verify = chain === 'base'
-      ? verifyBase(proof.value, config.EVM_WALLET_ADDRESS, amount)
-      : verifySolana(proof.value, config.WALLET_PUBLIC_KEY, amount);
-
-    verify
-      .then(({ ok, error, paid }) => {
-        if (!ok) { res.status(402).json({ error }); return; }
-        attachReceipt(res, { success: true, network: chain, transaction: proof.value });
-        res.locals.payment = { paidUsdc: paid, signature: proof.value, chain };
-        next();
-      })
-      .catch((err: unknown) => {
-        res.status(500).json({ error: `Payment verification error: ${err instanceof Error ? err.message : String(err)}` });
-      });
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const amount = typeof opts.amountUsdc === 'function' ? opts.amountUsdc(req) : opts.amountUsdc;
+      const description = typeof opts.description === 'function' ? opts.description(req) : opts.description;
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 10_000) {
+        res.status(400).json({ error: 'Invalid payment amount' }); return;
+      }
+      const v2 = req.get('payment-signature')?.trim();
+      const legacy = !v2 ? req.get('x-payment')?.trim() : undefined;
+      if (v2 || legacy) await assertPaymentStoreReady();
+      if (!legacy) {
+        const selected = req.body?.sourceChain as SourceChain | undefined;
+        const networks: SourceChain[] = selected ? [selected] : ['solana', 'base'];
+        const route = multiGate(description, networks.map(network => ({
+          price: amount, network, description,
+          payTo: network === 'base' ? config.EVM_WALLET_ADDRESS : config.WALLET_PUBLIC_KEY,
+        })));
+        const payment = await settle(req, res, opts.resource ? { ...route, resource: opts.resource } : route);
+        if (!payment) return;
+        const chain = payment.network === NETWORKS.base ? 'base' : 'solana';
+        res.locals.payment = { paidUsdc: Number(payment.amount) / 1e6, signature: payment.transaction, chain };
+      } else {
+        const chain: SourceChain = legacy.startsWith('0x') ? 'base' : 'solana';
+        if (req.body?.sourceChain && req.body.sourceChain !== chain) {
+          res.status(400).json({ error: 'Payment chain must match sourceChain' }); return;
+        }
+        const result = chain === 'base'
+          ? await verifyBase(legacy, config.EVM_WALLET_ADDRESS, amount)
+          : await verifySolana(legacy, config.WALLET_PUBLIC_KEY, amount);
+        if (!result.ok) { res.status(402).json({ error: result.error }); return; }
+        res.locals.payment = { paidUsdc: result.paid, signature: legacy, chain };
+        attachReceipt(res, { success: true, network: chain, transaction: legacy });
+      }
+      next();
+    } catch (error) { next(error); }
   };
-}
-
-/**
- * Work out which chain a proof belongs to.
- *
- * Prefers the shape of the proof itself — Base tx hashes are `0x` + 64 hex chars,
- * Solana signatures are base58 with no prefix — so callers no longer need the
- * non-standard `X-Payment-Chain` header. That header is still honoured when
- * present so existing integrations keep working.
- */
-function detectChain(req: Request, proof: string): SourceChain {
-  const explicit = (req.headers['x-payment-chain'] as string | undefined)?.trim();
-  if (explicit === 'base' || explicit === 'solana') return explicit;
-  return proof.startsWith('0x') ? 'base' : 'solana';
 }
