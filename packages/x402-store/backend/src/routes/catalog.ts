@@ -2,8 +2,26 @@
 // Agents use these to browse brands and products before placing an order.
 import { Router } from "express";
 import { getBrands, getCatalog } from "../services/cryptorefills.js";
+import { getPopular, SUPPORTED_COUNTRIES } from "../services/celoPopular.js";
 
 const router = Router();
+
+// GET /api/celo/popular?country=NG
+// Most-bought products for a country, ranked by our real delivered orders;
+// `source` is "orders" once enough real orders exist, else "picks" (curated).
+router.get("/celo/popular", async (req, res) => {
+  const country = (req.query.country as string | undefined)?.toUpperCase();
+  if (!country || !SUPPORTED_COUNTRIES.includes(country)) {
+    res.status(400).json({ ok: false, error: `country must be one of ${SUPPORTED_COUNTRIES.join(", ")}` });
+    return;
+  }
+  try {
+    res.set("Cache-Control", "public, max-age=60");
+    res.json(await getPopular(country));
+  } catch (e: any) {
+    res.status(502).json({ ok: false, error: e.message });
+  }
+});
 
 // GET /api/brands?country_code=us
 router.get("/brands", async (req, res) => {

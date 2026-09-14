@@ -170,6 +170,7 @@
     <span class="eyebrow" data-i18n="popEyebrow">Live prices</span>
     <h2 id="pop-title">Popular top-ups</h2>
   </div>
+  <p class="svc-note" id="pop-note" style="margin-top:-8px;margin-bottom:18px"></p>
   <div class="services" id="services"></div>
   <p class="svc-note" data-i18n="svcNote">Prices are live from the store and settle in stablecoin — no hidden FX. The supplier minimum is about $0.55, so a small data bundle is often the best first buy. 175+ more countries are in the checkout.</p>
 </section>
@@ -226,38 +227,17 @@
 
 <script>
 // ---- country data: live USDT prices + local face, indicative FX (1 USDT ≈ local) ----
+// Display meta per country. The ranked product list is fetched live from
+// /api/celo/popular so it reflects real orders as they accrue.
 const COUNTRIES = {
-  NG:{label:"Nigeria", cc:"NG", cur:"₦", fx:1327, lang:"en", fxText:"1 USDT ≈ ₦1,327",
-    svc:[
-      {brand:"Airtel", tag:"data", get:{en:"3GB mobile data"}, usdt:0.59},
-      {brand:"MTN", tag:"airtime", get:{en:"₦750 airtime"}, usdt:0.59},
-      {brand:"Razer Gold", tag:"gift card", get:{en:"$1 Razer Gold"}, usdt:1.12}
-    ]},
-  KE:{label:"Kenya", cc:"KE", cur:"KES", fx:129, lang:"sw", fxText:"1 USDT ≈ KES 129",
-    svc:[
-      {brand:"Safaricom", tag:"airtime", get:{en:"Airtime, any amount", sw:"Salio, kiasi chochote"}, usdt:1.16, from:true},
-      {brand:"Airtel", tag:"airtime", get:{en:"Airtime, any amount", sw:"Salio, kiasi chochote"}, usdt:1.16, from:true},
-      {brand:"Razer Gold", tag:"gift card", get:{en:"$1 Razer Gold", sw:"Razer Gold ya $1"}, usdt:1.12}
-    ]},
-  GH:{label:"Ghana", cc:"GH", cur:"GH₵", fx:11.4, lang:"en", fxText:"1 USDT ≈ GH₵11.4",
-    svc:[
-      {brand:"AT Ghana", tag:"data", get:{en:"500MB data, no expiry"}, usdt:0.66},
-      {brand:"MTN", tag:"data", get:{en:"~719MB data (₵10)"}, usdt:0.97},
-      {brand:"MTN", tag:"airtime", get:{en:"Airtime from ₵14"}, usdt:1.23, from:true}
-    ]},
-  PH:{label:"Philippines", cc:"PH", cur:"₱", fx:62.7, lang:"fil", fxText:"1 USDT ≈ ₱62.7",
-    svc:[
-      {brand:"Smart", tag:"data", get:{en:"All Data 50 bundle", fil:"All Data 50 bundle"}, usdt:0.86},
-      {brand:"Globe", tag:"data", get:{en:"SURF4ALL99 (₱99)", fil:"SURF4ALL99 (₱99)"}, usdt:1.74},
-      {brand:"Lazada", tag:"gift card", get:{en:"₱100 Lazada voucher", fil:"₱100 Lazada voucher"}, usdt:1.80}
-    ]},
-  BR:{label:"Brazil", cc:"BR", cur:"R$", fx:5.11, lang:"pt", fxText:"1 USDT ≈ R$5,11",
-    svc:[
-      {brand:"Claro", tag:"airtime", get:{en:"R$15 credit", pt:"Crédito de R$15"}, usdt:3.20},
-      {brand:"Vivo", tag:"airtime", get:{en:"R$15 credit", pt:"Crédito de R$15"}, usdt:3.32},
-      {brand:"Shopee", tag:"gift card", get:{en:"R$30 gift card", pt:"Vale-presente R$30"}, usdt:6.29}
-    ]}
+  NG:{label:"Nigeria",     cc:"NG", cur:"₦",   fx:1327, lang:"en",  fxText:"1 USDT ≈ ₦1,327"},
+  KE:{label:"Kenya",       cc:"KE", cur:"KES", fx:129,  lang:"sw",  fxText:"1 USDT ≈ KES 129"},
+  GH:{label:"Ghana",       cc:"GH", cur:"GH₵", fx:11.4, lang:"en",  fxText:"1 USDT ≈ GH₵11.4"},
+  PH:{label:"Philippines", cc:"PH", cur:"₱",   fx:62.7, lang:"fil", fxText:"1 USDT ≈ ₱62.7"},
+  BR:{label:"Brazil",      cc:"BR", cur:"R$",  fx:5.11, lang:"pt",  fxText:"1 USDT ≈ R$5,11"}
 };
+const CAT_LABEL = { mobile_data:"catData", airtime:"catAirtime", gift_card:"catGift" };
+const popularCache = {}; // country -> API response (per session)
 
 // ---- translations (marketing strings; agent/dev section stays English) ----
 const T = {
@@ -266,7 +246,10 @@ const T = {
     lede:"Airtime, data, gift cards and eSIMs — paid with stablecoins on Celo. No CELO for gas, no bank, no card.",
     ctaClaim:"Claim my free top-up", ctaShop:"Go to checkout",
     tcInline:"*First top-up free via the Self × Google Cloud faucet.", tcLink:"T&Cs apply",
-    fxLabel:"Today's rate", popEyebrow:"Live prices", popTitle:"Popular in {c}",
+    fxLabel:"Today's rate", popEyebrow:"Live prices",
+    titleBought:"Most bought in {c}", titlePicks:"Popular in {c}",
+    noteBought:"Ranked by real orders on the store.", notePicks:"Curated picks — the ranking goes live as orders come in.",
+    catData:"Data", catAirtime:"Airtime", catGift:"Gift card",
     fromWord:"from", inUsdt:"in USDT",
     svcNote:"Prices are live from the store and settle in stablecoin — no hidden FX. The supplier minimum is about $0.55, so a small data bundle is often the best first buy. 175+ more countries are in the checkout.",
     stepsEyebrow:"Three taps", stepsTitle:"How it works",
@@ -283,7 +266,10 @@ const T = {
     lede:"Salio, data, kadi za zawadi na eSIM — hulipwa kwa sarafu-thabiti kwenye Celo. Huhitaji CELO kwa gesi, benki wala kadi.",
     ctaClaim:"Dai malipo yangu ya bure", ctaShop:"Nenda kwenye malipo",
     tcInline:"*Malipo ya kwanza ni bure kupitia bomba la Self × Google Cloud.", tcLink:"Masharti yanatumika",
-    fxLabel:"Kiwango cha leo", popEyebrow:"Bei za sasa", popTitle:"Maarufu nchini {c}",
+    fxLabel:"Kiwango cha leo", popEyebrow:"Bei za sasa",
+    titleBought:"Zinazonunuliwa zaidi {c}", titlePicks:"Maarufu nchini {c}",
+    noteBought:"Zimepangwa kwa maagizo halisi ya duka.", notePicks:"Chaguo teule — orodha huanza kadri maagizo yanavyoingia.",
+    catData:"Data", catAirtime:"Salio", catGift:"Kadi ya zawadi",
     fromWord:"kuanzia", inUsdt:"kwa USDT",
     svcNote:"Bei ni za moja kwa moja kutoka dukani na hulipwa kwa sarafu-thabiti — hakuna FX iliyofichwa. Kiwango cha chini cha muuzaji ni takriban $0.55, hivyo kifurushi kidogo cha data mara nyingi ndicho ununuzi bora wa kwanza. Nchi 175+ zaidi zipo kwenye malipo.",
     stepsEyebrow:"Hatua tatu", stepsTitle:"Jinsi inavyofanya kazi",
@@ -300,7 +286,10 @@ const T = {
     lede:"Load, data, gift card at eSIM — bayad gamit ang stablecoin sa Celo. Walang CELO para sa gas, walang bangko, walang card.",
     ctaClaim:"I-claim ang libreng top-up", ctaShop:"Pumunta sa checkout",
     tcInline:"*Libre ang unang top-up gamit ang Self × Google Cloud faucet.", tcLink:"May mga tuntunin",
-    fxLabel:"Palitan ngayon", popEyebrow:"Live na presyo", popTitle:"Sikat sa {c}",
+    fxLabel:"Palitan ngayon", popEyebrow:"Live na presyo",
+    titleBought:"Pinakabinibili sa {c}", titlePicks:"Sikat sa {c}",
+    noteBought:"Nakaayos ayon sa tunay na mga order sa store.", notePicks:"Mga piling produkto — magiging live ang ranking pagdating ng mga order.",
+    catData:"Data", catAirtime:"Load", catGift:"Gift card",
     fromWord:"mula", inUsdt:"sa USDT",
     svcNote:"Live ang mga presyo mula sa tindahan at binabayaran sa stablecoin — walang nakatagong FX. Ang minimum ng supplier ay mga $0.55, kaya madalas na ang maliit na data bundle ang pinakamahusay na unang bili. 175+ pang bansa ang nasa checkout.",
     stepsEyebrow:"Tatlong tap", stepsTitle:"Paano ito gumagana",
@@ -317,7 +306,10 @@ const T = {
     lede:"Recarga, dados, vales-presente e eSIMs — pagos com stablecoins na Celo. Sem CELO para gás, sem banco, sem cartão.",
     ctaClaim:"Resgatar minha recarga grátis", ctaShop:"Ir para o checkout",
     tcInline:"*Primeira recarga grátis via faucet Self × Google Cloud.", tcLink:"Termos se aplicam",
-    fxLabel:"Câmbio de hoje", popEyebrow:"Preços ao vivo", popTitle:"Populares no {c}",
+    fxLabel:"Câmbio de hoje", popEyebrow:"Preços ao vivo",
+    titleBought:"Mais comprados no {c}", titlePicks:"Populares no {c}",
+    noteBought:"Classificado por pedidos reais na loja.", notePicks:"Seleção — o ranking fica ao vivo conforme os pedidos chegam.",
+    catData:"Dados", catAirtime:"Crédito", catGift:"Vale-presente",
     fromWord:"a partir de", inUsdt:"em USDT",
     svcNote:"Os preços são ao vivo da loja e liquidados em stablecoin — sem câmbio oculto. O pedido mínimo do fornecedor é cerca de US$0,55, então um pacote pequeno de dados costuma ser a melhor primeira compra. Mais de 175 países estão no checkout.",
     stepsEyebrow:"Três toques", stepsTitle:"Como funciona",
@@ -335,14 +327,12 @@ let current = { country:"NG", lang:"en" };
 
 function fmt(str, c){ return str.replace("{c}", c); }
 
-function renderServices(){
+function paintServices(data){
   const c = COUNTRIES[current.country];
   const t = T[current.lang] || T.en;
   const host = document.getElementById("services");
   host.innerHTML = "";
-  c.svc.forEach(s => {
-    const get = (s.get[current.lang] || s.get.en);
-    const price = "$" + s.usdt.toFixed(2);
+  (data.items || []).forEach(s => {
     const el = document.createElement("div");
     el.className = "svc";
     el.innerHTML =
@@ -353,14 +343,27 @@ function renderServices(){
     const sep = c.cur.length > 1 ? " " : "";
     const localStr = "≈ " + c.cur + sep + localAmt.toLocaleString("en-US") + (s.from ? "+" : "");
     el.querySelector(".brand-tag").textContent = s.brand;
-    el.querySelector(".tag").textContent = s.tag;
-    el.querySelector(".get").textContent = get;
-    el.querySelector(".usdt").textContent = (s.from ? (t.fromWord + " ") : "") + price;
+    el.querySelector(".tag").textContent = t[CAT_LABEL[s.category]] || s.category;
+    el.querySelector(".get").textContent = s.get;
+    el.querySelector(".usdt").textContent = (s.from ? (t.fromWord + " ") : "") + "$" + Number(s.usdt).toFixed(2);
     el.querySelector(".local").innerHTML = '<span style="display:block">' + t.inUsdt + '</span>' + localStr;
     host.appendChild(el);
   });
+  const bought = data.source === "orders";
+  document.getElementById("pop-title").textContent = fmt(bought ? t.titleBought : t.titlePicks, c.label);
+  document.getElementById("pop-note").textContent = bought ? t.noteBought : t.notePicks;
   document.getElementById("fx-rate").textContent = c.fxText;
-  document.getElementById("pop-title").textContent = fmt(t.popTitle, c.label);
+}
+
+function renderServices(){
+  const cc = current.country;
+  if (popularCache[cc]) { paintServices(popularCache[cc]); return; }
+  paintServices({ items: [], source: "picks" });   // instant, no flash of stale data
+  const opts = typeof AbortSignal !== "undefined" && AbortSignal.timeout ? { signal: AbortSignal.timeout(6000) } : {};
+  fetch("/api/celo/popular?country=" + cc, opts)
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => { popularCache[cc] = data; if (current.country === cc) paintServices(data); })
+    .catch(() => {});
 }
 
 function applyLang(){

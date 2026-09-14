@@ -11,6 +11,7 @@ import { redis } from "./redis.js";
 import { getOrder } from "./cryptorefills.js";
 import { fulfilPaidOrder, type CeloOrderBody, type PaidOrder } from "./celoFulfil.js";
 import { recordReconciliation, type PriceLock } from "./celoState.js";
+import { recordDelivered } from "./celoPopular.js";
 export { publicResult } from "./crWire.js";
 
 export type Stage = "fulfilling" | "delivering" | "delivered" | "failed";
@@ -21,6 +22,7 @@ export interface Progress {
   result?: unknown;
   error?: string;
   bridge?: string;
+  productIds?: string[]; // for popularity counting when delivery completes later
   updatedAt: number; // ms
 }
 
@@ -65,12 +67,17 @@ async function run(id: string, body: CeloOrderBody, lock: PriceLock, paid: PaidO
   try {
     const { result, bridge } = await fulfilPaidOrder(body, lock, paid);
     const supplier = result as { order_id?: string; status?: unknown };
+    const stage = stageFromSupplier(supplier?.status);
+    const productIds = body.items.map(i => i.product_id);
     await write(id, {
-      stage: stageFromSupplier(supplier?.status),
+      stage,
       supplierOrderId: supplier?.order_id,
       result,
       bridge: bridge?.requestId,
+      productIds,
     });
+    if (stage === "delivered")
+      await recordDelivered(id, productIds).catch(() => {});
   } catch {
     // fulfilPaidOrder has already written the reconciliation record.
     await write(id, { stage: "failed", error: RECONCILE_MESSAGE }).catch(() => {});
@@ -88,12 +95,15 @@ export async function getProgress(id: string): Promise<Progress | null> {
   const supplier = await getOrder(progress.supplierOrderId).catch(() => null) as { status?: unknown } | null;
   if (!supplier) return progress;
   const stage = stageFromSupplier(supplier.status);
-  return write(id, {
+  const next = await write(id, {
     ...progress,
     stage,
     result: supplier,
     error: stage === "failed" ? `The supplier could not deliver this order. ${RECONCILE_MESSAGE}` : undefined,
   });
+  if (stage === "delivered" && progress.productIds?.length)
+    await recordDelivered(id, progress.productIds).catch(() => {});
+  return next;
 }
 
 /**

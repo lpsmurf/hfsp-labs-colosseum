@@ -7,6 +7,7 @@ import { toDataSuffix } from "@celo/attribution-tags";
 import { verifyCheckoutPayment, orderCode, GRACE_SECONDS, type ObservedPayment } from "../src/services/checkoutVerify.js";
 import { normalizeCrRequirements, encodeCrPaymentSignature, publicResult } from "../src/services/crWire.js";
 import { OrderBodySchema, AssetSchema } from "../src/routes/celoSchemas.js";
+import { rankProducts, MIN_REAL_ORDERS, type PopularProduct } from "../src/services/celoPopular.js";
 
 // ── Checkout payment verification ────────────────────────────────────────────
 
@@ -257,4 +258,33 @@ describe("verifyAttestation", async () => {
   });
 
   after(() => { globalThis.fetch = origFetch; });
+});
+
+describe("rankProducts (popularity)", () => {
+  const seed: PopularProduct[] = [
+    { product_id: "a", brand: "Airtel", category: "mobile_data", get: "3GB", usdt: 0.59 },
+    { product_id: "b", brand: "MTN",    category: "airtime",     get: "top-up", usdt: 1.16, from: true },
+    { product_id: "c", brand: "Razer",  category: "gift_card",   get: "$1",     usdt: 1.12 },
+  ];
+
+  test("falls back to curated picks below the real-order threshold", () => {
+    const r = rankProducts(seed, { a: 1, b: 2 }); // total 3 < MIN_REAL_ORDERS
+    assert.equal(r.source, "picks");
+    assert.equal(r.total, 3);
+    assert.deepEqual(r.items.map(p => p.product_id), ["a", "b", "c"]); // seed order preserved
+  });
+
+  test("ranks by real orders once the threshold is met, ties keep seed order", () => {
+    const counts = { a: 1, b: 5, c: 5 }; // total 11 >= threshold
+    assert.ok(11 >= MIN_REAL_ORDERS);
+    const r = rankProducts(seed, counts);
+    assert.equal(r.source, "orders");
+    assert.deepEqual(r.items.map(p => p.product_id), ["b", "c", "a"]); // b,c tie -> seed order; a last
+    assert.equal(r.items[0].count, 5);
+  });
+
+  test("does not leak the internal sort index", () => {
+    const r = rankProducts(seed, {});
+    assert.ok(!("_i" in (r.items[0] as any)));
+  });
 });
