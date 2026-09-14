@@ -1,0 +1,36 @@
+{
+  "name": "my-api",
+  "title": "My Paid API",
+  "description": "One-line description shown in marketplace listings.",
+  "baseUrl": "https://api.yourdomain.com",
+  "version": "v1",
+  "categories": ["data"],
+  "contact": { "email": "info@yourdomain.com" },
+  "price": {
+    "amount": "1000",
+    "currency": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "payTo": "YOUR_SOLANA_WALLET_BASE58"
+  },
+  "endpoints": [
+    {
+      "path": "/data",
+      "method": "GET",
+      "summary": "Fetch data",
+      "params": [
+        {
+          "name": "query",
+          "in": "query",
+          "required": true,
+          "schema": { "type": "string" },
+          "description": "Search query"
+        }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "result": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

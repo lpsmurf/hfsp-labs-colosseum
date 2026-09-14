@@ -1,6 +1,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  setupFilesAfterEnv: ['<rootDir>/tests/payment-boundary.cjs'],
   roots: ['<rootDir>/src/__tests__'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],

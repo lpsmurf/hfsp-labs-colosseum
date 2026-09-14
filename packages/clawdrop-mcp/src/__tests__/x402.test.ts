@@ -4,6 +4,8 @@
  * Unit and integration tests for x402 payment protocol implementation
  */
 
+process.env.CLAWDROP_FEE_WALLET = '11111111111111111111111111111111';
+
 import { Request, Response, NextFunction } from 'express';
 import { x402Middleware, attachX402Headers, respond402 } from '../middleware/x402';
 import { FEE_RATES } from '../services/fee-collector';
@@ -17,6 +19,7 @@ describe('x402 Middleware', () => {
     mockReq = {
       body: {},
       headers: {},
+      get: jest.fn(),
       path: '/api/tools/test',
       method: 'POST',
     };

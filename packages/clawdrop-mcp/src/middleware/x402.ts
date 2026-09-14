@@ -14,6 +14,7 @@ import logger from '../utils/logger';
 import { classifyTransaction } from '../services/transaction-classifier';
 import { calculateSwapFee, calculateTransferFee, calculateFlightFee, FEE_RATES } from '../services/fee-collector';
 import { verifyPaymentTransaction } from '../integrations/helius';
+import { createResourceServer, createPrepaidGate, gate, DEFAULT_FACILITATOR } from '@hfsp/x402-common';
 
 export interface X402Options {
   solPrice?: number;
@@ -31,6 +32,11 @@ const PLATFORM_WALLET = process.env.CLAWDROP_FEE_WALLET || process.env.CLAWDROP_
 
 const NETWORK: 'mainnet' | 'devnet' =
   process.env.SOLANA_NETWORK === 'devnet' ? 'devnet' : 'mainnet';
+
+const settle = createPrepaidGate(createResourceServer({
+  facilitatorUrl: process.env.FACILITATOR_URL ?? DEFAULT_FACILITATOR,
+  families: ['svm'], networks: [NETWORK === 'devnet' ? 'solanaDevnet' : 'solana'],
+}));
 
 // A confirmed transaction stays valid on-chain forever, so without an age limit
 // one payment receipt would unlock the endpoint indefinitely.
@@ -151,6 +157,13 @@ export function x402Middleware(options: X402Options = {}) {
           break;
       }
 
+      // calculateFlightFee floors fee_sol at MIN_FEE_SOL but not the USD estimate,
+      // and the V2 gate charges the USD figure — keep them consistent.
+      feeCalc = {
+        ...feeCalc,
+        fee_usd_estimate: Math.max(feeCalc.fee_usd_estimate, FEE_RATES.MIN_FEE_SOL * (config.solPrice ?? 250)),
+      };
+
       // Attach fee info to request
       req.clawdrop = {
         transaction_type: classification.type,
@@ -171,19 +184,25 @@ export function x402Middleware(options: X402Options = {}) {
       // Payment gate disabled (dev / internal callers) — fee metadata is still attached.
       if (!config.requirePayment) return next();
 
-      // Accept the V2 header, falling back to the legacy one.
-      const paymentProof =
-        (req.headers['payment-signature'] as string | undefined)?.trim() ||
-        (req.headers['x-payment'] as string | undefined)?.trim();
-      if (!paymentProof) {
-        return respond402(req, res, 'Payment required to complete transaction');
-      }
-
       if (!PLATFORM_WALLET) {
-        // Fail closed. With no wallet configured there is nothing to verify a
-        // payment against, and waving requests through would be worse than a 500.
-        logger.error({ path: req.path }, '[HFSP_X402_005] No platform wallet configured — refusing to verify payment');
-        return res.status(500).json({ error: 'Payment verification unavailable: no recipient wallet configured' });
+        return res.status(503).json({ error: 'Payment recipient is not configured' });
+      }
+      const v2 = req.get('payment-signature')?.trim();
+      const paymentProof = !v2 ? req.get('x-payment')?.trim() : undefined;
+      if (!paymentProof) {
+        // Standard SVM exact payments use USDC. Native SOL remains legacy-only.
+        // settle() writes the V2 PAYMENT-REQUIRED header and body; the legacy
+        // X-Fee-* headers ride along so SOL clients still see the fee.
+        attachX402Headers(req, res);
+        const payment = await settle(req, res, gate({
+          price: feeCalc.fee_usd_estimate, payTo: PLATFORM_WALLET,
+          network: NETWORK === 'devnet' ? 'solanaDevnet' : 'solana',
+          description: `Clawdrop ${classification.type} fee`,
+        }));
+        if (!payment) return;
+        req.clawdrop.payment_verified = true;
+        req.clawdrop.payment_signature = payment.transaction;
+        return next();
       }
 
       // Claim the signature before hitting the RPC, so two concurrent requests

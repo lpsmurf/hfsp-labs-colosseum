@@ -76,6 +76,22 @@ export interface GenericBridgeOrder extends BridgeOrder {
   recipient: string;
 }
 
+/**
+ * Record a Base submission. sendTransaction has already broadcast by the time
+ * this runs, so a failed record must not look like a pre-broadcast failure —
+ * callers use `broadcast` to decide whether a payment claim may be released.
+ */
+async function recordBroadcast(onSubmitted: ((tx: string) => Promise<void>) | undefined, txHash: string) {
+  try {
+    await onSubmitted?.(txHash);
+  } catch (error) {
+    throw Object.assign(
+      new Error(`Transaction ${txHash} was broadcast but recording it failed: ${error instanceof Error ? error.message : String(error)}`),
+      { broadcast: true, cause: error },
+    );
+  }
+}
+
 function getSolanaKeypair(): Keypair {
   return Keypair.fromSecretKey(bs58.decode(config.WALLET_PRIVATE_KEY));
 }
@@ -213,6 +229,8 @@ export async function createAndSubmitOrder(opts: {
   dstToken:      GnosisToken;
   safeAddress:   string;
   sourceChain?:  SourceChain;
+  onSubmitted?: (tx: string) => Promise<void>;
+  minAmountOut?: number;
 }): Promise<BridgeOrder> {
   const { srcAmountUsdc, dstToken, safeAddress, sourceChain = 'solana' } = opts;
   const feePct    = parseFloat(config.TOPUP_FEE_PCT) / 100;
@@ -232,6 +250,9 @@ export async function createAndSubmitOrder(opts: {
     sourceChain,
   });
 
+  if (opts.minAmountOut !== undefined && Number(quote.details.currencyOut.amountFormatted) < opts.minAmountOut) {
+    throw new Error('Bridge quote no longer meets minimum output');
+  }
   const step = quote.steps.find(s => s.id === 'deposit');
   if (!step?.items[0]?.data) throw new Error('Relay.link returned no deposit step');
 
@@ -255,6 +276,7 @@ export async function createAndSubmitOrder(opts: {
       chainId: txData.chainId ?? BASE_CHAIN_ID,
     });
 
+    await recordBroadcast(opts.onSubmitted, tx.hash);
     const receipt = await tx.wait(1);
     if (!receipt || receipt.status !== 1) throw new Error('Base transaction failed');
     signature = tx.hash;
@@ -291,8 +313,10 @@ export async function createAndSubmitOrder(opts: {
     const solTx = new VersionedTransaction(message);
     solTx.sign([keypair]);
 
+    await opts.onSubmitted?.(bs58.encode(solTx.signatures[0]));
     signature = await connection.sendRawTransaction(solTx.serialize(), { skipPreflight: false, maxRetries: 3 });
-    await connection.confirmTransaction(signature, 'confirmed');
+    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+    if (confirmation.value.err) throw new Error('Solana bridge transaction failed');
   }
 
   // Use the check endpoint requestId for status polling (not the protocol orderId)
@@ -367,6 +391,8 @@ export async function createAndSubmitGenericOrder(opts: {
   destToken: string;
   recipient: string;
   sourceChain?: SourceChain;
+  onSubmitted?: (tx: string) => Promise<void>;
+  minAmountOut?: number;
 }): Promise<GenericBridgeOrder> {
   const { srcAmountUsdc, destChain, destToken, recipient, sourceChain = 'solana' } = opts;
   const { chainId, tokenAddress } = resolveBridgeTarget(destChain, destToken);
@@ -387,6 +413,9 @@ export async function createAndSubmitGenericOrder(opts: {
     sourceChain,
   });
 
+  if (opts.minAmountOut !== undefined && Number(quote.details.currencyOut.amountFormatted) < opts.minAmountOut) {
+    throw new Error('Bridge quote no longer meets minimum output');
+  }
   const step = quote.steps.find(s => s.id === 'deposit');
   if (!step?.items[0]?.data) throw new Error('Relay.link returned no deposit step');
 
@@ -405,6 +434,7 @@ export async function createAndSubmitGenericOrder(opts: {
       value: BigInt(txData.value ?? '0'),
       chainId: txData.chainId ?? BASE_CHAIN_ID,
     });
+    await recordBroadcast(opts.onSubmitted, tx.hash);
     const receipt = await tx.wait(1);
     if (!receipt || receipt.status !== 1) throw new Error('Base transaction failed');
     signature = tx.hash;
@@ -438,8 +468,10 @@ export async function createAndSubmitGenericOrder(opts: {
 
     const solTx = new VersionedTransaction(message);
     solTx.sign([keypair]);
+    await opts.onSubmitted?.(bs58.encode(solTx.signatures[0]));
     signature = await connection.sendRawTransaction(solTx.serialize(), { skipPreflight: false, maxRetries: 3 });
-    await connection.confirmTransaction(signature, 'confirmed');
+    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+    if (confirmation.value.err) throw new Error('Solana bridge transaction failed');
   }
 
   const checkEndpoint = quote.steps[0]?.items[0]?.check?.endpoint ?? '';

@@ -207,7 +207,7 @@ async function checkAdvisories(deps: Dep[]): Promise<Finding[]> {
     const cve     = vuln?.aliases?.find(a => a.startsWith('CVE-'));
 
     findings.push({
-      id:         'DEP-001',
+      id:         `DEP-001:${dep.ecosystem}:${dep.name}@${dep.version}:${id}`,
       severity:   vuln ? severityOf(vuln) : 'MEDIUM',
       confidence: 'MEDIUM',
       title:      `Known advisory in ${dep.name}@${dep.version}: ${id}`,

@@ -125,3 +125,20 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 # Demo recordings and wallet envs (never commit private keys)
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
+
+# Security audit working files — may contain unpatched vulnerability detail
+# under coordinated-disclosure embargo. NEVER commit to a public repo.
+# Redacted, embargo-safe summaries belong in x402-audit/findings/ instead.
+.superstack/
+
+# Local signing material and generated compiler state
+packages/prop-pool/.devnet-wallet.json
+packages/prop-pool/.m0-cache.json
+**/target/
+**/*.tsbuildinfo
+
+# Local agent tool config (contains credentials)
+.codex/
+
+# External pay-skills repo clone (regenerable scratch)
+.tmp-pay-skills/

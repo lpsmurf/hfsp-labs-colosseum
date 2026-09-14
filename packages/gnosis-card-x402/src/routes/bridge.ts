@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { makeX402Gate } from '../middleware/x402.js';
 import { BRIDGE_TARGETS, type BridgeDestChain, type SourceChain } from '../config.js';
-import { isSpent, markSpent } from '../services/nullifier.js';
+import { claimPayment, recordSubmission, completePayment, releaseUnsubmittedPayment } from '../services/nullifier.js';
 import { createAndSubmitGenericOrder, getGenericQuote, getOrderStatus } from '../services/bridge.js';
 
 export const bridgeRouter = Router();
@@ -19,6 +19,8 @@ const quoteQuerySchema = z.object({
 });
 
 const executeBodySchema = z.object({
+  srcToken: z.literal('USDC').default('USDC'),
+  minAmountOut: z.number().finite().positive().optional(),
   amount: z.number().min(1).max(10_000),
   recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   destChain: chainEnum,
@@ -54,6 +56,14 @@ bridgeRouter.get('/quote', async (req, res) => {
 
 bridgeRouter.post(
   '/',
+  (req, res, next) => {
+    const parsed = executeBodySchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid body', details: parsed.error.flatten() }); return; }
+    const target = BRIDGE_TARGETS[parsed.data.destChain];
+    if (!(parsed.data.destToken in target.tokens)) { res.status(400).json({ error: 'Unsupported destination token' }); return; }
+    req.body = parsed.data;
+    next();
+  },
   makeX402Gate({
     amountUsdc: (req) => {
       const n = Number(req.body?.amount);
@@ -71,20 +81,22 @@ bridgeRouter.post(
     }
 
     const { signature } = res.locals.payment as { paidUsdc: number; signature: string; chain: string };
-    if (await isSpent(signature)) {
+    if (!await claimPayment(signature, { path: req.originalUrl, body: req.body })) {
       res.status(409).json({ error: 'Payment already used' });
       return;
     }
 
     try {
-      await markSpent(signature);
       const order = await createAndSubmitGenericOrder({
+        onSubmitted: tx => recordSubmission(signature, tx),
+        minAmountOut: parsed.data.minAmountOut,
         srcAmountUsdc: parsed.data.amount,
         destChain: parsed.data.destChain as BridgeDestChain,
         destToken: parsed.data.destToken,
         recipient: parsed.data.recipient,
         sourceChain: parsed.data.sourceChain as SourceChain,
       });
+      await completePayment(signature, order);
       res.status(202).json({
         ok: true,
         orderId: order.orderId,
@@ -95,6 +107,10 @@ bridgeRouter.post(
         poll: `/api/bridge/${encodeURIComponent(order.orderId)}?destChain=${parsed.data.destChain}`,
       });
     } catch (err: unknown) {
+      // Nothing broadcast yet → free the claim so the same payment can retry.
+      if ((err as { broadcast?: boolean } | null)?.broadcast !== true) {
+        await releaseUnsubmittedPayment(signature).catch(() => false);
+      }
       const msg = err instanceof Error ? err.message : String(err);
       res.status(502).json({ error: `Bridge submission failed: ${msg}` });
     }

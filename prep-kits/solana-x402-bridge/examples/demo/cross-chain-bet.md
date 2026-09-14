@@ -10,7 +10,7 @@
 1. **Prompt:** "Bet 5 USDC that <event> resolves YES on Polymarket."
 2. **Quote** — show route + transparent fee:
    ```bash
-   npx tsx scripts/bridge-quote.ts 5 polygon usdc
+   npx tsx scripts/bridge-quote.ts USDC 5 polygon USDC
    ```
    → `bridgeFee: 0.0075 USDC (15 bps)`, `etaSeconds: 45`.
 3. **Safety preflight** — show it passing (within caps, RPC fresh, polygon allowlisted).

@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
-import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER } from '@hfsp/x402-common';
+import { NETWORKS, usdc, encode, readProof, attachReceipt, HEADER, createResourceServer, createPrepaidGate, gate, DEFAULT_FACILITATOR } from '@hfsp/x402-common';
 import type Database from 'better-sqlite3';
-import { createSession } from './db.js';
+import { createSession, claimPayment } from './db.js';
+const settle = createPrepaidGate(createResourceServer({ facilitatorUrl: process.env.FACILITATOR_URL ?? DEFAULT_FACILITATOR, families: ['svm'], networks: ['solana'] }));
 
 const HELIUS_KEY = process.env.HELIUS_API_KEY
   ?? process.env.SYNAPSE_RPC_URL?.match(/api-key=([^&]+)/)?.[1]
@@ -79,56 +80,26 @@ export function sessionHandler(
   proxyPort: number,
   db: Database.Database,
 ) {
-  return async (req: Request, res: Response): Promise<void> => {
+  return async (req: Request, res: Response, next: import('express').NextFunction): Promise<void> => {
+    try {
     const rawHours = req.query.hours ?? (req.body as Record<string, unknown>)?.hours ?? 1;
     const hours = parseInt(String(rawHours));
     const tier = TIERS[hours] ?? TIERS[1];
     const tierHours = TIERS[hours] ? hours : 1;
-    const proof = readProof(req.headers as Record<string, unknown>, 'X-Payment');
-
-    if (!proof) {
-      const resource = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-      const challenge = {
-        x402Version: 2 as const,
-        resource: {
-          url: resource,
-          description: `Clawdrop VPN — ${tier.label} anonymous proxy session (HTTP CONNECT)`,
-          mimeType: 'application/json',
-        },
-        accepts: [{
-          scheme: 'exact',
-          network: NETWORKS.solana,
-          amount: usdc(tier.usdc),
-          asset: USDC_MINT,
-          payTo: walletPublicKey,
-          maxTimeoutSeconds: 300,
-          extra: {},
-        }],
-      };
-
-      res.set(HEADER.required, encode(challenge)).status(402).json({
-        ...challenge,
-        error: 'Payment required',
-        description: `Pay ${tier.usdc} USDC on Solana to get ${tier.label} of anonymous proxy access.`,
-        tiers: Object.entries(TIERS).map(([h, t]) => ({
-          hours: parseInt(h),
-          usdc: t.usdc,
-          label: t.label,
-          endpoint: `?hours=${h}`,
-        })),
-      });
-      return;
+    const v2 = req.get('payment-signature')?.trim();
+    const legacy = !v2 ? req.get('x-payment')?.trim() : undefined;
+    let paymentSig: string, paid: number;
+    if (legacy) {
+      const result = await verifyPayment(legacy, walletPublicKey, tier.usdc);
+      if (!result.ok) { res.status(402).json({ error: result.error }); return; }
+      paymentSig = legacy; paid = result.paid;
+      attachReceipt(res, { success: true, network: 'solana', transaction: paymentSig });
+    } else {
+      const result = await settle(req, res, gate({ price: tier.usdc, payTo: walletPublicKey, network: 'solana', description: `VPN proxy — ${tier.label}` }));
+      if (!result) return;
+      paymentSig = result.transaction; paid = Number(result.amount) / 1e6;
     }
-
-    const paymentSig = proof.value;
-
-    const { ok, error, paid } = await verifyPayment(paymentSig, walletPublicKey, tier.usdc);
-    if (!ok) {
-      res.status(402).json({ error });
-      return;
-    }
-
-    attachReceipt(res, { success: true, network: 'solana', transaction: paymentSig });
+    if (!claimPayment(db, paymentSig)) { res.status(409).json({ error: 'Payment already used' }); return; }
 
     const token = crypto.randomUUID();
     const session = createSession(db, token, tierHours, paymentSig, paid);
@@ -155,5 +126,6 @@ export function sessionHandler(
         python: `proxies = {'http': 'http://${proxyHost}:${proxyPort}', 'https': 'http://${proxyHost}:${proxyPort}'}  # add Proxy-Authorization header`,
       },
     });
+    } catch (error) { next(error); }
   };
 }
