@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AuditHypothesis",
+  "type": "object",
+  "required": ["id", "module", "root_cause", "evidence", "confidence"],
+  "properties": {
+    "id": { "type": "string", "description": "H-NNN assigned by the emitting agent" },
+    "module": { "type": "string" },
+    "function": { "type": "string" },
+    "file": { "type": "string" },
+    "lines": { "type": "string", "description": "e.g. 120-148" },
+    "root_cause": { "type": "string" },
+    "precondition": { "type": "string" },
+    "attacker_capability": { "type": "string" },
+    "expected_impact": { "type": "string" },
+    "direction": { "enum": ["fail-open", "fail-closed", "accounting", "oracle", "auth", "other"] },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "status": { "enum": ["hypothesis", "locally reproduced", "falsified", "known/duplicate",
+                         "out of scope", "production feasibility unproven",
+                         "submission-ready pending approval"], "default": "hypothesis" },
+    "evidence": { "type": "string", "description": "file:line citations actually read" },
+    "verified_by_running": { "type": "boolean", "default": false },
+    "prior_art": { "type": "string", "description": "URL/commit if reasoning depended on public prior art" }
+  }
+}
