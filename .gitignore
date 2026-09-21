@@ -45,6 +45,13 @@ Thumbs.db
 .env.platform
 .env.trial
 .env.mcp-server
+# Any other .env.* variant (phase4, staging, etc.) — keep only *.example templates tracked
+.env.*
+!.env.example
+!.env.*.example
+
+# Firecrawl scrape output — regenerable scratch data
+.firecrawl/
 data/*.sqlite
 
 # Logs
