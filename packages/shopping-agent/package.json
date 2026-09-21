@@ -1,0 +1,28 @@
+{
+  "name": "@hfsp/shopping-agent",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Prep kit: fully-autonomous, self-funding Solana shopping agent (AgentMail + BlockRun/Franklin + Keepa + Crossmint over x402). PLAN + PREP-KIT + runnable client stubs.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "HFSP Labs <info@hfsp.xyz>",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx demo.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0",
+    "bs58": "^6.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  },
+  "//": "To turn LLM inference live: `npm i @blockrun/llm` (loaded via dynamic import). The AgentMail/Keepa/Crossmint clients use REST directly — no extra install."
+}

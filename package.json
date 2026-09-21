@@ -13,26 +13,7 @@
     "clawdrop": "./packages/clawdrop-mcp/cli.cjs"
   },
   "workspaces": [
-    "packages/agent-provisioning",
-    "packages/clawdrop-agent-runtime",
-    "packages/clawdrop-landing",
-    "packages/clawdrop-mcp",
-    "packages/clawdrop-mcp-server",
-    "packages/clawdrop-platform",
-    "packages/clawdrop-vpn",
-    "packages/gnosis-card-contracts",
-    "packages/gnosis-card-x402",
-    "packages/oobe-bounty",
-    "packages/trial-api",
-    "packages/trial-frontend",
-    "packages/wdk-solana-swap",
-    "packages/wdk-tron-swap",
-    "packages/x402-audit-api",
-    "packages/x402-donate",
-    "packages/x402-vpn-vps",
-    "packages/x402-store",
-    "packages/x402-vpn-vps-base",
-    "packages/x402-wallet"
+    "packages/*"
   ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",

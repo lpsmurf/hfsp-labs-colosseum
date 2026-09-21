@@ -3,6 +3,7 @@ import rateLimit             from 'express-rate-limit';
 import { verifyPayment }     from '../verify.js';
 import { fetchRepo, parseRepoUrl } from '../github.js';
 import { runStaticAnalysis } from '../static/index.js';
+import { runExternalEngines } from '../engines/external.js';
 import { runDynamicProbes }  from '../dynamic/index.js';
 import { buildReport }       from '../report.js';
 import { generateAIFeedback } from '../ai-feedback.js';
@@ -48,7 +49,11 @@ auditRouter.get('/', (req, res) => {
     audit: {
       repo,
       includes: [
-        'Static analysis — CORS misconfiguration, payment bypass patterns, exposed secrets',
+        'Secret scanning — 25+ provider rules (AWS/GCP/GitHub/Stripe/OpenAI/wallet keys) + Shannon-entropy detection, gitleaks-compatible',
+        'SAST — OWASP Top 10 / CWE heuristics: SQLi, command injection, SSRF, weak crypto, eval, path traversal, JWT handling, TLS bypass',
+        'x402 deep checks — webhook parse-before-verify, replay/idempotency, amount & network/asset validation, version pinning',
+        'Static analysis — CORS misconfiguration, payment bypass patterns',
+        'External engines — gitleaks + semgrep auto-run when available on the host',
         'Dynamic probing — live auth bypass test, CORS probe, info-leak probe',
       ],
       turnaround: '~30 seconds',
@@ -136,8 +141,9 @@ auditRouter.post('/', limiter, async (req, res) => {
     const repoMeta = await fetchRepo(repo);
     const liveUrl  = endpoint ?? repoMeta.liveEndpoint;
 
-    const [staticFindings, dynamicFindings] = await Promise.all([
+    const [staticFindings, externalFindings, dynamicFindings] = await Promise.all([
       runStaticAnalysis(repoMeta.files),
+      runExternalEngines(repoMeta.files),           // gitleaks + semgrep if installed; [] otherwise
       liveUrl ? runDynamicProbes(liveUrl) : Promise.resolve([]),
     ]);
 
@@ -147,7 +153,7 @@ auditRouter.post('/', limiter, async (req, res) => {
       liveUrl,
       repoMeta.files.length,
       !!liveUrl,
-      [...staticFindings, ...dynamicFindings],
+      [...staticFindings, ...externalFindings, ...dynamicFindings],
     );
 
     // AI feedback via ACE Data Cloud (OpenAI gpt-4o-mini, paid via x402)

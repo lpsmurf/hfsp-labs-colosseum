@@ -1,0 +1,44 @@
+{
+  "_applicantId": "REPLACE_WITH_APPLICANT_ID",
+  "txnId": "tr-btc-out-0001",
+  "txnDate": "2026-05-21 14:40:00+0000",
+  "type": "travelRule",
+
+  "amount": 0.075,
+  "currency": "BTC",
+  "currencyType": "crypto",
+  "direction": "out",
+  "amountInDefaultCurrency": 4985.20,
+  "defaultCurrencyCode": "USD",
+
+  "crypto": {
+    "chain": "BTC",
+    "paymentTxnId": "abcd1234ef56...will-be-filled-after-broadcast"
+  },
+
+  "applicant": {
+    "externalUserId": "user-001",
+    "type": "individual",
+    "fullName": "John Smith",
+    "dob": "1990-05-01",
+    "residenceCountry": "USA",
+    "address": { "country": "USA", "town": "New York" },
+    "paymentMethod": { "type": "cryptoWallet", "accountId": "bc1qmywallet..." }
+  },
+
+  "counterparty": {
+    "externalUserId": "vasp:acme-bank",
+    "type": "company",
+    "fullName": "Acme Crypto Exchange",
+    "registrationNumber": "BE-1234567",
+    "leiCode": "529900XXXX0000XXXX00",
+    "residenceCountry": "BEL",
+    "address": { "country": "BEL", "town": "Brussels" },
+    "institution": {
+      "code": "ACME-BANK-EU",
+      "name": "Acme Crypto Exchange",
+      "internalId": "REPLACE_WITH_VASP_ID_FROM_DIRECTORY"
+    },
+    "paymentMethod": { "type": "cryptoWallet", "accountId": "bc1qrecipientaddress..." }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "KYB Company (example)",
+  "applicantType": "company",
+  "type": "standalone",
+  "docSets": [
+    {
+      "type": "COMPANY",
+      "steps": [
+        {
+          "name": "company",
+          "minDocsCnt": 1,
+          "idDocSubTypes": ["SHAREHOLDER_REGISTRY", "DIRECTORS_REGISTRY"],
+          "fields": ["companyName", "registrationNumber"]
+        },
+        {
+          "name": "ubos",
+          "minDocsCnt": 0,
+          "applicantLevelName": "Basic KYC (example)",
+          "fields": ["firstName", "lastName", "dob", "placeOfBirth", "email"]
+        },
+        {
+          "name": "representatives",
+          "minDocsCnt": 1,
+          "applicantLevelName": "Basic KYC (example)",
+          "idDocTypes": ["POWER_OF_ATTORNEY"],
+          "fields": ["firstName", "lastName", "email"]
+        }
+      ]
+    }
+  ]
+}

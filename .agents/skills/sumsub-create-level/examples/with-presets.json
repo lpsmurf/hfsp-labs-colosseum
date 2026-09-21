@@ -1,0 +1,27 @@
+{
+  "name": "Full KYC with attached presets (example)",
+  "applicantType": "individual",
+  "type": "standalone",
+  "desc": "End-to-end example: PROOF_OF_RESIDENCE attaches a POA preset id, QUESTIONNAIRE attaches a questionnaire slug. Both ids come from sibling skills (sumsub-create-poa-preset and sumsub-create-questionnaire).",
+
+  "docSets": [
+    {
+      "type": "IDENTITY",
+      "docTypes": ["PASSPORT", "ID_CARD", "DRIVERS"],
+      "videoRequired": "disabled"
+    },
+    {
+      "type": "SELFIE",
+      "videoRequired": "passiveLiveness"
+    },
+    {
+      "type": "PROOF_OF_RESIDENCE",
+      "docTypes": ["UTILITY_BILL", "BANK_STATEMENT"],
+      "poaPresetId": "<POA_PRESET_ID_FROM_sumsub-create-poa-preset>"
+    },
+    {
+      "type": "QUESTIONNAIRE",
+      "questionnaireDefId": "source-of-funds"
+    }
+  ]
+}

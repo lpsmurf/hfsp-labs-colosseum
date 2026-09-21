@@ -9,6 +9,7 @@ import { checkInput, sanitizeOutput, sanitizeChunk } from './guardrails.js';
 const EnvSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1),
   HELIUS_API_KEY: z.string().min(1),
+  AGENT_WALLET_PRIVATE_KEY: z.string().min(32).optional(),
   PORT: z.string().default('8787'),
   TRUST_PROXY: z.string().default('false'),
 });
