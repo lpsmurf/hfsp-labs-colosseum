@@ -17,39 +17,26 @@
  *                        facilitator-hijack / mis-registration signal).
  *
  * Usage:
- *   npx tsx security-probe.ts [--tier p1|p2|all] [--limit 30]
+ *   npx tsx security-probe.ts [--tier p1|p2|all] [--limit 30] [--shadow]
+ *
+ *   --shadow  ALSO ask TypeSafe (Jev) about each hit and each regex near-miss
+ *             (needs TYPESAFE_API_KEY). Shadow only: findings and severity are
+ *             never changed. Verdicts are appended to ../eval/shadow-log.jsonl
+ *             for comparison against manual verification (eval/shadow.ts).
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { scanSecrets, hasStackTrace, isDiscoveryDoc, firstSecretMatch } from './lib/heuristics';
+import { triage, triageEnabled, type Check, type Evidence, type HttpSample, type TriageResult } from './lib/typesafe-triage';
+import { disagrees, shadowRow, SHADOW_LOG } from './eval/shadow-log';
 
 const RAW_CATALOG = join(__dirname, '..', 'archive', 'services-raw-2026-06-05.json');
 const ENRICHED = join(__dirname, '..', 'archive', 'services-enriched-2026-06-05.json');
 const REPORTS_DIR = join(__dirname, '..', 'reports');
 
 const TIMEOUT = 12_000;
-
-// Secrets / sensitive markers that should NEVER appear in a 402 or error body.
-const SECRET_PATTERNS: Array<[string, RegExp]> = [
-  // NOTE: a bare 64-hex heuristic was removed — it false-positives on tx
-  // hashes, signatures, and 32-byte content hashes that legitimately appear
-  // in 402 bodies. Only match high-confidence secret formats below.
-  ['solana_secret_arr', /\[\s*\d{1,3}\s*(,\s*\d{1,3}\s*){31,}\]/], // [12,34,...] keypair array
-  ['aws_key',           /AKIA[0-9A-Z]{16}/],
-  ['openai_key',        /sk-[A-Za-z0-9]{20,}/],
-  ['jwt',               /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],
-  ['stripe_secret',     /sk_live_[A-Za-z0-9]{16,}/], // pk_live_ is a PUBLISHABLE key (public by design) — not a leak
-  ['internal_ip',       /\b(10\.\d{1,3}|192\.168|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/],
-];
-
-// NOTE: bare filesystem paths ('/home/', '/usr/src/app') were REMOVED — they
-// false-positive on ordinary content/URLs (e.g. a "HomePulse" service whose
-// resource URL contains '/home/'). Keep only high-confidence trace signatures.
-const STACKTRACE_MARKERS = [
-  'at Object.', 'at Module.', 'Traceback (most recent call last)',
-  'java.lang.', 'System.Exception', 'goroutine ', 'panic:',
-  'webpack-internal', '\n    at ', // V8 stack frame: newline + indent + "at "
-];
+let SHADOW = false;
 
 interface SecFinding {
   serviceId: string;
@@ -68,6 +55,7 @@ interface SecFinding {
   secretsLeaked: string[];       // pattern names found in any body
   serverHeader?: string;
   notes: string[];
+  shadow?: Array<{ check: Check; regexFlag: boolean } & TriageResult>;
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
 }
 
@@ -79,18 +67,6 @@ async function safeFetch(url: string, opts: RequestInit): Promise<{ status: numb
   } catch {
     return null;
   }
-}
-
-function scanSecrets(text: string): string[] {
-  const hits: string[] = [];
-  for (const [name, re] of SECRET_PATTERNS) {
-    if (re.test(text)) hits.push(name);
-  }
-  return hits;
-}
-
-function hasStackTrace(text: string): boolean {
-  return STACKTRACE_MARKERS.some(m => text.includes(m));
 }
 
 async function probeSecurity(
@@ -117,9 +93,20 @@ async function probeSecurity(
     if (a) { f.payTo = a.payTo; f.network = a.network; }
   } catch { /* non-JSON 402 handled elsewhere */ }
 
+  const baseSample = toSample(base);
+  // Per check: the first regex hit, else the first near-miss the regex passed
+  const evidence = new Map<Check, { ev: Evidence; regexFlag: boolean }>();
+  const addEvidence = (check: Check, probe: HttpSample, probeLabel: string, match?: string, regexFlag = true) => {
+    const prev = evidence.get(check);
+    if (!prev || (!prev.regexFlag && regexFlag)) {
+      evidence.set(check, { ev: { url, method, check, baseline: baseSample, probe, probeLabel, match }, regexFlag });
+    }
+  };
+
   const baseSecrets = scanSecrets(base.body);
+  if (baseSecrets.length) addEvidence('secret', baseSample, 'no payment', firstSecretMatch(base.body));
   if (baseSecrets.length) f.secretsLeaked.push(...baseSecrets);
-  if (hasStackTrace(base.body)) { f.stackTraceLeak = true; f.notes.push('stack trace in baseline body'); }
+  if (hasStackTrace(base.body)) { f.stackTraceLeak = true; f.notes.push('stack trace in baseline body'); addEvidence('stack_trace', baseSample, 'no payment'); }
 
   // A. Auth bypass — three flavors of bogus payment headers
   const fakePayments: Array<[string, string]> = [
@@ -143,16 +130,21 @@ async function probeSecurity(
       f.authBypass = true;
       f.authBypassDetail = `fake '${label}' payment accepted (200) while baseline is 402`;
       f.notes.push(f.authBypassDetail);
+      addEvidence('fake_payment', toSample(r), `X-PAYMENT: ${label}`);
     } else if (r.status === 200 && !baselineGated) {
       f.notes.push(`'${label}' payment → 200 but baseline is ${base.status} (route not gated — not a bypass)`);
+      addEvidence('fake_payment', toSample(r), `X-PAYMENT: ${label}`, undefined, false);
     }
     if (r.status >= 500) {
       f.crashOnMalformed = true;
       f.notes.push(`5xx on '${label}' payment (${r.status})`);
     }
-    if (hasStackTrace(r.body)) { f.stackTraceLeak = true; f.notes.push(`stack trace on '${label}' payment`); }
+    if (hasStackTrace(r.body)) {
+      f.stackTraceLeak = true; f.notes.push(`stack trace on '${label}' payment`);
+      addEvidence('stack_trace', toSample(r), `X-PAYMENT: ${label}`);
+    }
     const s = scanSecrets(r.body);
-    if (s.length) f.secretsLeaked.push(...s);
+    if (s.length) { f.secretsLeaked.push(...s); addEvidence('secret', toSample(r), `X-PAYMENT: ${label}`, firstSecretMatch(r.body)); }
     await sleep(120);
   }
 
@@ -166,22 +158,15 @@ async function probeSecurity(
     // 200 on the alternate method MIGHT be paid content served for free.
     // BUT many x402 agents serve a public discovery doc (A2A agent card,
     // OpenAPI, x402 manifest) on GET by design — that is NOT a bypass.
-    const b = alt.body.slice(0, 600);
     const altCT = alt.headers.get('content-type') ?? '';
-    // A GET that returns a MANIFEST / landing page / docs / agent card is
-    // expected, NOT a bypass. Across 744 services this heuristic produced ONLY
-    // false positives: GET universally serves discovery content (JSON manifest,
-    // HTML landing page, markdown docs, agent card, or "POST here" help text)
-    // while the paid route is POST-gated. We treat all of those as discovery.
-    const isHtmlOrMarkdown = /^\s*<!doctype|^\s*<html|text\/html|text\/markdown/i.test(altCT + '\n' + b);
-    const isHelpText = /send\s+a?\s*POST|this\s+is\s+a\s+POST\s+endpoint|"name"\s*:|"description"\s*:|POST\s+\/?\s*[—-]\s*\$/i.test(b);
-    const isManifest = /"\$schema"|agent\s*card|"protocol"\s*:\s*"(A2A|mcp)"|openapi|"x402Version"|"accepts"\s*:|"price"\s*:|"price_per_call"\s*:|"method"\s*:\s*"POST"|"pay_to"\s*:|"atomic_amount"\s*:|"network_caip"\s*:/i.test(b);
-    const isDiscoveryDoc = isManifest || isHtmlOrMarkdown || isHelpText;
-    if (!isDiscoveryDoc) {
+    const discovery = isDiscoveryDoc(alt.body, altCT);
+    if (!discovery) {
       f.methodConfusion = true;
       f.notes.push(`${altMethod} returns 200 (non-discovery) while ${method} is 402-gated`);
+      addEvidence('alt_method', toSample(alt), `${altMethod} instead of ${method}, no payment`);
     } else {
       f.notes.push(`${altMethod} serves public discovery doc (expected, not a bypass)`);
+      addEvidence('alt_method', toSample(alt), `${altMethod} instead of ${method}, no payment`, undefined, false);
     }
   }
 
@@ -202,6 +187,19 @@ async function probeSecurity(
   // Dedup secrets
   f.secretsLeaked = [...new Set(f.secretsLeaked)];
 
+  // Shadow — record Jev's verdict next to the regex result; never changes the finding
+  if (SHADOW && evidence.size) {
+    f.shadow = [];
+    for (const [check, { ev, regexFlag }] of evidence) {
+      try {
+        const t = await triage(ev);
+        if (t) f.shadow.push({ check, regexFlag, ...t });
+      } catch (err) {
+        f.notes.push(`shadow triage failed for ${check}: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+  }
+
   // Severity
   if (f.authBypass || f.secretsLeaked.length) f.severity = 'critical';
   else if (f.methodConfusion || f.corsWildcardWithCreds || f.stackTraceLeak) f.severity = 'high';
@@ -213,10 +211,16 @@ async function probeSecurity(
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+function toSample(r: { status: number; body: string; headers: Headers }): HttpSample {
+  return { status: r.status, contentType: r.headers.get('content-type') ?? '', body: r.body };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const tier = args.includes('--tier') ? args[args.indexOf('--tier') + 1] : 'p1';
   const limit = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1]) : 30;
+  SHADOW = args.includes('--shadow');
+  if (SHADOW && !triageEnabled()) { console.error('--shadow needs TYPESAFE_API_KEY'); process.exit(1); }
 
   const enriched: Array<{ id: string; name: string; l30d_calls: number }> =
     JSON.parse(readFileSync(ENRICHED, 'utf-8'));
@@ -266,15 +270,25 @@ async function main() {
   }
   const collisions = [...byPayTo.entries()].filter(([, names]) => new Set(names).size > 1);
 
+  const shadowed = findings.flatMap(f => (f.shadow ?? []).map(t => ({ f, t })));
   const report = {
     runAt: new Date().toISOString(),
     tier, probed: findings.length,
+    ...(SHADOW ? { shadow: {
+      calls: shadowed.length,
+      inputTokens: shadowed.reduce((s, x) => s + x.t.inputTokens, 0),
+      totalLatencyMs: shadowed.reduce((s, x) => s + x.t.latencyMs, 0),
+      disagreements: shadowed.filter(x => disagrees(x.t.regexFlag, x.t.decision)).length,
+    } } : {}),
     summary: counts,
     payToCollisions: collisions.map(([payTo, names]) => ({ payTo, services: [...new Set(names)] })),
     findings,
   };
   const out = join(REPORTS_DIR, `security-${tier}-${new Date().toISOString().slice(0, 10)}.json`);
   writeFileSync(out, JSON.stringify(report, null, 2));
+  if (shadowed.length) {
+    appendFileSync(SHADOW_LOG, shadowed.map(({ f, t }) => JSON.stringify(shadowRow(report.runAt, f.serviceId, f.url, t))).join('\n') + '\n');
+  }
 
   console.log(`\n📊 Security scan complete:`);
   console.log(`  🚨 Critical: ${counts.critical}`);
@@ -288,6 +302,7 @@ async function main() {
     }
   }
   console.log(`\n💾 ${out}`);
+  if (shadowed.length) console.log(`👥 ${shadowed.length} shadow verdicts → ${SHADOW_LOG} (npx tsx eval/shadow.ts report)`);
 }
 
 main();
