@@ -137,10 +137,10 @@ class TelegramAppService {
 
     switch (type) {
       case 'impactOccurred':
-        haptic.impactOccurred(style || 'light');
+        haptic.impactOccurred((style || 'light') as 'light' | 'medium' | 'heavy' | 'rigid' | 'soft');
         break;
       case 'notificationOccurred':
-        haptic.notificationOccurred(style || 'default');
+        haptic.notificationOccurred((style || 'warning') as 'error' | 'success' | 'warning');
         break;
       case 'selectionChanged':
         haptic.selectionChanged();

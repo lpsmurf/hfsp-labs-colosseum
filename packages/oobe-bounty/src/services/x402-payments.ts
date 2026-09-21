@@ -83,6 +83,23 @@ export function extractX402Hash(response: unknown): string | null {
 // that was set by the signAndSendTransaction hook in ace-client.ts
 export { getAndClearLastX402Signature } from './ace-client.js';
 
+// Base cost in USDC per Ace service for payloads up to 1 KB; larger payloads
+// carry a 0.5% surcharge.
+const ACE_SERVICE_BASE_COST: Record<string, number> = {
+  'price-feed': 0.001,
+  analytics: 0.0015,
+  sentiment: 0.001,
+};
+
+const COST_BASE_BYTES = 1000;
+const LARGE_PAYLOAD_SURCHARGE = 1.005;
+
+export async function calculateCost(service: string, payloadBytes: number): Promise<number> {
+  const base = ACE_SERVICE_BASE_COST[service] ?? ACE_SERVICE_BASE_COST['price-feed'];
+  const cost = payloadBytes > COST_BASE_BYTES ? base * LARGE_PAYLOAD_SURCHARGE : base;
+  return Number(cost.toFixed(9));
+}
+
 function decodeBase58(value: string): Uint8Array {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   const base = alphabet.length;

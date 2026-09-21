@@ -8,7 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "vitest",
+    "test": "vitest run",
     "verify-sap": "bash scripts/verify-sap.sh",
     "deploy-agents": "bash scripts/deploy-agents.sh",
     "collect-proof": "bash scripts/collect-proof.sh",

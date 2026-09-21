@@ -125,3 +125,18 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 # Demo recordings and wallet envs (never commit private keys)
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
+
+# Local agent/tooling scratch dirs (never commit)
+.superstack/
+.firecrawl/
+.tmp-pay-skills/
+.codex/
+.openclaw/
+.agents/
+
+# Build artifacts
+**/target/
+**/dist-test/
+**/tsconfig.tsbuildinfo
+packages/prop-pool/.devnet-wallet.json
+packages/prop-pool/.m0-cache.json

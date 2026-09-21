@@ -7,7 +7,7 @@ type SignalInput = Record<string, unknown>;
 // We extract a price from the search results and generate a directional signal.
 
 export async function generatePriceMonitorSignal(serpData: SignalInput): Promise<TradingSignal> {
-  const timestamp = new Date().toISOString();
+  const timestamp = typeof serpData.timestamp === 'string' ? serpData.timestamp : new Date().toISOString();
 
   // Ace search.google returns organic_results with title/snippet
   const organic = Array.isArray(serpData.organic_results) ? serpData.organic_results : [];
@@ -53,7 +53,7 @@ export async function generatePriceMonitorSignal(serpData: SignalInput): Promise
 // The AI already produced a structured recommendation; we just validate and forward it.
 
 export async function generatePortfolioSignal(chatData: SignalInput): Promise<TradingSignal> {
-  const timestamp = new Date().toISOString();
+  const timestamp = typeof chatData.timestamp === 'string' ? chatData.timestamp : new Date().toISOString();
 
   const raw = stringFrom(chatData, ['action']) ?? 'HOLD';
   const action = (['BUY', 'SELL', 'HOLD'] as const).find((a) => a === raw.toUpperCase()) ?? 'HOLD';
@@ -80,7 +80,7 @@ export async function generatePortfolioSignal(chatData: SignalInput): Promise<Tr
 // sentiment is a float [-1, +1] derived from the image prompt/context.
 
 export async function generateSentimentSignal(imagesData: SignalInput): Promise<TradingSignal> {
-  const timestamp = new Date().toISOString();
+  const timestamp = typeof imagesData.timestamp === 'string' ? imagesData.timestamp : new Date().toISOString();
   const imageUrl = String(imagesData.imageUrl ?? '');
   const sentiment = clamp(numberFrom(imagesData, ['sentiment', 'sentimentScore'], 0), -1, 1);
   const price = numberFrom(imagesData, ['price', 'actual_price'], 0);
