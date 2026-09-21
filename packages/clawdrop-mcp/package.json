@@ -10,8 +10,7 @@
     "build": "tsc && node fix-imports.cjs ./dist",
     "dev": "CLAWDROP_MODE=mcp node --loader ts-node/esm --experimental-specifier-resolution=node src/index.ts",
     "start": "node dist/index.js",
-    "test": "jest",
-    "lint": "eslint src"
+    "test": "jest"
   },
   "bin": {
     "clawdrop-mcp": "bin/clawdrop-mcp.sh",
