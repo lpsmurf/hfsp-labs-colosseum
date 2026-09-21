@@ -499,6 +499,20 @@ function sshTenant(command: string): string {
   ).trim();
 }
 
+function ensureImageOnTenant(): void {
+  // Check if the runtime image exists on the tenant VPS; if not, transfer from local docker.
+  try {
+    const result = sshTenant(`docker image inspect ${TENANT_RUNTIME_IMAGE} --format '{{.Id}}' 2>/dev/null || echo missing`);
+    if (result.startsWith('missing') || result.trim() === '') {
+      console.log(`[provision] Runtime image not found on tenant VPS — transferring ${TENANT_RUNTIME_IMAGE}...`);
+      execFileSync('bash', ['-c', `docker save ${TENANT_RUNTIME_IMAGE} | ssh ${TENANT_VPS_SSH_OPTS.join(' ')} ${TENANT_VPS_USER}@${TENANT_VPS_HOST} 'docker load'`], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+      console.log(`[provision] Image transfer complete.`);
+    }
+  } catch (err) {
+    console.warn('[provision] ensureImageOnTenant failed (non-fatal):', (err as any)?.message);
+  }
+}
+
 async function renderChoosePreset(chatId: number) {
   await sendMessage(
     chatId,
@@ -601,15 +615,21 @@ function requireApiKey(req: any, res: any, next: any) {
   if (req.path === '/health' || req.path === '/telegram/webhook') {
     return next();
   }
-  
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  
-  if (token !== HFSP_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized - Invalid or missing API key' });
-  }
-  
-  next();
+
+  // Accept API key via X-HFSP-API-Key custom header (preferred — no conflict with JWT)
+  const customKey = (req.headers['x-hfsp-api-key'] as string) || '';
+  if (customKey === HFSP_API_KEY) return next();
+
+  // Fallback: Accept API key via Authorization Bearer (backward compat)
+  const auth = (req.headers.authorization as string) || '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (bearer === HFSP_API_KEY) return next();
+
+  // During development, also allow valid JWT tokens to pass this middleware
+  // (JWT user auth is re-verified inside each route handler via requireAuth)
+  if (process.env.NODE_ENV !== 'production' && bearer.split('.').length === 3) return next();
+
+  return res.status(401).json({ error: 'Unauthorized - Invalid or missing API key' });
 }
 
 // CORS: allow ClawDrop wizard frontend
@@ -1109,6 +1129,11 @@ app.post('/telegram/webhook', async (req, res) => {
           const telegramTokenB64 = Buffer.from(telegramToken + '\n').toString('base64');
           sshTenant(`bash -lc 'echo ${shSingleQuote(telegramTokenB64)} | base64 -d > ${secretsDir}/telegram.token'`);
 
+          // Create SSH identity files (required by OpenClaw entrypoint)
+          // Use a placeholder SSH key for inter-container communication
+          sshTenant(`bash -lc 'echo "" > ${secretsDir}/ssh_identity && chmod 600 ${secretsDir}/ssh_identity'`);
+          sshTenant(`bash -lc 'echo "" > ${secretsDir}/ssh_known_hosts && chmod 644 ${secretsDir}/ssh_known_hosts'`);
+
           if (w.data.provider === 'openai' && w.data.openaiApiKey) {
             const k = Buffer.from(w.data.openaiApiKey.trim() + '\n').toString('base64');
             sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/openai.key'`);
@@ -1126,6 +1151,8 @@ app.post('/telegram/webhook', async (req, res) => {
             sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/moonshot.key'`);
           }
 
+          
+        sshTenant(`(test -f /home/hfsp/.openclaw/secrets/ssh_known_hosts && cp /home/hfsp/.openclaw/secrets/ssh_known_hosts ${secretsDir}/) || true`);
           // Write tenant openclaw.json
           // Reuse existing gateway token if present; otherwise generate.
           const row0 = db.prepare(`SELECT gateway_token FROM tenants WHERE tenant_id = ?`).get(tenantId) as any;
@@ -1214,8 +1241,9 @@ app.post('/telegram/webhook', async (req, res) => {
             '--restart unless-stopped',
             `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
             `-v ${workspaceDir}:/tenant/workspace`,
-            `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
+            `-v ${tenantDir}/openclaw.json:/run/openclaw/openclaw.json:ro`,
             `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
+            `-v ${secretsDir}:/home/hfsp/.openclaw/secrets:ro`,
           ];
           if (w.data.provider === 'openai') {
             runParts.push(`-e OPENAI_API_KEY="$(cat ${secretsDir}/openai.key | tr -d '\n\r')"`);
@@ -1229,11 +1257,12 @@ app.post('/telegram/webhook', async (req, res) => {
           runParts.push(TENANT_RUNTIME_IMAGE);
           const runCmd = runParts.join(' ');
 
+          ensureImageOnTenant();
           sshTenant(runCmd);
 
           // Fix workspace permissions (host bind-mount is owned by user `tenant`; container runs as uid 10001).
           // Do it inside the container as root so it works without requiring sudo/root on the tenant VPS.
-          sshTenant(`docker exec -u root ${containerName} bash -lc ${shSingleQuote('chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true')}`);
+          sshTenant(`docker exec -u root ${containerName} bash -lc ${shSingleQuote('chown -R 1002:1002 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true')}`);
 
           // Save last tenant info for pairing + Advanced dashboard access
           setWizard(telegramUserId, 'await_pairing_code', {
@@ -1377,7 +1406,7 @@ app.post('/telegram/webhook', async (req, res) => {
         if (r && !r.bot_username) {
           try {
             const containerName = `hfsp_${tenantId}`;
-            const out = sshTenant(`docker exec -u clawd ${containerName} bash -lc ${shSingleQuote('HOME=/home/clawd openclaw channels status --probe')}`);
+            const out = sshTenant(`docker exec ${containerName} bash -lc ${shSingleQuote('openclaw channels status --probe')}`);
             const m = out.match(/bot:@([A-Za-z0-9_]+)/);
             if (m?.[1]) {
               const uname = m[1];
@@ -1453,7 +1482,7 @@ app.post('/telegram/webhook', async (req, res) => {
         const containerName = `hfsp_${tenantId}`;
         await sendMessage(chatId, 'Running health check…');
         try {
-          const out = sshTenant(`docker exec -u clawd ${containerName} bash -lc ${shSingleQuote('HOME=/home/clawd openclaw channels status --probe')}`);
+          const out = sshTenant(`docker exec ${containerName} bash -lc ${shSingleQuote('openclaw channels status --probe')}`);
           await sendMessage(chatId, `Health check ✅\n\n${out}`);
         } catch (err) {
           console.error('health check failed', err);
@@ -1851,7 +1880,6 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
-
     if (cmd === 'cancel') {
       clearWizard(telegramUserId);
       await sendMessage(chatId, 'Cancelled. Use the menu buttons when you’re ready.');
@@ -2157,8 +2185,8 @@ app.post('/telegram/webhook', async (req, res) => {
         const containerName = `hfsp_${tenantId}`;
         // Approve pairing inside tenant container as the runtime user.
         // Critical: ensure HOME points at /home/clawd so OpenClaw uses the mounted config.
-        const approveInner = `HOME=/home/clawd openclaw pairing approve telegram ${code}`;
-        const cmd = `docker exec -u clawd ${containerName} bash -lc ${shSingleQuote(approveInner)}`;
+        const approveInner = `openclaw pairing approve telegram ${code}`;
+        const cmd = `docker exec ${containerName} bash -lc ${shSingleQuote(approveInner)}`;
         const out = sshTenant(cmd);
         await sendMessage(chatId, `Paired ✅\n${out ? out : ''}`.trim());
         setWizard(telegramUserId, 'idle', { ...w.data });
@@ -2183,7 +2211,6 @@ app.post('/telegram/webhook', async (req, res) => {
     console.error('Webhook handler error', err);
   }
 });
-
 
 // ── EMAIL AUTHENTICATION ENDPOINTS ──────────────────────────────────────────
 // POST /api/v1/auth/email-signup
@@ -2326,7 +2353,9 @@ app.post('/api/v1/auth/phantom-verify', async (req, res) => {
     try {
       const pubkeyBytes = new PublicKey(publicKeyBase58).toBytes();
       const signatureBytes = new Uint8Array(Buffer.from(signedMessageBase64, 'base64'));
-      const messageBytes = Buffer.from('Authorize access to HFSP Agent Provisioning');
+      // Use originalMessage if provided (new flow), fall back to legacy hardcoded message
+      const msgToVerify = (req.body as any).originalMessage || 'Authorize access to HFSP Agent Provisioning';
+      const messageBytes = Buffer.from(msgToVerify);
       
       const verified = nacl.sign.detached.verify(messageBytes, signatureBytes, pubkeyBytes);
       if (!verified) {
@@ -2501,7 +2530,6 @@ app.post('/api/v1/auth/verify-payment', async (req, res) => {
   }
 });
 
-
 // ── JWT AUTH MIDDLEWARE ──────────────────────────────────────────────────────
 
 function requireAuth(req: any, res: any): Record<string, unknown> | null {
@@ -2561,7 +2589,8 @@ app.post('/api/v1/agents', async (req, res) => {
     `).get(userId, userId) as any;
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const tgUserId = user.telegram_user_id;
+    // For webapp users (email/Phantom), telegram_user_id may be NULL — fall back to user_id
+    const tgUserId = user.telegram_user_id ?? user.user_id;
     const tier = user?.subscription_tier || 'free_trial';
 
     // Check trial expiration
@@ -2633,6 +2662,11 @@ app.post('/api/v1/agents', async (req, res) => {
         const telegramTokenB64 = Buffer.from(botToken.trim() + '\n').toString('base64');
         sshTenant(`bash -lc 'echo ${shSingleQuote(telegramTokenB64)} | base64 -d > ${secretsDir}/telegram.token'`);
 
+          // Create SSH identity files (required by OpenClaw entrypoint)
+          // Use a placeholder SSH key for inter-container communication
+          sshTenant(`bash -lc 'echo "" > ${secretsDir}/ssh_identity && chmod 600 ${secretsDir}/ssh_identity'`);
+          sshTenant(`bash -lc 'echo "" > ${secretsDir}/ssh_known_hosts && chmod 644 ${secretsDir}/ssh_known_hosts'`);
+
         // Write API keys
         if (provider === 'openai' && openaiApiKey) {
           const k = Buffer.from(openaiApiKey.trim() + '\n').toString('base64');
@@ -2656,17 +2690,32 @@ app.post('/api/v1/agents', async (req, res) => {
         const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
         db.prepare(`UPDATE tenants SET gateway_token = ? WHERE tenant_id = ?`).run(encryptString(gatewayToken), tenantId);
 
-        // Build auth profile based on provider
+        // Build auth profile based on provider — includes apiKey for agent auth-profiles.json
+        const providerMap: Record<string, string> = { anthropic: 'anthropic', openai: 'openai', openrouter: 'openrouter', kimi: 'moonshot' };
+        const ocProvider = providerMap[provider ?? ''] ?? provider ?? 'anthropic';
+        const profileKey = `${ocProvider}:default`;
+        const apiKeyValue = anthropicApiKey || openaiApiKey || openrouterApiKey || kimiApiKey || '';
         const authProfile: Record<string, any> = {};
-        if (provider === 'anthropic') {
-          authProfile[`anthropic:default`] = { provider: 'anthropic', mode: 'api_key' };
-        } else if (provider === 'openai') {
-          authProfile[`openai:default`] = { provider: 'openai', mode: 'api_key' };
-        } else if (provider === 'openrouter') {
-          authProfile[`openrouter:default`] = { provider: 'openrouter', mode: 'api_key' };
-        } else if (provider === 'kimi') {
-          authProfile[`moonshot:default`] = { provider: 'moonshot', mode: 'api_key' };
-        }
+        authProfile[profileKey] = { provider: ocProvider, mode: 'api_key' };
+
+        // Write auth-profiles.json to secrets dir so it persists and is available inside container
+        const authProfilesJson = JSON.stringify({ [profileKey]: { provider: ocProvider, mode: 'api_key', apiKey: apiKeyValue } }, null, 2);
+        const authProfilesB64 = Buffer.from(authProfilesJson).toString('base64');
+        sshTenant(`bash -lc 'echo ${shSingleQuote(authProfilesB64)} | base64 -d > ${secretsDir}/auth-profiles.json'`);
+
+        
+        sshTenant(`(test -f /home/hfsp/.openclaw/secrets/ssh_known_hosts && cp /home/hfsp/.openclaw/secrets/ssh_known_hosts ${secretsDir}/) || true`);
+        // Resolve full provider/model string for OpenClaw
+        const providerPrefix: Record<string, string> = {
+          anthropic: 'anthropic',
+          openai: 'openai',
+          openrouter: 'openrouter',
+          kimi: 'moonshot',
+        };
+        const prefix = providerPrefix[provider ?? ''];
+        const resolvedModel = model
+          ? (model.includes('/') ? model : prefix ? `${prefix}/${model}` : model)
+          : undefined;
 
         // Write openclaw.json
         const openclawConfig: Record<string, any> = {
@@ -2677,7 +2726,7 @@ app.post('/api/v1/agents', async (req, res) => {
               default: true,
               name: name ?? 'Agent',
               workspace: '/tenant/workspace',
-              model: model ?? undefined,
+              model: resolvedModel,
               identity: { name: name ?? 'Agent', emoji: '🧭' }
             }]
           },
@@ -2723,8 +2772,9 @@ app.post('/api/v1/agents', async (req, res) => {
           '--restart unless-stopped',
           `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
           `-v ${workspaceDir}:/tenant/workspace`,
-          `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
+          `-v ${tenantDir}/openclaw.json:/run/openclaw/openclaw.json:ro`,
           `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
+          `-v ${secretsDir}:/home/hfsp/.openclaw/secrets:ro`,
         ];
         // Inject provider API keys — patched entrypoint reads from key files automatically
         // but we also pass via env for belt-and-suspenders
@@ -2740,12 +2790,19 @@ app.post('/api/v1/agents', async (req, res) => {
         runParts.push(TENANT_RUNTIME_IMAGE);
         const runCmd = runParts.join(' ');
 
+        ensureImageOnTenant();
         sshTenant(runCmd);
 
         // Fix permissions
         sshTenant(
           `docker exec -u root hfsp_${tenantId} bash -lc ${shSingleQuote(
-            'chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'
+            'chown -R 1002:1002 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'
+          )}`
+        );
+        // Copy auth-profiles.json from secrets mount into agent dir so OpenClaw finds the API key
+        sshTenant(
+          `docker exec hfsp_${tenantId} bash -lc ${shSingleQuote(
+            'mkdir -p /home/hfsp/.openclaw/agents/main/agent && cp /home/hfsp/.openclaw/secrets/auth-profiles.json /home/hfsp/.openclaw/agents/main/agent/auth-profiles.json 2>/dev/null || true'
           )}`
         );
         // Mark as awaiting_pairing — user must enter bot pairing code to activate
@@ -2815,6 +2872,8 @@ app.get('/api/v1/agents/:id', (req, res) => {
     return res.status(404).json({ error: 'Agent not found' });
   }
 
+  const rawGatewayToken = agent.gateway_token ? (() => { try { return decryptString(String(agent.gateway_token)); } catch { return String(agent.gateway_token); } })() : null;
+
   res.json({
     agent: {
       id: agent.tenant_id,
@@ -2822,12 +2881,12 @@ app.get('/api/v1/agents/:id', (req, res) => {
       provider: agent.provider,
       model: agent.model_preset,
       dashboardPort: agent.dashboard_port,
+      gatewayToken: rawGatewayToken,
       status: agent.status,
       createdAt: agent.created_at,
     },
   });
 });
-
 
 // POST /api/v1/agents/:id/pair - Approve pairing code for an agent
 app.post('/api/v1/agents/:id/pair', async (req, res) => {
@@ -2869,12 +2928,12 @@ app.post('/api/v1/agents/:id/pair', async (req, res) => {
     WHERE tenant_id = ? AND deleted_at IS NULL
   `).get(agentId) as any;
   
-  // For JWT users, verify ownership
+  // For JWT users, verify ownership (also match by user_id for email/Phantom users)
   if (payload.role !== 'admin') {
     const ownedAgent = db.prepare(`
       SELECT tenant_id FROM tenants
-      WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL
-    `).get(agentId, resolvedTgId) as any;
+      WHERE tenant_id = ? AND (telegram_user_id = ? OR telegram_user_id = ?) AND deleted_at IS NULL
+    `).get(agentId, resolvedTgId, userId) as any;
     if (!ownedAgent) {
       res.status(403).json({ error: 'Agent not found or not owned by you' });
       return;
@@ -2894,18 +2953,46 @@ app.post('/api/v1/agents/:id/pair', async (req, res) => {
   const containerName = `hfsp_${agentId}`;
   const code = pairingCode.trim().toUpperCase();
 
+  // Try the specified container first, then fall back to any of the user's awaiting_pairing containers
+  const tryApprove = (targetId: string): string => {
+    const cmd = `docker exec hfsp_${targetId} bash -lc ${shSingleQuote('openclaw pairing approve telegram ' + code)}`;
+    return sshTenant(cmd);
+  };
+
   try {
-    const approveCmd = `docker exec -u clawd ${containerName} bash -lc ${shSingleQuote('HOME=/home/clawd openclaw pairing approve telegram ' + code)}`;
-    const out = sshTenant(approveCmd);
-    db.prepare(`UPDATE tenants SET status = 'active' WHERE tenant_id = ?`).run(agentId);
-    console.log(`✅ Pairing approved for ${agentId}: ${out.trim()}`);
+    let pairedId = agentId;
+    let out: string;
+    try {
+      out = tryApprove(agentId);
+    } catch (primaryErr: any) {
+      const stderr: string = primaryErr?.stderr ?? '';
+      if (!stderr.includes('No pending pairing request')) throw primaryErr;
+      // Code not in specified container — search all user's awaiting_pairing containers
+      const siblings = db.prepare(`
+        SELECT tenant_id FROM tenants
+        WHERE telegram_user_id = ? AND status = 'awaiting_pairing' AND deleted_at IS NULL AND tenant_id != ?
+      `).all(resolvedTgId, agentId) as any[];
+      let found = false;
+      for (const sib of siblings) {
+        try {
+          out = tryApprove(sib.tenant_id);
+          pairedId = sib.tenant_id;
+          found = true;
+          break;
+        } catch { /* try next */ }
+      }
+      if (!found) {
+        res.status(400).json({ error: 'Code not found. Send /start to your bot again to get a fresh code, then submit it here.' });
+        return;
+      }
+    }
+    db.prepare(`UPDATE tenants SET status = 'active' WHERE tenant_id = ?`).run(pairedId);
+    console.log(`✅ Pairing approved for ${pairedId}: ${out!.trim()}`);
     res.json({ success: true, message: 'Agent paired and active' });
   } catch (err: any) {
     console.error('Pairing approve failed:', err);
     const stderr: string = err?.stderr ?? '';
-    if (stderr.includes('No pending pairing request')) {
-      res.status(400).json({ error: 'Code not found. Send /start to your bot again to get a fresh code, then submit it here.' });
-    } else if (stderr.includes('expired') || stderr.includes('invalid')) {
+    if (stderr.includes('expired') || stderr.includes('invalid')) {
       res.status(400).json({ error: 'Pairing code is invalid or expired. Send /start to your bot to get a new one.' });
     } else {
       res.status(500).json({ error: 'Pairing failed. Make sure your bot is running and try again.' });
@@ -3014,6 +3101,9 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       return res.status(500).json({ error: 'Failed to provision tenant directories' });
     }
 
+    
+        sshTenant(`(test -f /home/hfsp/.openclaw/secrets/ssh_known_hosts && cp /home/hfsp/.openclaw/secrets/ssh_known_hosts ${secretsDir}/) || true`);
+
     // Write Telegram token to secrets file (OpenClaw expects it here)
     if (telegram_token) {
       const telegramTokenB64 = Buffer.from(telegram_token.trim() + '\n').toString('base64');
@@ -3066,8 +3156,9 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
       '-e NODE_OPTIONS="--max-old-space-size=1536"',
       `-p 127.0.0.1:${dashboardPort}:${dashboardPort}`,
       `-v ${workspaceDir}:/tenant/workspace`,
-      `-v ${tenantDir}/openclaw.json:/home/clawd/.openclaw/openclaw.json:ro`,
+      `-v ${tenantDir}/openclaw.json:/run/openclaw/openclaw.json:ro`,
       `-v ${secretsDir}:/home/clawd/.openclaw/secrets:ro`,
+      `-v ${secretsDir}:/home/hfsp/.openclaw/secrets:ro`,
       // Agent identification
       `-e AGENT_ID="${tenantId}"`,
       `-e OWNER_WALLET="${wallet_address || ''}"`,
@@ -3082,10 +3173,11 @@ app.post('/api/v1/agents/deploy', async (req, res) => {
 
     runParts.push(TENANT_RUNTIME_IMAGE);
     const runCmd = runParts.join(' ');
+    ensureImageOnTenant();
     sshTenant(runCmd);
 
     // Fix permissions
-    sshTenant(`docker exec -u root ${containerName} bash -lc 'chown -R 10001:10001 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'`);
+    sshTenant(`docker exec -u root ${containerName} bash -lc 'chown -R 1002:1002 /tenant/workspace || true; chmod -R u+rwX /tenant/workspace || true'`);
 
     // Save tenant record
     const status = telegram_token ? 'awaiting_pairing' : 'active';
