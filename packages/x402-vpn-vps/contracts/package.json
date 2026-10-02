@@ -10,8 +10,8 @@
     "verify": "hardhat verify --network baseSepolia"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "hardhat": "^3.18.1",
     "dotenv": "^16.4.0",
     "typescript": "^5.4.0",
     "ts-node": "^10.9.0"
