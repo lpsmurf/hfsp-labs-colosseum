@@ -20,7 +20,7 @@
     "clawdrop-mcp-install": "install-clawdrop-mcp.cjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@solana/pay": "^1.0.0",
     "@solana/web3.js": "^1.91.0",
     "axios": "^1.7.7",
