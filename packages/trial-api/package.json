@@ -10,7 +10,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^1.1.0",
     "@bentoguard/sdk": "^1.2.7",
-    "@mastra/core": "^0.10.0",
+    "@mastra/core": "^1.78.0",
     "@solana-agent-kit/plugin-misc": "^2.0.6",
     "@solana-agent-kit/plugin-token": "^2.0.9",
     "axios": "^1.7.0",
