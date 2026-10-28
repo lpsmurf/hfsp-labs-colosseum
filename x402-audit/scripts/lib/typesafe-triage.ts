@@ -80,19 +80,50 @@ export function triageEnabled(): boolean {
   return getClient() !== null;
 }
 
-/** Keep the first 8 and last 4 chars of a matched secret; mask the rest. */
+/** Keep the first 8 and last 4 chars of a matched secret (first 4 if short); mask the rest. */
 export function maskSecret(text: string, match: string): string {
-  if (match.length <= 14) return text;
-  const masked = match.slice(0, 8) + '•'.repeat(match.length - 12) + match.slice(-4);
+  if (!match) return text;
+  const [head, tail] = match.length > 14 ? [8, 4] : [Math.min(4, Math.floor(match.length / 2)), 0];
+  const masked = match.slice(0, head) + '•'.repeat(match.length - head - tail) + match.slice(match.length - tail);
   return text.split(match).join(masked);
 }
 
+const CREDENTIAL_PATTERNS: [RegExp, string][] = [
+  [/\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, '[jwt]'],
+  [/\b(Bearer|Basic)\s+[\w\-.~+/=]{8,}/gi, '$1 [redacted]'],
+  [/((?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|passwd|private[_-]?key|authorization|session)["']?\s*[:=]\s*["']?)[^"'\s,&}<]{4,}/gi, '$1[redacted]'],
+  [/\b(?:sk|rk|pk)_(?:live|test)_[\w]{8,}/g, '[stripe-key]'],
+  [/\bsk-[\w-]{16,}/g, '[api-key]'],
+  [/\b0x[a-fA-F0-9]{64}\b/g, '[hex-key]'],
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g, '[private-key]'],
+];
+
+/** Mask credential-shaped values anywhere in a text before it leaves the machine. */
+export function redact(text: string, match?: string): string {
+  let out = match ? maskSecret(text, match) : text;
+  for (const [re, rep] of CREDENTIAL_PATTERNS) out = out.replace(re, rep);
+  return out;
+}
+
+/** Drop userinfo and query/fragment values from a URL. */
+export function redactUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    u.username = '';
+    u.password = '';
+    for (const k of [...u.searchParams.keys()]) u.searchParams.set(k, '[redacted]');
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return redact(raw);
+  }
+}
+
 function sample(s: HttpSample, match?: string) {
-  const body = s.body.slice(0, BODY_LIMIT);
   return {
     status: s.status,
     content_type: s.contentType,
-    body: match ? maskSecret(body, match) : body,
+    body: redact(s.body, match).slice(0, BODY_LIMIT),
     truncated: s.body.length > BODY_LIMIT,
   };
 }
@@ -101,10 +132,10 @@ export async function triage(ev: Evidence, t: Thresholds = DEFAULT_THRESHOLDS): 
   const c = getClient();
   if (!c) return null;
 
-  const matchContext = ev.match ? maskSecret(contextAround(ev.probe.body, ev.match), ev.match) : undefined;
+  const matchContext = ev.match ? redact(contextAround(ev.probe.body, ev.match), ev.match) : undefined;
   const state = {
     check: ev.check,
-    request: { url: ev.url, method: ev.method, probe: ev.probeLabel ?? null },
+    request: { url: redactUrl(ev.url), method: ev.method, probe: ev.probeLabel ? redact(ev.probeLabel) : null },
     baseline_response: sample(ev.baseline, ev.match),
     probe_response: sample(ev.probe, ev.match),
     ...(matchContext ? { regex_match_in_context: matchContext } : {}),

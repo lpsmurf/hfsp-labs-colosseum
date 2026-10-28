@@ -39,13 +39,19 @@ function labels(): Map<string, ShadowLabel> {
   return m;
 }
 
+/** A label only counts for the row it was made against — a newer shadow run reopens it. */
+function labelFor(lab: Map<string, ShadowLabel>, r: ShadowRow): ShadowLabel | undefined {
+  const l = lab.get(r.id);
+  return l && l.labeledAt >= r.runAt ? l : undefined;
+}
+
 const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)}%` : '—');
 const describe = (r: ShadowRow) =>
   `${r.id}  ${r.check.padEnd(12)} regex=${r.regexFlag ? 'flag' : 'pass'}  jev=${r.jev.decision.padEnd(7)} ${r.jev.findingClass}@${r.jev.classConfidence.toFixed(2)}  ${r.url}`;
 
 function todo() {
   const lab = labels();
-  const open = latestRows().filter(r => !lab.has(r.id));
+  const open = latestRows().filter(r => !labelFor(lab, r));
   // Disagreements first, then regex hits (already on the manual queue), then the rest.
   open.sort((a, b) => Number(b.disagree) - Number(a.disagree) || Number(b.regexFlag) - Number(a.regexFlag));
   if (!open.length) return console.log('Nothing to verify — run security-probe.ts --shadow to collect more.');
@@ -68,7 +74,10 @@ function label(id: string | undefined, verdict: string | undefined, note: string
 function report() {
   const lab = labels();
   const rows = latestRows();
-  const done = rows.filter(r => lab.has(r.id)).map(r => ({ r, real: lab.get(r.id)!.real }));
+  const done = rows.flatMap(r => {
+    const l = labelFor(lab, r);
+    return l ? [{ r, real: l.real, note: l.note }] : [];
+  });
   const real = done.filter(x => x.real);
   const fake = done.filter(x => !x.real);
 
@@ -91,7 +100,7 @@ function report() {
   const wrong = done.filter(x => x.r.jev.decision !== 'review' && !jevRight.includes(x));
   if (wrong.length) {
     console.log('\n  Jev wrong:');
-    for (const x of wrong) console.log(`    ${x.real ? 'REAL' : 'FP  '} ${describe(x.r)}${lab.get(x.r.id)!.note ? `  — ${lab.get(x.r.id)!.note}` : ''}`);
+    for (const x of wrong) console.log(`    ${x.real ? 'REAL' : 'FP  '} ${describe(x.r)}${x.note ? `  — ${x.note}` : ''}`);
   }
 
   const reasons: string[] = [];
