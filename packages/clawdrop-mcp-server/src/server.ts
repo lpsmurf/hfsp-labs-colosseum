@@ -59,15 +59,16 @@ async function setupServer() {
   try {
     const x402Tools = await listX402Tools();
     for (const tool of x402Tools) {
+      const toolConfig = {
+        description: tool.description ?? '',
+        inputSchema: z.object({}).passthrough(),
+      } as Parameters<typeof mcpServer.registerTool>[1];
       mcpServer.registerTool(
         tool.name,
-        {
-          description: tool.description ?? '',
-          inputSchema: z.object({}).passthrough(),
-        },
-        async (args: any) => {
+        toolConfig,
+        (async (args: any) => {
           return await callX402Tool(tool.name, args);
-        }
+        }) as any
       );
     }
     console.log(`[mcp-server] ${x402Tools.length} x402engine tools registered`);

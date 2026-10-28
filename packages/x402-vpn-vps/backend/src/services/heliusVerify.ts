@@ -17,6 +17,7 @@ export async function verifyHeliusTx(
   expectedTo: string,
   minAmount: bigint,
 ): Promise<VerifyResult> {
+  if (!HELIUS_RPC) return { ok: false, error: "HELIUS_RPC_URL not configured" };
   try {
     const res = await fetch(HELIUS_RPC, {
       method: "POST",
