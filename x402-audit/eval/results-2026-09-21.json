@@ -1,0 +1,321 @@
+{
+  "runAt": "2026-09-21T21:28:44.141Z",
+  "jevEnabled": true,
+  "thresholds": {
+    "0.6": {
+      "missed": [],
+      "wrongConfirm": [],
+      "resolved": 16,
+      "review": 1
+    },
+    "0.7": {
+      "missed": [],
+      "wrongConfirm": [],
+      "resolved": 15,
+      "review": 2
+    },
+    "0.8": {
+      "missed": [],
+      "wrongConfirm": [],
+      "resolved": 14,
+      "review": 3
+    },
+    "0.9": {
+      "missed": [],
+      "wrongConfirm": [],
+      "resolved": 10,
+      "review": 7
+    }
+  },
+  "rows": [
+    {
+      "id": "base-intel-api",
+      "check": "fake_payment",
+      "real": true,
+      "expectedClass": "real_bypass",
+      "origin": "synthetic (live stopped reproducing)",
+      "regexFlag": true,
+      "jev": {
+        "decision": "confirm",
+        "findingClass": "real_bypass",
+        "classConfidence": 0.99,
+        "paidContent": 0.82,
+        "model": "jev-1.13.0",
+        "inputTokens": 1046,
+        "latencyMs": 761
+      }
+    },
+    {
+      "id": "flipr-x402",
+      "check": "fake_payment",
+      "real": false,
+      "expectedClass": "error_envelope",
+      "origin": "live 2026-09-21",
+      "regexFlag": true,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "error_envelope",
+        "classConfidence": 0.99,
+        "paidContent": 0.03,
+        "model": "jev-1.13.0",
+        "inputTokens": 1726,
+        "latencyMs": 669
+      }
+    },
+    {
+      "id": "fiasignals",
+      "check": "fake_payment",
+      "real": false,
+      "expectedClass": "free_route",
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "free_route",
+        "classConfidence": 0.82,
+        "paidContent": 0.22,
+        "model": "jev-1.13.0",
+        "inputTokens": 2416,
+        "latencyMs": 277
+      }
+    },
+    {
+      "id": "wiselyenterprises",
+      "check": "fake_payment",
+      "real": false,
+      "expectedClass": "free_route",
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "free_route",
+        "classConfidence": 0.98,
+        "paidContent": 0.18,
+        "model": "jev-1.13.0",
+        "inputTokens": 2476,
+        "latencyMs": 261
+      }
+    },
+    {
+      "id": "fpds-mcp",
+      "check": "fake_payment",
+      "real": false,
+      "expectedClass": "free_route",
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "review",
+        "findingClass": "free_route",
+        "classConfidence": 0.46,
+        "paidContent": 0.07,
+        "model": "jev-1.13.0",
+        "inputTokens": 1165,
+        "latencyMs": 268
+      }
+    },
+    {
+      "id": "x402-deployer",
+      "check": "alt_method",
+      "real": false,
+      "expectedClass": "discovery_doc",
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.97,
+        "paidContent": 0.08,
+        "model": "jev-1.13.0",
+        "inputTokens": 1463,
+        "latencyMs": 272
+      }
+    },
+    {
+      "id": "wallet-portfolio-history",
+      "check": "alt_method",
+      "real": false,
+      "expectedClass": "discovery_doc",
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.87,
+        "paidContent": 0.43,
+        "model": "jev-1.13.0",
+        "inputTokens": 1509,
+        "latencyMs": 265
+      }
+    },
+    {
+      "id": "wallet-portfolio-risk",
+      "check": "alt_method",
+      "real": false,
+      "expectedClass": "discovery_doc",
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.99,
+        "paidContent": 0.08,
+        "model": "jev-1.13.0",
+        "inputTokens": 1319,
+        "latencyMs": 256
+      }
+    },
+    {
+      "id": "synthetic-get-leaks-data",
+      "check": "alt_method",
+      "real": true,
+      "expectedClass": "real_bypass",
+      "origin": "synthetic",
+      "regexFlag": true,
+      "jev": {
+        "decision": "confirm",
+        "findingClass": "real_bypass",
+        "classConfidence": 0.99,
+        "paidContent": 0.76,
+        "model": "jev-1.13.0",
+        "inputTokens": 996,
+        "latencyMs": 254
+      }
+    },
+    {
+      "id": "anchor-x402-content-hash",
+      "check": "secret",
+      "real": false,
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.77,
+        "paidContent": 0.09,
+        "liveSecret": 0.06,
+        "model": "jev-1.13.0",
+        "inputTokens": 3088,
+        "latencyMs": 282
+      }
+    },
+    {
+      "id": "voidfeed-pk-live",
+      "check": "secret",
+      "real": false,
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.69,
+        "paidContent": 0.28,
+        "liveSecret": 0.13,
+        "model": "jev-1.13.0",
+        "inputTokens": 2170,
+        "latencyMs": 237
+      }
+    },
+    {
+      "id": "synthetic-stripe-secret",
+      "check": "secret",
+      "real": true,
+      "origin": "synthetic",
+      "regexFlag": true,
+      "jev": {
+        "decision": "confirm",
+        "findingClass": "other",
+        "classConfidence": 0.58,
+        "paidContent": 0.06,
+        "liveSecret": 0.89,
+        "model": "jev-1.13.0",
+        "inputTokens": 1004,
+        "latencyMs": 252
+      }
+    },
+    {
+      "id": "synthetic-openai-key",
+      "check": "secret",
+      "real": true,
+      "origin": "synthetic",
+      "regexFlag": true,
+      "jev": {
+        "decision": "review",
+        "findingClass": "other",
+        "classConfidence": 0.69,
+        "paidContent": 0.25,
+        "liveSecret": 0.67,
+        "model": "jev-1.13.0",
+        "inputTokens": 1038,
+        "latencyMs": 233
+      }
+    },
+    {
+      "id": "synthetic-solana-keypair",
+      "check": "secret",
+      "real": true,
+      "origin": "synthetic",
+      "regexFlag": true,
+      "jev": {
+        "decision": "review",
+        "findingClass": "other",
+        "classConfidence": 0.49,
+        "paidContent": 0.11,
+        "liveSecret": 0.72,
+        "model": "jev-1.13.0",
+        "inputTokens": 1384,
+        "latencyMs": 286
+      }
+    },
+    {
+      "id": "synthetic-aws-docs-example",
+      "check": "secret",
+      "real": false,
+      "origin": "synthetic",
+      "regexFlag": true,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.55,
+        "paidContent": 0.05,
+        "liveSecret": 0.05,
+        "model": "jev-1.13.0",
+        "inputTokens": 993,
+        "latencyMs": 256
+      }
+    },
+    {
+      "id": "homepulse",
+      "check": "stack_trace",
+      "real": false,
+      "origin": "live 2026-09-21",
+      "regexFlag": false,
+      "jev": {
+        "decision": "dismiss",
+        "findingClass": "discovery_doc",
+        "classConfidence": 0.63,
+        "paidContent": 0.03,
+        "stackTrace": 0.02,
+        "model": "jev-1.13.0",
+        "inputTokens": 1381,
+        "latencyMs": 269
+      }
+    },
+    {
+      "id": "synthetic-node-trace",
+      "check": "stack_trace",
+      "real": true,
+      "origin": "synthetic",
+      "regexFlag": true,
+      "jev": {
+        "decision": "confirm",
+        "findingClass": "other",
+        "classConfidence": 0.9,
+        "paidContent": 0.06,
+        "stackTrace": 0.98,
+        "model": "jev-1.13.0",
+        "inputTokens": 951,
+        "latencyMs": 269
+      }
+    }
+  ]
+}

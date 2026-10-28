@@ -53,6 +53,31 @@ For each service:
 
 ---
 
+## TypeSafe (Jev) shadow triage
+
+The scanner stays the source of truth: every high-severity flag is still verified by hand.
+With `--shadow`, it also asks [TypeSafe](https://typesafe.ai)'s Jev model to judge each hit (and each regex near-miss). Jev returns confirm, dismiss or review, and its verdicts are logged next to the regex result. Findings are never changed.
+
+```bash
+export TYPESAFE_API_KEY=...                          # never commit it
+cd scripts
+npx tsx security-probe.ts --tier p3 --limit 300 --shadow   # verdicts → eval/shadow-log.jsonl
+npx tsx eval/shadow.ts todo                          # unverified checks, disagreements (⚡) first
+npx tsx eval/shadow.ts label <id> real|fp "note"     # record your manual verdict
+npx tsx eval/shadow.ts report                        # regex vs Jev accuracy + switch-over gate
+npx tsx eval/run.ts                                  # fixed labeled regression set
+```
+
+We switch to Jev-driven triage only when `report` prints **READY**. That requires:
+- at least 50 verified checks, including at least 5 real findings
+- zero real findings dismissed by Jev
+- no more false confirms from Jev than the regex scanner had
+- no more than 20% of checks left for manual review
+
+Response bodies are truncated and matched secrets are masked before they are sent to TypeSafe.
+
+---
+
 ## Priority Tiers
 
 We audit in order of ecosystem impact:
