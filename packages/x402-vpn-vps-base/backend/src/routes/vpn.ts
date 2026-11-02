@@ -26,7 +26,7 @@ const Body = z.object({
   clientWgPublicKey: z.string().length(44).regex(/^[A-Za-z0-9+/=]+$/, 'Invalid WireGuard public key (must be base64 44 chars)'),
 });
 
-async function provision(period: string) {
+function provision(period: string) {
   return async (req: any, res: any) => {
     const parsed = Body.safeParse(req.body);
     if (!parsed.success) {

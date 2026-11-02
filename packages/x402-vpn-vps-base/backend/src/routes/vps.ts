@@ -32,7 +32,7 @@ const Body = z.object({
   sshPublicKey: z.string().min(68).regex(/^ssh-ed25519 [A-Za-z0-9+/=]+(?: .*)?$/, 'sshPublicKey must be a valid OpenSSH Ed25519 public key'),
 });
 
-async function provision(period: string) {
+function provision(period: string) {
   return async (req: any, res: any) => {
     const parsed = Body.safeParse(req.body);
     if (!parsed.success) {
