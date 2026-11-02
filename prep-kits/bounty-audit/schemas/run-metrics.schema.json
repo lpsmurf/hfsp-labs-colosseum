@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentRunMetrics",
+  "type": "object",
+  "required": ["ts", "role", "packet", "attempts", "outcome"],
+  "properties": {
+    "ts": { "type": "string", "format": "date-time" },
+    "role": { "type": "string", "description": "agent role, e.g. surface-reviewer" },
+    "packet": { "type": "string", "description": "sha256-16 of the task packet" },
+    "workdir": { "type": "string" },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["provider", "status"],
+        "properties": {
+          "provider": { "type": "string" },
+          "status": { "enum": ["success", "refusal", "rate-limited", "auth-error",
+                               "crash", "unavailable"] },
+          "exitCode": { "type": ["integer", "null"] },
+          "model": { "type": "string", "description": "model actually served, if reported" },
+          "usage": { "type": ["object", "null"],
+                     "description": "provider-reported token counts; null when not exposed" },
+          "wall_ms": { "type": "integer" },
+          "error": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "outcome": { "type": "string" },
+    "hypotheses_in": { "type": "integer" },
+    "hypotheses_out": { "type": "integer" },
+    "attribution_gap": { "type": "string",
+      "description": "note when per-agent token counts are not exposed by the provider" }
+  }
+}
