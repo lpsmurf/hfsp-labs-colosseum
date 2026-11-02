@@ -1,11 +1,10 @@
 {
   "name": "gnosis-card-contracts",
   "version": "0.1.0",
-  "description": "Gnosis Pay x402 — on-chain contracts",
+  "description": "Gnosis Pay x402 \u2014 on-chain contracts",
   "private": true,
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network baseSepolia",
     "deploy:mainnet": "hardhat run scripts/deploy.ts --network baseMainnet"
   },

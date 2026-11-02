@@ -149,3 +149,9 @@ packages/prop-pool/.m0-cache.json
 
 # External pay-skills repo clone (regenerable scratch)
 .tmp-pay-skills/
+
+# Local tooling scratch + build artifacts
+.firecrawl/
+.openclaw/
+**/dist-test/
+**/tsconfig.tsbuildinfo

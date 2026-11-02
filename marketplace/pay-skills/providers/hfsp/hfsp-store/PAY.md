@@ -4,6 +4,8 @@ title: "HFSP Store"
 description: "Buy gift cards, mobile top-ups, and eSIMs from 10,500+ brands in 180+ countries. Pay USDC on Solana. No account required. Powered by Cryptorefills."
 use_case: "Use for purchasing gift cards (Amazon, Google Play, Steam, iTunes, etc.), mobile top-ups, and eSIM data plans with Solana USDC. Browse brands by country, get a live price quote, then pay and receive the code instantly."
 category: shopping
+license: MIT
+compatibility: "Requires a Solana mainnet wallet funded with USDC (mint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v). No account or API key needed."
 service_url: https://store.hfsp.cloud
 openapi:
   path: openapi.json
@@ -16,6 +18,14 @@ Payment is Solana mainnet USDC via the x402 protocol. The store returns a 402
 with the exact USDC amount (Cryptorefills base price + 2.5% commission). Send
 the payment, retry with `PAYMENT-SIGNATURE` (any x402 V2 client) or the legacy
 `X-Solana-Tx: <confirmed-signature>`, and receive the code.
+
+## Agent safety
+
+Always surface `pay.amountUsd` from the 402 response to the user and wait for
+explicit confirmation before sending USDC. Never auto-send without approval.
+Each transaction signature is single-use — a replay returns 402 immediately.
+Default to showing the full order summary (brand, product, price, recipient)
+before executing the payment.
 
 ## Flow
 
@@ -30,7 +40,7 @@ POST /api/orders
 { "email": "agent@example.com", "items": [{ "product_id": "..." }] }
 
 → 402  { pay: { amount: 10512820, amountUsd: "10.51", payTo: "FEuTe..." } }
-→ (send USDC on Solana mainnet)
+→ (confirm amountUsd with user, then send USDC on Solana mainnet)
 → POST /api/orders  X-Solana-Tx: <signature>
 → 200  { data: { order_id: "...", deliveries: [{ voucher_code: "XXXX-YYYY" }] } }
 ```

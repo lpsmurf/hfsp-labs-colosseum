@@ -17,4 +17,7 @@ module.exports = {
     'integration-full-flow',
     'mempalace-integration'
   ],
+  moduleNameMapper: {
+    '^uuid$': '<rootDir>/tests/uuid-shim.cjs',
+  },
 };
