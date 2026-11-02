@@ -1,0 +1,1131 @@
+{
+  "address": "2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD",
+  "metadata": {
+    "name": "prop_pool",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "PropPool — parametric prop-bet escrow that settles via txoracle::validate_stat CPI. UNAUDITED, devnet only."
+  },
+  "instructions": [
+    {
+      "name": "claim",
+      "docs": [
+        "Winner withdraws their pro-rata share; losers are rejected."
+      ],
+      "discriminator": [
+        62,
+        198,
+        214,
+        193,
+        213,
+        159,
+        108,
+        210
+      ],
+      "accounts": [
+        {
+          "name": "prop",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop.fixture_id",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.creator",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.nonce",
+                "account": "Prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_prop",
+      "docs": [
+        "Create a prop + its escrow vault. Terms (stat, predicate, bucket) are fixed here."
+      ],
+      "discriminator": [
+        80,
+        35,
+        77,
+        48,
+        26,
+        171,
+        220,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "prop",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "args.fixture_id"
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "args.nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "stake_mint"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "CreatePropArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "join",
+      "docs": [
+        "Deposit `amount` of the stake mint, picking a side. One position per user."
+      ],
+      "discriminator": [
+        206,
+        55,
+        2,
+        106,
+        113,
+        220,
+        17,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "prop",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop.fixture_id",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.creator",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.nonce",
+                "account": "Prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "side",
+          "type": "bool"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "refund",
+      "docs": [
+        "Unopposed prop: everyone gets their exact stake back."
+      ],
+      "discriminator": [
+        2,
+        96,
+        183,
+        251,
+        63,
+        208,
+        46,
+        46
+      ],
+      "accounts": [
+        {
+          "name": "prop",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop.fixture_id",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.creator",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.nonce",
+                "account": "Prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "settle",
+      "docs": [
+        "Permissionless: prove the outcome via txoracle::validate_stat, then lock the result.",
+        "The settler supplies only the proof; the predicate/terms come from the stored Prop."
+      ],
+      "discriminator": [
+        175,
+        42,
+        185,
+        87,
+        144,
+        131,
+        102,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "prop",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "prop.fixture_id",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.creator",
+                "account": "Prop"
+              },
+              {
+                "kind": "account",
+                "path": "prop.nonce",
+                "account": "Prop"
+              }
+            ]
+          }
+        },
+        {
+          "name": "daily_scores_merkle_roots",
+          "docs": [
+            "`ts` (a mismatched bucket fails with ConstraintSeeds/2006 inside the CPI)."
+          ]
+        },
+        {
+          "name": "txoracle_program",
+          "address": "6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J"
+        },
+        {
+          "name": "settler",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "ts",
+          "type": "i64"
+        },
+        {
+          "name": "fixture_summary",
+          "type": {
+            "defined": {
+              "name": "ScoresBatchSummary"
+            }
+          }
+        },
+        {
+          "name": "fixture_proof",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "ProofNode"
+              }
+            }
+          }
+        },
+        {
+          "name": "main_tree_proof",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "ProofNode"
+              }
+            }
+          }
+        },
+        {
+          "name": "stat_a",
+          "type": {
+            "defined": {
+              "name": "StatTerm"
+            }
+          }
+        },
+        {
+          "name": "stat_b",
+          "type": {
+            "option": {
+              "defined": {
+                "name": "StatTerm"
+              }
+            }
+          }
+        },
+        {
+          "name": "op",
+          "type": {
+            "option": {
+              "defined": {
+                "name": "BinaryExpression"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Position",
+      "discriminator": [
+        170,
+        188,
+        143,
+        228,
+        122,
+        64,
+        247,
+        208
+      ]
+    },
+    {
+      "name": "Prop",
+      "discriminator": [
+        173,
+        226,
+        7,
+        237,
+        67,
+        187,
+        188,
+        55
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "BadDeadline",
+      "msg": "Join deadline must be in the future and <= settle_after"
+    },
+    {
+      "code": 6001,
+      "name": "BadAmount",
+      "msg": "Amount below minimum / invalid"
+    },
+    {
+      "code": 6002,
+      "name": "BadStatCombo",
+      "msg": "Invalid stat combination (stat_key_b and op must be set together)"
+    },
+    {
+      "code": 6003,
+      "name": "NotOpen",
+      "msg": "Prop is not open"
+    },
+    {
+      "code": 6004,
+      "name": "JoinClosed",
+      "msg": "Join window has closed"
+    },
+    {
+      "code": 6005,
+      "name": "AlreadySettled",
+      "msg": "Prop already settled"
+    },
+    {
+      "code": 6006,
+      "name": "TooEarly",
+      "msg": "Too early to settle"
+    },
+    {
+      "code": 6007,
+      "name": "BucketMismatch",
+      "msg": "ts does not map to this prop's root bucket"
+    },
+    {
+      "code": 6008,
+      "name": "FixtureMismatch",
+      "msg": "Fixture id mismatch"
+    },
+    {
+      "code": 6009,
+      "name": "StatMismatch",
+      "msg": "Supplied stat does not match the prop's terms"
+    },
+    {
+      "code": 6010,
+      "name": "NoReturnData",
+      "msg": "Oracle returned no predicate result"
+    },
+    {
+      "code": 6011,
+      "name": "WrongReturnProgram",
+      "msg": "Return data came from an unexpected program"
+    },
+    {
+      "code": 6012,
+      "name": "NotSettled",
+      "msg": "Prop is not settled"
+    },
+    {
+      "code": 6013,
+      "name": "NotRefundable",
+      "msg": "Prop is not refundable"
+    },
+    {
+      "code": 6014,
+      "name": "NotAWinner",
+      "msg": "Position is on the losing side"
+    },
+    {
+      "code": 6015,
+      "name": "NoWinners",
+      "msg": "No stake on the winning side"
+    },
+    {
+      "code": 6016,
+      "name": "WrongMint",
+      "msg": "Wrong token mint"
+    },
+    {
+      "code": 6017,
+      "name": "WrongOwner",
+      "msg": "Wrong token account owner"
+    },
+    {
+      "code": 6018,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "BinaryExpr",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Add"
+          },
+          {
+            "name": "Subtract"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BinaryExpression",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Add"
+          },
+          {
+            "name": "Subtract"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Comparison",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "GreaterThan"
+          },
+          {
+            "name": "LessThan"
+          },
+          {
+            "name": "EqualTo"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreatePropArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nonce",
+            "docs": [
+              "Caller-chosen nonce so a creator can run multiple props per fixture."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fixture_id",
+            "type": "i64"
+          },
+          {
+            "name": "stat_key",
+            "type": "u32"
+          },
+          {
+            "name": "period",
+            "type": "i32"
+          },
+          {
+            "name": "stat_key_b",
+            "type": {
+              "option": "u32"
+            }
+          },
+          {
+            "name": "op",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "BinaryExpr"
+                }
+              }
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "i32"
+          },
+          {
+            "name": "comparison",
+            "type": {
+              "defined": {
+                "name": "Comparison"
+              }
+            }
+          },
+          {
+            "name": "expected_epoch_day",
+            "type": "u16"
+          },
+          {
+            "name": "min_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "join_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "settle_after",
+            "type": "i64"
+          },
+          {
+            "name": "creator_side",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Position",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "prop",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "bool"
+          },
+          {
+            "name": "stake",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProofNode",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "is_right_sibling",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Prop",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "fixture_id",
+            "type": "i64"
+          },
+          {
+            "name": "stat_key",
+            "type": "u32"
+          },
+          {
+            "name": "period",
+            "type": "i32"
+          },
+          {
+            "name": "stat_key_b",
+            "type": {
+              "option": "u32"
+            }
+          },
+          {
+            "name": "op",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "BinaryExpr"
+                }
+              }
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "i32"
+          },
+          {
+            "name": "comparison",
+            "type": {
+              "defined": {
+                "name": "Comparison"
+              }
+            }
+          },
+          {
+            "name": "expected_epoch_day",
+            "type": "u16"
+          },
+          {
+            "name": "min_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "join_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "settle_after",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "PropStatus"
+              }
+            }
+          },
+          {
+            "name": "total_pool",
+            "type": "u64"
+          },
+          {
+            "name": "over_stake",
+            "type": "u64"
+          },
+          {
+            "name": "under_stake",
+            "type": "u64"
+          },
+          {
+            "name": "winning_side",
+            "type": "bool"
+          },
+          {
+            "name": "settled_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PropStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Settled"
+          },
+          {
+            "name": "Refundable"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ScoreStat",
+      "docs": [
+        "The on-chain representation of a single, provable key-value statistic.",
+        "This is the leaf of the inner-most Merkle tree."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "key",
+            "type": "u32"
+          },
+          {
+            "name": "value",
+            "type": "i32"
+          },
+          {
+            "name": "period",
+            "type": "i32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ScoresBatchSummary",
+      "docs": [
+        "The summary for a single fixture's scores events within a 5-minute batch.",
+        "This contains the root of the sub-tree of all events for that fixture."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fixture_id",
+            "type": "i64"
+          },
+          {
+            "name": "update_stats",
+            "type": {
+              "defined": {
+                "name": "ScoresUpdateStats"
+              }
+            }
+          },
+          {
+            "name": "events_sub_tree_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ScoresUpdateStats",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "update_count",
+            "type": "i32"
+          },
+          {
+            "name": "min_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "max_timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StatTerm",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stat_to_prove",
+            "type": {
+              "defined": {
+                "name": "ScoreStat"
+              }
+            }
+          },
+          {
+            "name": "event_stat_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "stat_proof",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "ProofNode"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

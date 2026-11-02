@@ -1,0 +1,18 @@
+node_modules/
+target/
+.anchor/
+test-ledger/
+.env
+.env.*
+!.env.example
+
+# Devnet wallet + M0 caches/artifacts (NEVER commit secrets)
+.devnet-wallet.json
+*-keypair.json
+.m0-cache.json
+artifacts/
+
+# Bot store + mini-app build output
+.bot-store.json
+miniapp/dist/
+*.tsbuildinfo
