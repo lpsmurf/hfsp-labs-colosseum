@@ -1,13 +1,11 @@
-# Clawdrop — Developer Context
+# HFSP Labs Colosseum — Developer Context
 
 ## What This Project Is
 
-Clawdrop deploys per-user autonomous Solana AI agents that run 24/7. 
+Two product families live in one monorepo:
 
-- **Stage 1** — Free trial chatbot (`clawdrop.live/try`): Proof of concept
-- **Stage 2** — Paid deployed agent: Private Docker container + MCP server + Telegram interface
-
-Built on **SendAI Solana Agent Kit** (60+ Solana tools, token/DeFi plugins).
+- **Clawdrop** — per-user autonomous Solana AI agents running 24/7. Stage 1: free trial chatbot (`clawdrop.live/try`). Stage 2: paid deployed agent (private Docker container + MCP server + Telegram interface), built on **SendAI Solana Agent Kit**.
+- **x402 ecosystem** — x402-gated paid APIs (USDC on Solana, Base and Celo), the security audit service, and shared payment tooling.
 
 ---
 
@@ -17,38 +15,43 @@ Built on **SendAI Solana Agent Kit** (60+ Solana tools, token/DeFi plugins).
 packages/
 ├── trial-api                 Trial chatbot backend (Mastra + SendAI Agent Kit)
 ├── trial-frontend            Trial chatbot UI (React + Vite)
-├── clawdrop-mcp-server       Per-user MCP server (SendAI Agent Kit + x402 payment)
+├── clawdrop-mcp-server       Per-user MCP server (Agent Kit + x402 payment)
 ├── clawdrop-agent-runtime    Per-user autonomous agent (Telegram + MCP client)
 ├── clawdrop-platform         Subscriptions, Docker orchestration, ZK vault
 ├── agent-provisioning        Mastra brain + Telegram wizard + storefront API
 ├── clawdrop-mcp              MCP gateway + CLI wizard + payment protocol
-├── clawdrop-landing          Landing page (stub — redesign in progress)
+├── clawdrop-landing          Landing page
 ├── clawdrop-vpn              VPN x402 payment integration (clawdrop HTTP proxy)
-├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
-├── x402-audit-api            x402 ecosystem security audit API ($0.99 USDC, Base + Solana)
-├── x402-donate               x402-gated donation router (Base, Endaoment integration)
-├── x402-store                x402 Cryptorefills proxy — gift cards/top-ups/eSIMs, commission markup (Solana USDC)
-├── x402-wallet               x402 wallet UI + agent dashboard
-├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet USDC, Helius verification
-├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator
+├── agent-kit-mcp-adapter     Agent Kit → MCP tool adapter
+├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent
+├── x402-common               Shared x402 V2 building blocks (@hfsp/x402-common)
+├── x402-audit-api            x402 ecosystem security audit API (Base + Solana + Celo)
+├── x402-donate               x402-gated donation router (Base, Endaoment)
+├── x402-store                Cryptorefills proxy — gift cards/top-ups (Solana + Celo rails)
+├── x402-wallet               x402 wallet UI + agent dashboard (Next.js)
+├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet, Helius verification
+├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet, x402.org facilitator
+├── celo-commerce-mcp         MCP server for buying top-ups over x402 on Celo
 ├── gnosis-card-x402          Gnosis Card x402 payment integration
 ├── gnosis-card-contracts     Gnosis Card Solidity contracts
+├── prop-pool                 txoracle-settled prop pools (Anchor + crank + Mini App)
 ├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
 └── wdk-tron-swap             WDK community module — SunSwap on Tron
 
 config/                       Deployment infrastructure configs
 ├── vps/                      Server infra (nginx, PM2, systemd) for production VPS
+├── pm2/                      PM2 ecosystem files (Mac Mini production)
 ├── docker/                   Docker configs
 └── nginx/                    Nginx reverse proxy configs
 
 marketplace/                  Marketplace submissions (pay-skills, x402scan, Agentic Market)
-├── pay-skills/               solana-foundation/pay-skills catalog entries
-└── providers/                Other provider marketplace entries (OpenClaw, etc.)
-
+prep-kits/                    Spec handoff packs for agent-built skills (bridge, scheduled payments)
+skills/                       Agent skills
 x402-audit/                   Security audit findings for the x402 ecosystem
 ├── findings/                 Vulnerability disclosures (CRITICAL → INFO)
 ├── reports/                  Raw sweep data (JSON)
-└── archive/                  Historical probe data
+├── archive/                  Historical probe data (LFS)
+└── scripts/                  Standalone probe/eval scripts (own lockfile)
 ```
 
 ---
@@ -63,36 +66,42 @@ x402-audit/                   Security audit findings for the x402 ecosystem
 2. **Per-user Docker isolation**
    - Each subscriber gets isolated containers for MCP server + agent runtime
    - Private key injected only at spawn time (AES-GCM encrypted storage)
-   - Reason: No key sharing, concurrent safety
 
-3. **x402 payment tools alongside Agent Kit tools in one MCP server**
-   - Both types registered in same `actionsRecord`
-   - Agent can reason about payments + execution together
-   - Reason: Budget awareness built into tool selection
+3. **`@hfsp/x402-common` is the shared payment layer**
+   - CAIP-2 networks, USDC amounts, facilitator-backed resource servers
+   - Consumers resolve it from `dist/` — build it before typecheck/test (CI does)
+   - Nested backends (`*/backend`) build against the hoisted root install
 
-4. **LLM routing, not lock-in**
+4. **x402 payment tools alongside Agent Kit tools in one MCP server**
+   - Budget awareness built into tool selection
+
+5. **LLM routing, not lock-in**
    - Per-user modes: platform-managed keys, BYOK, custom endpoint
-   - Transparent to the tooling layer
-   - Reason: Users control their LLM choice
 
 ---
 
 ## Running Locally
 
 ```bash
-# Install dependencies
+# Install dependencies (root workspaces)
 npm install
 
 # Populate .env files (see docs/getting-started/development-setup.md)
 cp .env.example .env.trial
 
-# Start with Docker Compose
+# Start the trial stack with Docker Compose
 npm run dev
 
 # Services start on:
 # - trial-frontend     http://localhost:3000
 # - trial-api          http://localhost:8787
 # - clawdrop-platform  http://localhost:8788
+```
+
+Before typecheck/test, build the shared package once:
+
+```bash
+npm run build --workspace=packages/x402-common
 ```
 
 ---
@@ -102,12 +111,12 @@ npm run dev
 - `/packages/*/src/` — Implementation code (TypeScript)
 - `/packages/*/tests/` — Unit + integration tests
 - `/docs/` — Public documentation, guides, architecture
-- `/.github/workflows/` — GitHub Actions CI/CD pipelines
-- `/.github/CODEOWNERS` — Code ownership declarations
+- `/.github/workflows/` — CI (typecheck, lint, test, build matrix) + CodeQL
+- `/.github/dependabot.yml` — grouped security updates only
 - `/config/` — Docker, nginx, PM2, system configs
-- `/config/vps/` — Production VPS server infra (nginx, PM2, systemd)
 - `/scripts/` — Deployment, dev, and utility scripts
-- `/marketplace/` — Marketplace submissions (pay-skills, x402scan, Agentic Market)
+- `/prep-kits/` — Spec packs for skills built by coding agents
+- `/marketplace/` — Marketplace submissions
 - `/x402-audit/` — Security audit findings and reports
 
 ---
@@ -116,8 +125,5 @@ npm run dev
 
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md) — commit style, PR process
 2. Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design
-3. Review [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md) — setup issues
-
----
-
-**Questions?** Check the docs or open an issue.
+3. Review [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md)
+4. Never commit `.env*` files, keypairs, or `packages/prop-pool/.devnet-wallet.json`. `main` is protected: required checks must pass and review conversations must be resolved.
