@@ -3,7 +3,7 @@
  * txoracle::validate_stat. Idempotent at the program level (double-settle reverts).
  */
 import { ComputeBudgetProgram, Connection, PublicKey } from "@solana/web3.js";
-import { BN, Program } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import {
   deriveDailyScoresPda,
   epochDayFromMs,

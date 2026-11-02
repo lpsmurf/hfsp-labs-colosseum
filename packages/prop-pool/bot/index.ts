@@ -17,7 +17,7 @@ import { Bot, Context, InlineKeyboard, session, type SessionFlavor } from "gramm
 import { Connection, PublicKey } from "@solana/web3.js";
 import { loadConfig, PKG } from "./config";
 import { Store } from "./store";
-import { readProgram, allProps, positionsForWallet, fetchProp, isStatus } from "./chain";
+import { readProgram, positionsForWallet, fetchProp, isStatus } from "./chain";
 import { STAT_OPTIONS, statLabel, propSummary } from "./labels";
 import { createLink, joinLink, derivePropPda, DEFAULT_PERIOD, type PropParams } from "./links";
 import { createClient, getFixturesSnapshot } from "../src/txline/index";
