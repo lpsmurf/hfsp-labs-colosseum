@@ -9,6 +9,7 @@ import internalRouter from "./routes/internal.js";
 import wellKnownRouter from "./routes/wellKnown.js";
 import healthRouter  from "./routes/health.js";
 import openapiRouter from "./routes/openapi.js";
+import { celoEnabled } from "./celoConfig.js";
 
 const app = express();
 
@@ -40,6 +41,25 @@ app.use("/api/orders", ordersRouter);
 // Internal fulfillment — called by trusted sibling backends only
 app.use("/api/internal", internalRouter);
 
+// Celo rail — mounted only when fully configured, so a missing key cannot
+// half-enable a route that takes payments it cannot fulfil.
+if (celoEnabled) {
+  const { default: celoOrdersRouter } = await import("./routes/celoOrders.js");
+  const { default: celoCheckoutRouter } = await import("./routes/celoCheckout.js");
+  const { sweepInterrupted } = await import("./services/celoJobs.js");
+  sweepInterrupted()
+    .then(n => { if (n) console.error(`[store:celo] ${n} order(s) interrupted by a restart sent to reconciliation`); })
+    .catch(err => console.error("[store:celo] interrupted-order sweep failed:", err?.message ?? err));
+  const { startCeloMonitor } = await import("./services/celoMonitor.js");
+  startCeloMonitor();
+  app.use("/api/celo/orders", celoOrdersRouter);
+  app.use("/api/celo/checkout", celoCheckoutRouter);
+  // Browser checkout for wallets that cannot sign x402 (MiniPay, Valora…).
+  app.use("/checkout", express.static(new URL("../public/checkout", import.meta.url).pathname));
+  // Public campaign landing page (claim free USA₮ → top up), multi-language.
+  app.use("/free", express.static(new URL("../public/free", import.meta.url).pathname));
+}
+
 app.use((err: any, _req: any, res: any, _next: any) => {
   console.error("[store] unhandled error:", err?.message ?? err);
   const status = err?.httpStatus ?? err?.status ?? 500;
@@ -53,5 +73,5 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 app.use((_req, res) => { res.status(404).json({ ok: false, error: "Not found" }); });
 
 app.listen(env.PORT, () => {
-  console.log(`[store] :${env.PORT}  commission=${(env.COMMISSION_RATE * 100).toFixed(1)}%  network=solana`);
+  console.log(`[store] :${env.PORT}  commission=${(env.COMMISSION_RATE * 100).toFixed(1)}%  network=solana${celoEnabled ? "+celo" : ""}`);
 });

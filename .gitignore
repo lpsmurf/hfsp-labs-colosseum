@@ -45,6 +45,13 @@ Thumbs.db
 .env.platform
 .env.trial
 .env.mcp-server
+# Any other .env.* variant (phase4, staging, etc.) — keep only *.example templates tracked
+.env.*
+!.env.example
+!.env.*.example
+
+# Firecrawl scrape output — regenerable scratch data
+.firecrawl/
 data/*.sqlite
 
 # Logs
@@ -126,27 +133,25 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
 
-# Local agent/tooling scratch dirs (never commit)
+# Security audit working files — may contain unpatched vulnerability detail
+# under coordinated-disclosure embargo. NEVER commit to a public repo.
+# Redacted, embargo-safe summaries belong in x402-audit/findings/ instead.
 .superstack/
-.firecrawl/
-.tmp-pay-skills/
-.codex/
-.openclaw/
-.agents/
 
-# Build artifacts
-**/target/
-**/dist-test/
-**/tsconfig.tsbuildinfo
+# Local signing material and generated compiler state
 packages/prop-pool/.devnet-wallet.json
 packages/prop-pool/.m0-cache.json
+**/target/
+**/*.tsbuildinfo
 
-# Skill-installer symlinks (point into .agents/skills)
-data/skills/
+# Local agent tool config (contains credentials)
+.codex/
 
-# polysharp paper-trading ledger (runtime)
-data/polysharp-paper.json
+# External pay-skills repo clone (regenerable scratch)
+.tmp-pay-skills/
 
-# prep-kit local env
-packages/worldcup-bounty/.env
-packages/worldcup-bounty/node_modules/
+# Local tooling scratch + build artifacts
+.firecrawl/
+.openclaw/
+**/dist-test/
+**/tsconfig.tsbuildinfo

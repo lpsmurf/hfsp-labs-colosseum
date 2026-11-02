@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-07-07T12:39:33.205Z",
+  "network": "devnet",
+  "programId": "2APUBCYx5dnPdWpcLB3HMaAhgMM1Vj7ihCCGrhogkZrD",
+  "match": "USA vs Belgium",
+  "stat": "Home Goals",
+  "statKey": 1,
+  "anchoredValue": 1,
+  "prop": "DiTJYyK6CuTMXNc26z1CLp9ThheTn25juPZswRQyPTbZ",
+  "predicate": "Home Goals over 0",
+  "winner": "OVER (Alice)",
+  "totalPool": 3,
+  "txs": {
+    "create": "https://explorer.solana.com/tx/5m61pkgeBFMQN4VcxB81pG2ug6XMGtXF1HpwXMBHzoc14JbgaFmpyDW9y3AMP36c9ijj9CrSLr9Jpnd5vgSGtMie?cluster=devnet",
+    "joinOver": "https://explorer.solana.com/tx/5zycg4GyeXnc2kUNQbCxfz7t5We9SXRW5Qpxu3iHbWiuUGRXMYWrf7ucfRg6qweyqzwUgqUA71CuYG7cwnWUfNgy?cluster=devnet",
+    "joinUnder": "https://explorer.solana.com/tx/2K5y5wnFxg8VnTQWyH6Q4Z5NDkQFUxAh3evhGFb7ntwHVmDmdJEV76s4CjS4L2d5jEKB8SrhYwFnHoBYdQNwerU2?cluster=devnet",
+    "settle": "https://explorer.solana.com/tx/5qeda47xKLXcEdj5Be9MDkvVceN6F2pyYHTPQaxCg6wFL7mfTp94C9JEob6wtohQzNSCmVNKz83qr349AqzaQANs?cluster=devnet",
+    "claim": "https://explorer.solana.com/tx/31sNBHTHMNzWv8U9YEfekZwTNr72654fzBfCtvjX6ZJcgcHYsn7t576s26sxMiaT9HTXNUJEroVWEJdqTfr6DGey?cluster=devnet"
+  }
+}

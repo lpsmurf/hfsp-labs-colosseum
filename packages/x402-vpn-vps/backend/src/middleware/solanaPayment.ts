@@ -43,6 +43,11 @@ async function claimTxSig(txSig: string): Promise<boolean> {
 
 export function requireSolanaPayment(fullAmount: bigint, description: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
+    // A V2 payment has already been verified by the x402 middleware upstream and
+    // will be settled by the facilitator on the way out. Re-checking here would
+    // 402 a request that has genuinely paid.
+    if ((req.headers["payment-signature"] as string | undefined)?.trim()) return next();
+
     const txSig = req.headers["x-solana-tx"] as string | undefined;
 
     if (!txSig) {
