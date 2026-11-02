@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # npm: security updates only, one grouped PR per directory per run.
+  # open-pull-requests-limit: 0 turns off routine version-bump PRs; security
+  # updates are unaffected by that limit.
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/packages/*"
+      - "/packages/*/backend"
+      - "/packages/*/contracts"
+      - "/packages/agent-provisioning/services/*"
+      - "/x402-audit/scripts"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci(deps)"

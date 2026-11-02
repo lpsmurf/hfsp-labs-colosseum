@@ -253,8 +253,8 @@ step_pm2() {
   npm run build 2>/dev/null && ok "Build succeeded" || warn "Build had errors — check output above"
 
   info "Starting services with PM2..."
-  pm2 start "$REPO_ROOT/mac-mini-ecosystem.config.json" --env production 2>/dev/null \
-    || pm2 restart "$REPO_ROOT/mac-mini-ecosystem.config.json" 2>/dev/null \
+  pm2 start "$REPO_ROOT/config/pm2/mac-mini-ecosystem.config.json" --env production 2>/dev/null \
+    || pm2 restart "$REPO_ROOT/config/pm2/mac-mini-ecosystem.config.json" 2>/dev/null \
     || fail "PM2 start failed — check that dist/ files exist (npm run build)"
 
   pm2 save
