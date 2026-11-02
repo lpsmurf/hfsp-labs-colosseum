@@ -1,0 +1,15 @@
+{
+  "name": "Production webhook (example)",
+  "description": "Receives applicant lifecycle events from Sumsub",
+  "target": "https://backend.example.com/webhooks/sumsub",
+  "targetType": "http",
+  "types": [
+    "applicantCreated",
+    "applicantPending",
+    "applicantReviewed",
+    "applicantOnHold"
+  ],
+  "signatureAlgorithm": "HMAC_SHA256_HEX",
+  "secretKey": "REPLACE_WITH_GENERATED_SECRET",
+  "disabled": false
+}

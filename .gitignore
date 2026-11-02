@@ -140,3 +140,13 @@ packages/x402-vpn-vps/.env.demo
 **/tsconfig.tsbuildinfo
 packages/prop-pool/.devnet-wallet.json
 packages/prop-pool/.m0-cache.json
+
+# Skill-installer symlinks (point into .agents/skills)
+data/skills/
+
+# polysharp paper-trading ledger (runtime)
+data/polysharp-paper.json
+
+# prep-kit local env
+packages/worldcup-bounty/.env
+packages/worldcup-bounty/node_modules/

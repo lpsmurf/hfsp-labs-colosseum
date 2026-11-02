@@ -42,7 +42,10 @@ auditRouter.get('/', (req, res) => {
     audit: {
       repo,
       includes: [
-        'Static analysis — CORS misconfiguration, payment bypass patterns, exposed secrets',
+        'Secret scanning — 25+ provider rules + entropy detection',
+        'SAST — OWASP Top 10 / CWE heuristics (SQLi, cmd injection, SSRF, weak crypto, eval, path traversal, JWT, TLS bypass)',
+        'x402 deep checks — webhook parse-before-verify, replay/idempotency, amount & network validation',
+        'Static analysis — CORS misconfiguration, payment bypass patterns',
         'Dynamic probing — live auth bypass, CORS probe, info-leak probe',
       ],
       turnaround: '~30 seconds',

@@ -1,3 +1,6 @@
 node_modules
 coverage
 .DS_Store
+examples/demo.cast
+examples/demo.gif
+!examples/demo.mp4
