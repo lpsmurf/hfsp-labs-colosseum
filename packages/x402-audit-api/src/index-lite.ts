@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import express           from 'express';
 import helmet            from 'helmet';
 import { auditRouter }   from './routes/audit-lite.js';
+import { x402Gate, enabledNetworks } from './x402.js';
 import { config, AUDIT_PRICE_USDC, BASE_USDC } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,6 +22,7 @@ app.use(helmet());
 app.use(express.json({ limit: '32kb' }));
 app.set('trust proxy', 1);
 
+app.use(x402Gate);
 app.use('/audit', auditRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'x402-audit-api-lite' }));
@@ -35,7 +37,7 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
     contact:     'info@hfsp.xyz',
     category:    'security',
     tags:        ['security', 'audit', 'x402', 'web3', 'defi'],
-    networks:    ['base', 'solana'],
+    networks:    enabledNetworks,
     endpoints: [
       {
         url:         '/audit',

@@ -131,6 +131,10 @@
 | 2026-06-06 | klymax402 (33), *pulse (44), recoup, wdh.sh +8 | Info | catalog-inflation-payto-clusters | — |
 | 2026-06-06 | CLANKER (MM-dominated), JUNO (sybil) +5 agent tokens | Info | onchain-wash-mm-analysis | — |
 | 2026-06-06 | 0x8f10 (MM bot, 5/7 tokens), 0x3304e2 (sybil funder, 3/7) | Info | cross-token-shared-operators | — |
+| 2026-09-08 | solana-foundation/pay-skills (registry+CI) | High | 8 findings — publishing-pipeline + catalog audit | [#253](https://github.com/solana-foundation/pay-skills/issues/253) · [#254](https://github.com/solana-foundation/pay-skills/issues/254) · [#255](https://github.com/solana-foundation/pay-skills/pull/255) · [index](findings/pay-skills-registry-audit.md) · PAY-01 embargoed |
+| 2026-09-08 | solana-foundation/pay (CLI / catalog engine) | Medium | 2 findings — SSRF prober + privileged workflow_run | [index](findings/pay-cli-audit.md) · both embargoed |
+| 2026-09-08 | solana-foundation/pay-kit (payment SDK) | High | 4 verified (2H/2M) + 1 Info — signing scope, pull-mode replay, settle-before-confirm, decoder | [index](findings/pay-kit-audit.md) · embargoed |
+| 2026-09-08 | solana-foundation/subscriptions (on-chain program) | — | No high/critical in audited paths — cleanest component | [index](findings/subscriptions-audit.md) |
 
 > Security sweep details (incl. verified false positives): [security-sweep-p1-p2.md](findings/security-sweep-p1-p2.md)
 > P1+P2 headline: 0 confirmed bypasses across 83 services.

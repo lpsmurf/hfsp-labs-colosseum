@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.lpsmurf/celo-commerce",
+  "description": "Buy mobile airtime, data bundles, gift cards and eSIMs, paid in USDT, USA₮ or USDC on Celo over x402. 180+ countries.",
+  "repository": {
+    "url": "https://github.com/lpsmurf/celo-agent-commerce",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "websiteUrl": "https://store.hfsp.cloud",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://store.hfsp.cloud/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "celo-commerce-mcp",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "STORE_URL", "description": "Store API base", "isRequired": false, "default": "https://store.hfsp.cloud" },
+        { "name": "CELO_BUYER_PRIVATE_KEY", "description": "Local payer key (stdio only); buy_product then pays itself, capped by MAX_ORDER_USD", "isRequired": false, "isSecret": true },
+        { "name": "MAX_ORDER_USD", "description": "Hard per-order spend cap for the local payer", "isRequired": false, "default": "10" },
+        { "name": "INTEGRATOR_ID", "description": "Your ERC-8004 agent id, sent as X-Integrator for revenue share", "isRequired": false }
+      ]
+    }
+  ]
+}

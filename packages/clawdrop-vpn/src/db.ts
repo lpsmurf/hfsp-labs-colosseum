@@ -22,6 +22,7 @@ export function openDb(dbPath: string): Database.Database {
 
 export function initSchema(db: Database.Database): void {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_claims (signature TEXT PRIMARY KEY);
     CREATE TABLE IF NOT EXISTS sessions (
       id            TEXT PRIMARY KEY,
       token         TEXT UNIQUE NOT NULL,
@@ -32,6 +33,7 @@ export function initSchema(db: Database.Database): void {
       created_at    TEXT DEFAULT (datetime('now')),
       bytes_transferred INTEGER DEFAULT 0
     );
+    INSERT OR IGNORE INTO payment_claims SELECT tx_signature FROM sessions;
     CREATE INDEX IF NOT EXISTS idx_sessions_token   ON sessions(token);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
   `);
@@ -75,4 +77,8 @@ export function getStats(db: Database.Database) {
       COALESCE(SUM(bytes_transferred), 0) AS total_bytes
     FROM sessions
   `).get() as { total_sessions: number; active_sessions: number; total_usdc: number; total_bytes: number };
+}
+
+export function claimPayment(db: Database.Database, signature: string): boolean {
+  return db.prepare('INSERT OR IGNORE INTO payment_claims (signature) VALUES (?)').run(signature).changes === 1;
 }

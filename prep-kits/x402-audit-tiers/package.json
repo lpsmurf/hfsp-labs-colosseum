@@ -1,0 +1,21 @@
+{
+  "name": "@hfsp/x402-audit-tiers",
+  "version": "0.1.0",
+  "description": "Pay-per-depth security audit skill over x402 — free preview, $0.99 full scan, deeper tiers priced by the work",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview": "tsx scripts/audit-preview.ts",
+    "scan": "tsx scripts/audit-scan.ts",
+    "tiers": "tsx scripts/audit-tiers.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hfsp/x402-common": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.4.0"
+  }
+}

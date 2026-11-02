@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Top up with stablecoins on Celo</title>
+  <meta name="description" content="Buy mobile airtime and data with USDT or USDC on Celo. Works in MiniPay, Valora and MetaMask.">
+  <style>
+    :root { --bg:#f6f7f4; --card:#fff; --ink:#15171a; --muted:#5d636b; --line:#dfe2dc; --brand:#1f8a5b; --brand-ink:#fff; --warn:#a8420d; --ok:#1f8a5b; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding-inline:16px; }
+    main { max-width:440px; margin:0 auto; padding-block:20px 48px; }
+    h1 { font-size:1.35rem; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 18px; font-size:.95rem; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; }
+    label { display:block; font-size:.85rem; color:var(--muted); margin:12px 0 4px; }
+    label:first-child { margin-top:0; }
+    select, input { width:100%; font:inherit; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+    .row { display:flex; gap:8px; align-items:center; }
+    .row input[type=checkbox] { width:auto; }
+    .hint { font-size:.8rem; color:var(--muted); margin-top:4px; }
+    button { width:100%; font:inherit; font-weight:600; padding:13px; border:0; border-radius:12px; background:var(--brand); color:var(--brand-ink); margin-top:14px; cursor:pointer; }
+    button[disabled] { opacity:.5; cursor:default; }
+    button.secondary { background:#e9ece6; color:var(--ink); }
+    .price { font-size:1.9rem; font-weight:700; margin:2px 0; }
+    .muted { color:var(--muted); font-size:.9rem; }
+    .status { margin-top:10px; font-size:.92rem; }
+    .status.err { color:var(--warn); }
+    .status.ok { color:var(--ok); }
+    pre { white-space:pre-wrap; word-break:break-word; background:#f1f3ef; padding:10px; border-radius:8px; font-size:.8rem; }
+    a { color:var(--brand); }
+    [hidden] { display:none !important; }
+    footer { color:var(--muted); font-size:.8rem; text-align:center; margin-top:20px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Top up with stablecoins</h1>
+  <p class="sub">Airtime and data, paid in USDT, USA₮ or USDC on Celo. No account needed.</p>
+
+  <section class="card" id="step-product">
+    <label for="country">Country</label>
+    <select id="country">
+      <option value="NG">Nigeria</option>
+      <option value="KE">Kenya</option>
+      <option value="GH">Ghana</option>
+      <option value="PH">Philippines</option>
+      <option value="BR">Brazil</option>
+    </select>
+
+    <label for="brand">Operator / brand</label>
+    <select id="brand" disabled><option>Loading…</option></select>
+    <div class="row hint"><input type="checkbox" id="all-brands"><span>Show gift cards and other products too</span></div>
+
+    <label for="product">Product</label>
+    <select id="product" disabled></select>
+
+    <div id="amount-wrap" hidden>
+      <label for="amount">Amount (<span id="amount-currency"></span>)</label>
+      <input id="amount" type="number" inputmode="decimal">
+      <div class="hint" id="amount-range"></div>
+    </div>
+
+    <div id="phone-wrap">
+      <label for="phone">Phone number to top up</label>
+      <input id="phone" type="tel" inputmode="tel" placeholder="+2348031234567" autocomplete="tel">
+      <div class="hint">Start with + and the country code.</div>
+    </div>
+
+    <label for="asset">Pay with</label>
+    <select id="asset">
+      <option value="USDT">USD₮ (USDT)</option>
+      <option value="USAT">USA₮ (free from the Self × Google Cloud faucet)</option>
+      <option value="USDC">USDC</option>
+    </select>
+
+    <label for="email">Email for your receipt</label>
+    <input id="email" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email">
+
+    <button id="quote-btn" disabled>Get price</button>
+    <div class="status" id="product-status"></div>
+  </section>
+
+  <section class="card" id="step-pay" hidden>
+    <div class="muted">You pay</div>
+    <div class="price"><span id="price"></span> <span id="price-asset"></span></div>
+    <div class="muted">on Celo · price held for <span id="countdown"></span></div>
+    <button id="pay-btn">Pay with wallet</button>
+    <button id="back-btn" class="secondary">Change order</button>
+    <div class="status" id="pay-status"></div>
+  </section>
+
+  <section class="card" id="step-done" hidden>
+    <div class="status ok" id="done-title"></div>
+    <div class="muted" id="done-detail"></div>
+    <pre id="done-result" hidden></pre>
+    <button id="again-btn" class="secondary">Buy another</button>
+  </section>
+
+  <footer>
+    Fulfilled by Cryptorefills · Payments verified on-chain ·
+    <a href="mailto:info@hfsp.xyz">info@hfsp.xyz</a>
+  </footer>
+</main>
+<script src="app.js" type="module"></script>
+</body>
+</html>

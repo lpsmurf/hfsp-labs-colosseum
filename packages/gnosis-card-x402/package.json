@@ -1,7 +1,7 @@
 {
-  "name": "vpn-x402-backend",
+  "name": "gnosis-card-x402",
   "version": "0.1.0",
-  "description": "x402-gated VPN backend — Solana payments, apiVPN.io WireGuard provisioning",
+  "description": "Gnosis Pay card x402 integration \u2014 Safe top-ups and onboarding, Solana + Base USDC",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@hfsp/x402-common": "*",
     "@solana/web3.js": "^1.98.0",
     "bs58": "^6.0.0",
     "dotenv": "^17.4.2",

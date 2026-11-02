@@ -2,12 +2,13 @@
   "name": "x402-vpn-vps",
   "version": "0.1.0",
   "private": true,
+  "description": "x402-gated WireGuard VPN passes and ephemeral Hetzner VPS servers — Solana mainnet USDC",
   "scripts": {
-    "dev:backend":  "cd backend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "build":        "cd backend && npm ci --ignore-scripts --no-audit --no-fund && npm run build",
-    "deploy":       "bash scripts/deploy.sh",
-    "start":        "pm2 startOrReload pm2.config.js --update-env && pm2 save",
-    "test":         "cd contracts && npm test"
+    "build": "cd backend && npm run build",
+    "deploy": "bash scripts/deploy.sh",
+    "start": "pm2 startOrReload pm2.config.js --update-env && pm2 save",
+    "test": "cd contracts && npm test"
   }
 }
