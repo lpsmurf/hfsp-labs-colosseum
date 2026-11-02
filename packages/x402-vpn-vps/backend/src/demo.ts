@@ -36,7 +36,7 @@ import * as crypto from "crypto";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const VPN_API   = process.env.VPN_API_URL   ?? "https://vpn.hfsp.cloud";
-const SOL_RPC   = process.env.HELIUS_RPC_URL;
+const SOL_RPC   = process.env.HELIUS_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 // Agent wallet pays micro-price (100 atomic = $0.0001) for full provisioning.

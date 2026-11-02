@@ -35,13 +35,12 @@ describe('signal-engine', () => {
   it('uses standardized service metadata across all agents', async () => {
     await expect(generatePortfolioSignal({
       price: 170,
-      trendScore: 0.4,
-      riskScore: 0.3,
-      solExposure: 0.5,
+      action: 'BUY',
+      confidence: 0.7,
       timestamp: '2026-05-21T12:00:00Z',
     })).resolves.toMatchObject({
       agentId: 'portfolio-analyzer',
-      service: 'analytics',
+      service: 'chat',
       action: 'BUY',
     });
 
@@ -52,7 +51,7 @@ describe('signal-engine', () => {
       timestamp: '2026-05-21T12:00:00Z',
     })).resolves.toMatchObject({
       agentId: 'sentiment-monitor',
-      service: 'sentiment',
+      service: 'images',
       action: 'SELL',
     });
   });
