@@ -5,12 +5,11 @@ description: Read Polymarket prediction markets — search/list markets, current
 
 # polymarket-read
 
-Read-only access to Polymarket (Polygon) via the CLOB API.
+Read-only access to Polymarket (Polygon) via the public **Gamma API**. **LIVE.**
 
 ## Capabilities
-- search/list active markets (by keyword/category)
-- current odds (YES/NO price), liquidity, volume, end date
-- resolution status
-- user positions for a given EVM address
+- search/list active markets by keyword, ranked by volume
+- current odds (per-outcome implied %), liquidity, volume, end date, `conditionId`
 
-No bridge needed for reads. Run `scripts/polymarket.ts read ...`.
+No bridge or funds needed for reads. Run `npm run polymarket read [keyword]`
+(e.g. `npm run polymarket read worldcup`).

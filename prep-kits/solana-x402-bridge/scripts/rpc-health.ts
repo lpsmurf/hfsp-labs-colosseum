@@ -1,6 +1,7 @@
 // Cross-chain RPC health switcher. Detects lagging/failing endpoints and fails over
 // BEFORE execution — on both the Solana source and the EVM destination.
 // Never act on a stale/unhealthy RPC.
+import "./env.js";
 import { Connection } from "@solana/web3.js";
 
 const TIMEOUT_MS = Number(process.env.RPC_PROBE_TIMEOUT_MS ?? 2500);
@@ -34,19 +35,30 @@ export async function getHealthySolana() {
     .sort((a, b) => a.lag - b.lag || a.latency - b.latency);
 
   if (!eligible.length) throw new Error(`All Solana RPCs stale (> ${maxLag} slots behind)`);
-  const best = eligible[0];
-  return { connection: new Connection(best.url, "confirmed"), slotLag: best.lag, endpoint: best.url };
+  const chosen = selectPreferringPrimary(eligible, endpoints[0]);
+  return { connection: new Connection(chosen.url, "confirmed"), slotLag: chosen.lag, endpoint: chosen.url };
 }
 
 // Back-compat alias used by bridge-safety.
 export const getHealthyConnection = getHealthySolana;
 
 // ---------- EVM ----------
+// Reliable keyless public RPC defaults so the skill works out of the box. Any user-configured
+// <CHAIN>_RPC_URL / <CHAIN>_FALLBACK_RPCS is always preferred over these.
+const DEFAULT_EVM_RPCS: Record<string, string[]> = {
+  ethereum: ["https://ethereum-rpc.publicnode.com"],
+  polygon:  ["https://polygon-bor-rpc.publicnode.com"],
+  base:     ["https://base-rpc.publicnode.com"],
+  arbitrum: ["https://arbitrum-one-rpc.publicnode.com"],
+  optimism: ["https://optimism-rpc.publicnode.com"],
+  gnosis:   ["https://gnosis-rpc.publicnode.com"],
+};
+
 // Per-chain fallback RPCs via env, e.g. POLYGON_FALLBACK_RPCS, ETHEREUM_FALLBACK_RPCS.
 export async function getHealthyEvmRpc(chain: string) {
   const primary = process.env[`${chain.toUpperCase()}_RPC_URL`];
   const fallbacks = split(process.env[`${chain.toUpperCase()}_FALLBACK_RPCS`]);
-  const endpoints = [primary, ...fallbacks].filter(Boolean) as string[];
+  const endpoints = [primary, ...fallbacks, ...(DEFAULT_EVM_RPCS[chain.toLowerCase()] ?? [])].filter(Boolean) as string[];
   if (!endpoints.length) throw new Error(`No RPC configured for ${chain}`);
 
   const probes = await Promise.all(endpoints.map(async (url) => {
@@ -67,8 +79,17 @@ export async function getHealthyEvmRpc(chain: string) {
     .sort((a, b) => a.lag - b.lag || a.latency - b.latency);
 
   if (!eligible.length) throw new Error(`All ${chain} RPCs stale (> ${maxLag} blocks behind)`);
-  const best = eligible[0];
-  return { endpoint: best.url, blockLag: best.lag, latency: best.latency };
+  const chosen = selectPreferringPrimary(eligible, endpoints[0]);
+  return { endpoint: chosen.url, blockLag: chosen.lag, latency: chosen.latency };
+}
+
+// Prefer the configured primary endpoint when it's healthy AND within lag tolerance — so a
+// reliable (paid) RPC isn't bypassed just because a public node pinged a few ms faster. Only
+// fail over to the best-ranked fallback when the primary is unhealthy/stale. Set
+// RPC_PREFER_PRIMARY=false for pure lowest-lag/latency selection across all endpoints.
+function selectPreferringPrimary<T extends { url: string }>(eligible: T[], primaryUrl: string): T {
+  const preferPrimary = (process.env.RPC_PREFER_PRIMARY ?? "true") !== "false";
+  return (preferPrimary && eligible.find((e) => e.url === primaryUrl)) || eligible[0];
 }
 
 async function evmBlockNumber(url: string): Promise<number> {
@@ -82,3 +103,27 @@ async function evmBlockNumber(url: string): Promise<number> {
 }
 
 function split(v?: string) { return (v ?? "").split(",").map((s) => s.trim()).filter(Boolean); }
+
+// ---------- CLI ----------
+// usage: tsx scripts/rpc-health.ts [chain]   (default: solana)
+//   tsx scripts/rpc-health.ts solana
+//   tsx scripts/rpc-health.ts polygon
+// Prints the selected healthy endpoint + lag. API keys are redacted from output.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const redact = (u: string) => u.replace(/(api-key=)[^&\s]+/i, "$1***").replace(/(\/v2\/)[^/\s]+/i, "$1***");
+  const chain = (process.argv[2] ?? "solana").toLowerCase();
+  (async () => {
+    try {
+      if (chain === "solana" || chain === "sol") {
+        const s = await getHealthySolana();
+        console.log(`[solana] OK -> ${redact(s.endpoint)}  slotLag=${s.slotLag}`);
+      } else {
+        const e = await getHealthyEvmRpc(chain);
+        console.log(`[${chain}] OK -> ${redact(e.endpoint)}  blockLag=${e.blockLag}  latency=${e.latency}ms`);
+      }
+    } catch (err) {
+      console.error(`[${chain}] UNHEALTHY: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  })();
+}
