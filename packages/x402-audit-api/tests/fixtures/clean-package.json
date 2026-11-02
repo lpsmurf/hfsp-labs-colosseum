@@ -1,0 +1,6 @@
+{
+  "name": "safe-cli",
+  "version": "1.0.0",
+  "scripts": { "build": "tsc", "test": "vitest" },
+  "dependencies": { "express": "^4.21.2", "zod": "^3.23.8" }
+}

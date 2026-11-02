@@ -13,7 +13,8 @@ export interface SSHKeypair {
 // ─── WireGuard (X25519) ───────────────────────────────────────────────────────
 
 export async function generateWireGuardKeypair(): Promise<WireGuardKeypair> {
-  const kp = await crypto.subtle.generateKey({ name: "X25519" }, true, ["deriveKey"]);
+  // X25519 generation always yields a key pair; the DOM typings return a CryptoKey | CryptoKeyPair union.
+  const kp = (await crypto.subtle.generateKey({ name: "X25519" }, true, ["deriveKey"])) as CryptoKeyPair;
   const privRaw = await crypto.subtle.exportKey("raw", kp.privateKey);
   const pubRaw  = await crypto.subtle.exportKey("raw", kp.publicKey);
   return {
