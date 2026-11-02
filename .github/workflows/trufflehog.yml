@@ -1,0 +1,39 @@
+name: Trufflehog Secret Scan
+
+# Complements the gitleaks job in ci.yml: gitleaks blocks anything that
+# looks like a secret, trufflehog only reports secrets verified as live
+# against the provider. Note: verification sends candidate secrets to the
+# respective provider APIs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * 1' # weekly, Monday 04:17 UTC — full-history re-scan
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trufflehog:
+    name: Verified secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan PR diff
+        if: github.event_name == 'pull_request'
+        uses: trufflesecurity/trufflehog@v3.99.8
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --only-verified --fail
+      - name: Scan repository
+        if: github.event_name != 'pull_request'
+        uses: trufflesecurity/trufflehog@v3.99.8
+        with:
+          extra_args: --only-verified --fail

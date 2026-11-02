@@ -16,6 +16,15 @@ We welcome contributions! This document outlines our process.
 
    Example: `feat: add wallet signature authentication to clawdrop-platform`
 
+4. **Enable the pre-commit secret scan** — once per clone:
+
+   ```bash
+   git config core.hooksPath scripts/hooks   # requires: brew install gitleaks
+   ```
+
+   Gitleaks scans staged changes locally; CI runs gitleaks plus trufflehog
+   (verified-live-secrets check) on every PR.
+
 ## PR Process
 
 1. **Before submitting** — Ensure:

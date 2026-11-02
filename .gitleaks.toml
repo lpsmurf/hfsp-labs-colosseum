@@ -1,0 +1,14 @@
+title = "Clawdrop gitleaks config"
+
+[extend]
+useDefault = true
+
+# Test files and fixtures intentionally contain fake credentials.
+# Keep this list narrow — real secrets in these paths will NOT be caught.
+[allowlist]
+description = "Test fixtures and docs placeholders"
+paths = [
+  '''(^|/)__tests__/''',
+  '''(^|/)tests?/fixtures?/''',
+  '''\.(test|spec)\.[jt]sx?$''',
+]

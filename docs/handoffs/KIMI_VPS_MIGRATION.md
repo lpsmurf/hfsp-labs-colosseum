@@ -205,8 +205,8 @@ Cancel in this order (safest first):
 
 Cancel via Hostinger dashboard or API:
 ```bash
-# Hostinger Account #1 API token: 9L8MHqOGJ0ryhiD9SyDIzKkgSgtGfN8x7RlNo7fN1fc23c37
-# Hostinger Account #2 API token: 2cHNhnO2jExrRnw3iBIhHBDeJoK2xhH5snbcvSENb8e1a8ad
+# Hostinger Account #1 API token: <revoked>
+# Hostinger Account #2 API token: <revoked>
 ```
 
 ---
