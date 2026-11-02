@@ -1,0 +1,6 @@
+node_modules/
+.env
+dist/
+# demo media (local artifacts; not committed)
+*.gif
+*.mp4

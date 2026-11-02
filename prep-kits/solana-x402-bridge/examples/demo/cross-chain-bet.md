@@ -28,7 +28,7 @@
    → show resulting position.
 6. **Close:** "One Solana wallet. One skill. Cross-chain execution. No bridge skill like this exists in the kit."
 
-## Judge talking points
-- White space: no real cross-chain bridge skill in 158 submissions.
-- Safety-first: guardrails + transparent fee on money movement.
-- Solana-native front door; EVM reached through the bridge.
+## Why it matters
+- No other Solana AI Kit skill brings real cross-chain asset bridging to agents.
+- Safety-first: guardrails + transparent fees on every money movement.
+- Solana-native front door; EVM chains reached through the bridge.

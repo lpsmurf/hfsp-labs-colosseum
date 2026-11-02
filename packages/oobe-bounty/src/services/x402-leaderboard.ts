@@ -149,25 +149,37 @@ async function fetchLeaderboard(windowHours: number): Promise<LeaderboardEntry[]
 export function leaderboardHandler(recipientWallet: string) {
   return async (req: Request, res: Response): Promise<void> => {
     const windowHours = parseInt(String(req.query.window ?? '0')) || 0;
-    const paymentHeader = req.headers['x-payment'] as string | undefined;
+    // Accept the standard V2 header, falling back to the V1 one.
+    const paymentHeader =
+      (req.headers['payment-signature'] as string | undefined) ??
+      (req.headers['x-payment'] as string | undefined);
 
     // No payment → return 402 with payment details
     if (!paymentHeader) {
-      res.status(402).json({
-        x402Version: 1,
-        error: 'Payment required',
-        accepts: [{
-          scheme: 'exact',
-          network: 'solana-mainnet',
-          maxAmountRequired: String(Math.round(PRICE_USDC * 1_000_000)),
-          asset: USDC_MINT,
-          payTo: recipientWallet,
-          resource: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
+      const resource = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const challenge = {
+        x402Version: 2 as const,
+        resource: {
+          url: resource,
           description: 'OOBE Bounty live leaderboard — ranked by on-chain x402 payments to AceDataCloud',
           mimeType: 'application/json',
+        },
+        accepts: [{
+          scheme: 'exact',
+          // CAIP-2 Solana mainnet. "solana-mainnet" was the V1 spelling and is
+          // rejected by every V2 client.
+          network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+          amount: String(Math.round(PRICE_USDC * 1_000_000)),
+          asset: USDC_MINT,
+          payTo: recipientWallet,
           maxTimeoutSeconds: 60,
+          extra: {},
         }],
-      });
+      };
+      res
+        .set('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(challenge), 'utf8').toString('base64'))
+        .status(402)
+        .json({ ...challenge, error: 'Payment required' });
       return;
     }
 

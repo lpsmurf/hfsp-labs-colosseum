@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-07-05T22:19:33.562Z",
+  "network": "devnet",
+  "programId": "6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J",
+  "apiOrigin": "https://txline-dev.txodds.com",
+  "fixtureId": 18187298,
+  "seq": 1050,
+  "statKey": 1,
+  "statToProve": {
+    "key": 1,
+    "value": 0,
+    "period": 4
+  },
+  "batchTs": 1783288501881,
+  "epochDay": 20639,
+  "dailyScoresRootsPda": "7FwXux2xDDCLngnWiJceaXr2h1bDeBe5uKAsmYQruHL3",
+  "rootAccountBytes": 9232,
+  "proofDepths": {
+    "statProof": 2,
+    "subTreeProof": 7,
+    "mainTreeProof": 1
+  },
+  "results": {
+    "predicateTrue": true,
+    "predicateFalse": false,
+    "realTxSignature": "RWmDw6WEzbMUYfwqy1qvpU4UVDgh8FcuzpLqXitsMdJCaM4AthKwa25h1awSfe6bgGwnpgs8DdFUBq9ft3yRdyB",
+    "realTxPredicateResult": true,
+    "wrongBucketError": "Program log: AnchorError caused by account: daily_scores_merkle_roots. Error Code: ConstraintSeeds. Error Number: 2006. Error Message: A seeds constraint was violated.",
+    "corruptedMainProofError": "Program log: AnchorError thrown in programs/txoracle/src/instructions/merkle/validate_stat.rs:73. Error Code: InvalidMainTreeProof. Error Number: 6004. Error Message: Invalid main tree proof. The summary does not belong to the on-chain root..",
+    "corruptedMainProofIs6004": true
+  }
+}

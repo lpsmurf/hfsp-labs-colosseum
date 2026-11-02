@@ -5,6 +5,10 @@ description: Place and redeem bets on Polymarket using USDC.e on Polygon. Requir
 
 # polymarket-bet
 
+> **Status: ROADMAP.** Reading markets is live (`polymarket-read`). Placing CLOB orders needs
+> order signing + USDC.e on Polygon and is not yet implemented. The cross-chain funding path
+> for it (bridge USDC → Polygon) is live today via `bridge-execute`.
+
 Place / redeem Polymarket bets. Polygon USDC.e required — bridge first via `bridge-execute`.
 
 ## Flow

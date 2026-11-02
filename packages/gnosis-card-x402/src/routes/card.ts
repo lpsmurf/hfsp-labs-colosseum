@@ -20,7 +20,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { makeX402Gate } from '../middleware/x402.js';
-import { isSpent, markSpent } from '../services/nullifier.js';
+import { NETWORKS } from '@hfsp/x402-common';
+import { claimPayment, recordSubmission, completePayment, releaseUnsubmittedPayment } from '../services/nullifier.js';
 import { getQuote, createAndSubmitOrder, getOrderStatus } from '../services/bridge.js';
 import {
   getSiweNonce,
@@ -97,12 +98,12 @@ cardRouter.get('/topup/quote', async (req, res) => {
       payment: isBase ? {
         payTo:   config.EVM_WALLET_ADDRESS,
         asset:   '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-        network: 'base-mainnet',
+        network: NETWORKS.base,
         amount:  amount.toFixed(6),
       } : {
         payTo:   config.WALLET_PUBLIC_KEY,
         asset:   'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        network: 'solana-mainnet',
+        network: NETWORKS.solana,
         amount:  amount.toFixed(6),
       },
     });
@@ -122,6 +123,12 @@ cardRouter.get('/topup/quote', async (req, res) => {
  */
 cardRouter.post(
   '/topup',
+  (req, res, next) => {
+    const parsed = topupBodySchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid body', details: parsed.error.flatten() }); return; }
+    req.body = parsed.data;
+    next();
+  },
   makeX402Gate({
     amountUsdc:  (req) => {
       const n = Number(req.body?.amount);
@@ -141,21 +148,22 @@ cardRouter.post(
     const { signature } = res.locals.payment as { paidUsdc: number; signature: string; chain: string };
 
     // Prevent replay
-    if (await isSpent(signature)) {
+    if (!await claimPayment(signature, { path: req.originalUrl, body: req.body })) {
       res.status(409).json({ error: 'Payment already used' });
       return;
     }
 
     try {
-      await markSpent(signature);
 
       const order = await createAndSubmitOrder({
+        onSubmitted: tx => recordSubmission(signature, tx),
         srcAmountUsdc: amount,
         dstToken:      currency as GnosisToken,
         safeAddress,
         sourceChain:   sourceChain as SourceChain,
       });
 
+      await completePayment(signature, order);
       res.status(202).json({
         ok:             true,
         orderId:        order.orderId,
@@ -167,6 +175,10 @@ cardRouter.post(
         poll:           `/api/card/topup/${encodeURIComponent(order.orderId)}`,
       });
     } catch (err: unknown) {
+      // Nothing broadcast yet → free the claim so the same payment can retry.
+      if ((err as { broadcast?: boolean } | null)?.broadcast !== true) {
+        await releaseUnsubmittedPayment(signature).catch(() => false);
+      }
       const msg = err instanceof Error ? err.message : String(err);
       res.status(502).json({ error: `Bridge submission failed: ${msg}` });
     }
@@ -259,6 +271,12 @@ cardRouter.post('/onboard/session', async (req, res) => {
  */
 cardRouter.post(
   '/onboard',
+  (req, res, next) => {
+    if (!z.string().uuid().safeParse(req.body?.sessionId).success) {
+      res.status(400).json({ error: 'Invalid sessionId' }); return;
+    }
+    next();
+  },
   makeX402Gate({
     amountUsdc:  parseFloat(config.ONBOARD_FEE_USDC),
     description: `Gnosis Pay onboarding — managed Safe deployment + virtual card ($${config.ONBOARD_FEE_USDC} USDC)`,
@@ -271,19 +289,17 @@ cardRouter.post(
       return;
     }
 
-    const { signature } = res.locals.payment as { paidUsdc: number; signature: string };
-    if (await isSpent(signature)) {
-      res.status(409).json({ error: 'Payment already used' });
-      return;
-    }
-
     const session = await getSession(sessionId.data);
     if (!session) {
       res.status(404).json({ error: 'Session not found — call POST /api/card/onboard/session first' });
       return;
     }
 
-    await markSpent(signature);
+    const { signature } = res.locals.payment as { paidUsdc: number; signature: string };
+    if (!await claimPayment(signature, { path: req.originalUrl, body: req.body })) {
+      res.status(409).json({ error: 'Payment already used' });
+      return;
+    }
 
     res.json({
       ok:        true,
