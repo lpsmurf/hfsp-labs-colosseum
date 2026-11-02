@@ -1,6 +1,6 @@
 ---
 name: solana-x402-bridge
-description: The Jupiter of cross-chain for Solana agents. Use when a Solana agent needs the best-rate bridge of USDC to an EVM chain (Polygon, Gnosis, Base, Arbitrum), wants to be funded with fiat, or needs to read/bet on Polymarket. Aggregates multiple bridge providers (CCTP, Mayan, deBridge, Wormhole, Allbridge, LI.FI, x402) and Onramper for fiat. Triggers: "best bridge rate", "bridge USDC", "compare bridges", "fund with fiat", "onramp", "bet on Polymarket", "cross-chain".
+description: The Jupiter of cross-chain for Solana agents. Use when a Solana agent needs the best-rate bridge of USDC to an EVM chain (Polygon, Gnosis, Base, Arbitrum, Ethereum), wants to be funded with fiat, or needs to read/bet on Polymarket. Aggregates multiple bridge providers (CCTP, Mayan, deBridge, Wormhole, Allbridge) and Onramper for fiat, and can also call the HFSP relayer route separately. Triggers: "best bridge rate", "bridge USDC", "compare bridges", "fund with fiat", "onramp", "bet on Polymarket", "cross-chain".
 ---
 
 # solana-x402-bridge
@@ -9,7 +9,7 @@ Router skill for best-rate cross-chain execution from Solana to EVM. Load the re
 
 1. **Want the best route / compare bridges?** → `skills/bridge-aggregator` (quotes all providers).
 2. **Quoting a transfer?** → `skills/bridge-quote` — returns aggregated best + comparison. Quote first.
-3. **Executing?** → `skills/bridge-execute` — only after a quote + safety check; routes to the winning provider.
+3. **Executing?** → `skills/bridge-execute` — only after a quote + safety check; routes to the winning provider adapter or the HFSP relayer if preferred.
 4. **Safety / preflight?** → `skills/bridge-safety` — ALWAYS before execute. Allowlist, caps, slippage, RPC freshness.
 5. **Which chains/tokens/providers?** → `skills/evm-targets`.
 6. **Fund with fiat / cash out?** → `skills/fiat-onramp` (Onramper).

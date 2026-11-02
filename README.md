@@ -6,6 +6,20 @@ Built on the [x402 protocol](https://x402.org) and Solana. Agents discover servi
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](package.json)
+[![CI](https://github.com/lpsmurf/hfsp-labs-colosseum/actions/workflows/ci.yml/badge.svg)](https://github.com/lpsmurf/hfsp-labs-colosseum/actions/workflows/ci.yml)
+
+---
+
+## Contents
+
+- [x402 Services](#x402-services)
+- [x402 Payment Pattern](#x402-payment-pattern)
+- [Quickstart](#quickstart)
+- [WDK Community Modules](#wdk-community-modules)
+- [Smart Contracts](#smart-contracts)
+- [Clawdrop (Private)](#clawdrop-private)
+- [Marketplace](#marketplace)
+- [Security](#security)
 
 ---
 
@@ -43,6 +57,22 @@ Server-side: Helius RPC verifies the tx, Redis SET NX claims the signature (repl
 
 ---
 
+## Quickstart
+
+```bash
+npm install          # install all workspaces
+cp .env.example .env.trial   # per-package templates live in packages/*/.env.example
+npm run dev          # docker-compose up: frontend :3000, trial-api :8787, platform :8788
+```
+
+See [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md) for the full setup.
+
+## Demo
+
+![Autonomous x402 agent purchasing a resource end-to-end](packages/oobe-bounty/demo.gif)
+
+---
+
 ## WDK Community Modules
 
 | Package | What it does |
@@ -74,9 +104,11 @@ See [`marketplace/`](marketplace/) for submission files.
 
 ---
 
-## Security Audit
+## Security
 
 [`x402-audit/`](x402-audit/) — ongoing security research across the x402 ecosystem. Findings categorized CRITICAL → INFO.
+
+**Found a vulnerability?** See [SECURITY.md](SECURITY.md) — private reporting via GitHub advisories or email, no public issues please.
 
 ---
 

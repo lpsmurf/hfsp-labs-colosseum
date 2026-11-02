@@ -1,0 +1,130 @@
+/**
+ * CAIP-2 network identifiers and default assets.
+ *
+ * x402 V2 identifies networks with CAIP-2 (`namespace:reference`), not the V1
+ * free-text names (`base-mainnet`, `solana-mainnet`). Those V1 strings are not
+ * accepted by any V2 facilitator, so nothing outside this file should ever spell
+ * a network out by hand.
+ */
+
+export const NETWORKS = {
+  base:         "eip155:8453",
+  baseSepolia:  "eip155:84532",
+  ethereum:     "eip155:1",
+  sepolia:      "eip155:11155111",
+  celo:         "eip155:42220",
+  celoSepolia:  "eip155:11142220",
+  // Solana CAIP-2 uses the first 32 chars of the genesis hash.
+  solana:       "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+  solanaDevnet: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+} as const;
+
+export type NetworkName = keyof typeof NETWORKS;
+export type NetworkId = (typeof NETWORKS)[NetworkName];
+
+/** Canonical USDC contract/mint per network. */
+export const USDC = {
+  base:         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  baseSepolia:  "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  ethereum:     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  sepolia:      "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  celo:         "0xcEBA9300f2b948710d2653dD7B07f33A8B32118C",
+  celoSepolia:  "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
+  solana:       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  solanaDevnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+} as const satisfies Record<NetworkName, string>;
+
+/**
+ * EIP-712 domain of each EVM USDC contract.
+ *
+ * Required, not decorative. EVM settlement uses EIP-3009
+ * (`transferWithAuthorization`), and the client cannot construct the signature
+ * without the token's EIP-712 `name` and `version`. Omit them and the client
+ * fails with "EIP-712 domain parameters (name, version) are required in payment
+ * requirements" — the server looks healthy and every EVM payment is impossible.
+ *
+ * These are NOT guessable: Base mainnet USDC is "USD Coin" while Base Sepolia
+ * USDC is "USDC". Values below were read from the contracts via `eth_call`
+ * (`name()` / `version()`) on 2026-07-30, except Ethereum mainnet — public RPCs
+ * refused the call, and we do not currently sell on that network. Verify before
+ * enabling it. Celo mainnet and Celo Sepolia were read via forno on 2026-09-12.
+ *
+ * USDC only. Other stablecoins (Celo USDT/USAT) live in `STABLECOINS` below.
+ */
+export const EIP712_DOMAIN: Partial<Record<NetworkName, { name: string; version: string }>> = {
+  base:        { name: "USD Coin", version: "2" },
+  baseSepolia: { name: "USDC",     version: "2" },
+  sepolia:     { name: "USDC",     version: "2" },
+  ethereum:    { name: "USD Coin", version: "2" }, // unverified — see above
+  celo:        { name: "USDC",     version: "2" },
+  celoSepolia: { name: "USDC",     version: "2" },
+};
+
+export type StablecoinSymbol = "USDC" | "USDT" | "USAT";
+
+export interface StablecoinInfo {
+  address: string;
+  /** EIP-712 domain for EIP-3009 signing; absent for SVM. */
+  domain?: { name: string; version: string };
+}
+
+/**
+ * Every EIP-3009 stablecoin we can price in, per network. All are 6 decimals.
+ *
+ * Celo USDT and USAT domains come from the facilitator's authoritative table
+ * (x402.celo.org/SKILL.md and /api/config, 2026-09-12), not from the chain:
+ * both tokens revert on `version()` and `eip712Domain()`, so there is nothing
+ * on-chain to read. Note `name` is not the symbol ("Tether USD", not "USDT").
+ *
+ * Never put a Celo fee-currency adapter address here — the adapters report 18
+ * decimals and a price quoted against one is off by 10^12.
+ */
+export const STABLECOINS: Partial<Record<NetworkName, Partial<Record<StablecoinSymbol, StablecoinInfo>>>> = {
+  ...Object.fromEntries(
+    (Object.keys(USDC) as NetworkName[]).map(n => [n, { USDC: { address: USDC[n], domain: EIP712_DOMAIN[n] } }]),
+  ),
+  celo: {
+    USDC: { address: USDC.celo, domain: EIP712_DOMAIN.celo },
+    USDT: { address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", domain: { name: "Tether USD", version: "1" } },
+    USAT: { address: "0xD2ab3C9A02DBBAB236BfEC45D1d755DF4267F771", domain: { name: "Tether America USD", version: "1" } },
+  },
+};
+
+/** Look up a stablecoin, failing loudly rather than pricing against nothing. */
+export function stablecoin(network: NetworkName, symbol: StablecoinSymbol = "USDC"): StablecoinInfo {
+  const info = STABLECOINS[network]?.[symbol];
+  if (!info) throw new Error(`${symbol} is not configured on ${network}`);
+  return info;
+}
+
+/** True for networks where a mistake costs real money. */
+export function isMainnet(network: NetworkName): boolean {
+  return network === "base" || network === "ethereum" || network === "solana" || network === "celo";
+}
+
+/** EVM networks settle via EIP-3009 and need the token's EIP-712 domain. */
+export function isEvm(network: NetworkName): boolean {
+  return NETWORKS[network].startsWith("eip155:");
+}
+
+/** USDC has 6 decimals on every network we support. */
+const USDC_DECIMALS = 6;
+
+/**
+ * Convert a dollar amount to USDC atomic units.
+ *
+ * Prefer this over the `"$0.01"` price-string form: the string form resolves via
+ * the chain's configured default stablecoin, which only exists on some chains,
+ * whereas an explicit asset + atomic amount works everywhere.
+ */
+export function usdc(dollars: number): string {
+  if (!Number.isFinite(dollars) || dollars < 0) {
+    throw new Error(`Invalid USDC amount: ${dollars}`);
+  }
+  return Math.round(dollars * 10 ** USDC_DECIMALS).toString();
+}
+
+/** Inverse of `usdc()`, for logging and receipts. */
+export function usdcToDollars(atomic: string | bigint): number {
+  return Number(BigInt(atomic)) / 10 ** USDC_DECIMALS;
+}

@@ -3,6 +3,7 @@ import net from 'net';
 import { probeAuthBypass } from './auth-bypass.js';
 import { probeCors }       from './cors-probe.js';
 import { probeInfoLeak }   from './info-leak.js';
+import { probeDataExposure } from './data-exposure.js';
 import type { Finding }    from '../report.js';
 
 function isBlockedIpv4(ip: string): boolean {
@@ -73,15 +74,17 @@ export async function runDynamicProbes(endpoint: string): Promise<Finding[]> {
   await assertSafeEndpoint(endpoint); // throws → caller catches, no probes run
   const findings: Finding[] = [];
 
-  const [bypass, cors, info] = await Promise.allSettled([
+  const [bypass, cors, info, exposure] = await Promise.allSettled([
     probeAuthBypass(endpoint),
     probeCors(endpoint),
     probeInfoLeak(endpoint),
+    probeDataExposure(endpoint),
   ]);
 
-  if (bypass.status === 'fulfilled') findings.push(...bypass.value);
-  if (cors.status   === 'fulfilled') findings.push(...cors.value);
-  if (info.status   === 'fulfilled') findings.push(...info.value);
+  if (bypass.status   === 'fulfilled') findings.push(...bypass.value);
+  if (cors.status     === 'fulfilled') findings.push(...cors.value);
+  if (info.status     === 'fulfilled') findings.push(...info.value);
+  if (exposure.status === 'fulfilled') findings.push(...exposure.value);
 
   return findings;
 }
