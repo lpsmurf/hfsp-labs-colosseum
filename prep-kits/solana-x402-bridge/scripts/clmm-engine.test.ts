@@ -7,7 +7,6 @@ const fails: string[] = [];
 const ok = (cond: boolean, name: string) => { if (cond) pass++; else { fail++; if (fails.length < 25) fails.push(name); } };
 
 const ENTRY = 100;
-let lastIlBelow = 0, lastIlAbove = 0;
 for (let P = 40; P <= 260; P += 2) {                 // current price sweep
   for (const w of [5, 10, 20, 40, 80]) {             // half-width % of the range
     const Pa = ENTRY * (1 - w / 100), Pb = ENTRY * (1 + w / 100);
