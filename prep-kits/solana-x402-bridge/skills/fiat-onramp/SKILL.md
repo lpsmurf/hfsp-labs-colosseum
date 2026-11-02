@@ -7,6 +7,8 @@ description: Fund a Solana agent with fiat (card/bank) or cash out to fiat, via 
 
 Onramper integration — the fiat aggregator that mirrors our bridge aggregator.
 
+> **Status:** the cross-chain **bridge aggregation is LIVE and proven on mainnet** (real round-trip txs). This **Onramper fiat layer currently runs against Onramper's SANDBOX** (staging API / test key) — onramp quotes work end-to-end in sandbox; production fiat on/off-ramp is wired and coming soon.
+
 ## Onramp (fiat -> crypto)
 - Quote fiat -> USDC delivered on Solana OR directly on the destination EVM chain.
 - Onramper ranks 20+ providers; surface its best quote next to the bridge quote so the agent picks "fund + bridge" vs "fund directly on destination".
