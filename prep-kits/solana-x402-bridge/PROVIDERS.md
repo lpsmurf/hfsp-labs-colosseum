@@ -1,8 +1,8 @@
 # Bridge Providers — Adapter Specs (5 providers)
 
-The aggregator (`scripts/bridge-aggregator.ts`) ranks these **5 Solana → EVM** providers by net amount-out. Each implements the `BridgeProvider` interface in `scripts/providers.ts`: `supports()`, `quote()`, `execute()`, `status()`.
+The aggregator (`scripts/bridge-aggregator.ts`) ranks these **5 Solana → EVM** providers by net amount-out. Each implements the `BridgeProvider` interface in `scripts/providers.ts`: `supportsPair(srcToken, chain, destToken)`, `quote()`, `execute()`, `status()`.
 
-> All endpoints/SDKs below are starting points — confirm versions against each provider's live docs before implementing. Normalize every quote into `ProviderQuote` (amountOutUSDC net of provider fee + gas, etaSeconds, reliabilityScore).
+> All endpoints/SDKs below are starting points — confirm versions against each provider's live docs before implementing. Normalize every quote into `ProviderQuote` (`amountOut` in **destination-token units**, net of provider fee + gas; etaSeconds; reliabilityScore).
 
 ---
 
@@ -49,7 +49,7 @@ The aggregator (`scripts/bridge-aggregator.ts`) ranks these **5 Solana → EVM**
 ---
 
 ## Ranking inputs the aggregator expects from each adapter
-`{ provider, amountOutUSDC (net), bridgeFeeUSDC, bridgeFeeBps, networkFeesUSDC, etaSeconds, reliabilityScore, route }`
+`{ provider, amountOut (net, destination-token units), bridgeFeeUSDC, bridgeFeeBps, networkFeesUSDC, etaSeconds, reliabilityScore, route }` — matches `ProviderQuote` in `scripts/types.ts`.
 
 ## MVP order (24h)
 1. **CCTP** (benchmark) + **Mayan** (Solana-native) → prove aggregation with 2.

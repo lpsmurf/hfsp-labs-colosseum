@@ -6,7 +6,7 @@
 
 ## Why this matters
 
-Solana agents are trapped on Solana, and the few "bridge" attempts hardcode a single route. There is **no bridge-aggregator skill** in the Solana AI Kit ecosystem. This package shops **multiple bridge providers** (Circle CCTP, Mayan, deBridge, Wormhole, Allbridge, LI.FI, our x402 relayer), returns the best net rate, and proves it on screen — plus an **Onramper** fiat layer for funding and cash-out.
+Solana agents are trapped on Solana, and the few "bridge" attempts hardcode a single route. There is **no bridge-aggregator skill** in the Solana AI Kit ecosystem. This package shops **multiple bridge providers** (Circle CCTP, Mayan, deBridge, Wormhole, Allbridge — with LI.FI and the HFSP x402 relayer as planned/optional adapters), returns the best net rate, and proves it on screen — plus an **Onramper** fiat layer for funding and cash-out.
 
 **Solana is always the front door.** Every flow starts from a Solana wallet/agent.
 
@@ -23,12 +23,14 @@ Solana agents are trapped on Solana, and the few "bridge" attempts hardcode a si
 | `polymarket-read` | Read Polymarket markets, odds, positions (demo layer) |
 | `polymarket-bet` | Place / redeem Polymarket bets (demo layer) |
 
-## Demo (60s)
+## Demo (60s) — planned
+
+> **Not runnable yet.** Provider `quote()`/`execute()` and `polymarket.ts bet` are scaffold TODOs; this is the target flow.
 
 ```bash
 # "Bet 5 USDC that <event> resolves YES on Polymarket"
-npx tsx scripts/bridge-quote.ts 5 polygon usdc      # aggregates providers -> best + comparison
-npx tsx scripts/bridge-execute.ts 5 polygon usdc    # routes best provider, Solana -> Polygon
+npx tsx scripts/bridge-quote.ts USDC 5 polygon USDC    # aggregates providers -> best + comparison
+npx tsx scripts/bridge-execute.ts USDC 5 polygon USDC    # routes best provider, Solana -> Polygon
 npx tsx scripts/polymarket.ts bet <marketId> YES 5  # bet on real market
 # optional: npx tsx scripts/onramp.ts quote USD 20 solana   # fund with fiat first
 ```
