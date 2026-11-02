@@ -4,7 +4,8 @@ import { fileURLToPath } from 'url';
 import express           from 'express';
 import helmet            from 'helmet';
 import { auditRouter }   from './routes/audit.js';
-import { config, AUDIT_PRICE_USDC, BASE_USDC } from './config.js';
+import { x402Gate, enabledNetworks } from './x402.js';
+import { config, AUDIT_PRICE_USDC } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,9 @@ app.use(helmet());
 app.use(express.json({ limit: '32kb' }));
 app.set('trust proxy', 1);
 
+// x402 V2 gate runs before the router: a PAYMENT-SIGNATURE request is verified
+// and settled here, so auditRouter only ever sees paid traffic on that path.
+app.use(x402Gate);
 app.use('/audit', auditRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'x402-audit-api' }));
@@ -24,10 +28,11 @@ app.get('/info', (_req, res) => {
     version:     '0.1.0',
     description: 'Pay $0.99 USDC to get a static + dynamic security audit of any public x402 GitHub repo',
     price:       `${AUDIT_PRICE_USDC} USDC`,
-    networks:    ['base', 'solana'],
+    networks:    enabledNetworks,
     payTo: {
       base:   config.PAYMENT_RECIPIENT_BASE,
       solana: config.PAYMENT_RECIPIENT_SOL,
+      ...(enabledNetworks.some(n => n.startsWith('celo')) ? { celo: config.PAYMENT_RECIPIENT_CELO } : {}),
     },
   });
 });
@@ -52,5 +57,6 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 const PORT = parseInt(config.PORT);
 app.listen(PORT, () => {
   console.log(`[x402-audit-api] listening on :${PORT}`);
-  console.log(`[x402-audit-api] price: $${AUDIT_PRICE_USDC} USDC | Base → ${config.PAYMENT_RECIPIENT_BASE} | Solana → ${config.PAYMENT_RECIPIENT_SOL}`);
+  console.log(`[x402-audit-api] price: $${AUDIT_PRICE_USDC} USDC | Base → ${config.PAYMENT_RECIPIENT_BASE} | Solana → ${config.PAYMENT_RECIPIENT_SOL}` +
+    (enabledNetworks.some(n => n.startsWith('celo')) ? ` | Celo → ${config.PAYMENT_RECIPIENT_CELO}` : ' | Celo off'));
 });

@@ -45,6 +45,13 @@ Thumbs.db
 .env.platform
 .env.trial
 .env.mcp-server
+# Any other .env.* variant (phase4, staging, etc.) — keep only *.example templates tracked
+.env.*
+!.env.example
+!.env.*.example
+
+# Firecrawl scrape output — regenerable scratch data
+.firecrawl/
 data/*.sqlite
 
 # Logs
@@ -126,7 +133,25 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
 
-# Local scratch / working artifacts (not part of the product)
+# Security audit working files — may contain unpatched vulnerability detail
+# under coordinated-disclosure embargo. NEVER commit to a public repo.
+# Redacted, embargo-safe summaries belong in x402-audit/findings/ instead.
+.superstack/
+
+# Local signing material and generated compiler state
+packages/prop-pool/.devnet-wallet.json
+packages/prop-pool/.m0-cache.json
+**/target/
+**/*.tsbuildinfo
+
+# Local agent tool config (contains credentials)
+.codex/
+
+# External pay-skills repo clone (regenerable scratch)
+.tmp-pay-skills/
+
+# Local tooling scratch + build artifacts
+.firecrawl/
 .openclaw/
-data/
-prep-kits/
+**/dist-test/
+**/tsconfig.tsbuildinfo

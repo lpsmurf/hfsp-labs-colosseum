@@ -3,8 +3,9 @@ import net from 'net';
 import { probeAuthBypass } from './auth-bypass.js';
 import { probeCors }       from './cors-probe.js';
 import { probeInfoLeak }   from './info-leak.js';
-import { probeSchemaLeak } from './schema-leak.js';
-import { probeHeaders }    from './headers.js';
+import { probeDataExposure } from './data-exposure.js';
+import { probeSchemaLeak }  from './schema-leak.js';
+import { probeHeaders }     from './headers.js';
 import { probeHttpMethods } from './http-methods.js';
 import type { Finding }    from '../report.js';
 
@@ -78,21 +79,19 @@ export async function runDynamicProbes(endpoint: string): Promise<Finding[]> {
   await assertSafeEndpoint(endpoint); // throws → caller catches, no probes run
   const findings: Finding[] = [];
 
-  const [bypass, cors, info, leak, headers, methods] = await Promise.allSettled([
+  const [bypass, cors, info, exposure, leak, headers, methods] = await Promise.allSettled([
     probeAuthBypass(endpoint),
     probeCors(endpoint),
     probeInfoLeak(endpoint),
+    probeDataExposure(endpoint),
     probeSchemaLeak(endpoint),
     probeHeaders(endpoint),
     probeHttpMethods(endpoint),
   ]);
 
-  if (bypass.status  === 'fulfilled') findings.push(...bypass.value);
-  if (cors.status    === 'fulfilled') findings.push(...cors.value);
-  if (info.status    === 'fulfilled') findings.push(...info.value);
-  if (leak.status    === 'fulfilled') findings.push(...leak.value);
-  if (headers.status === 'fulfilled') findings.push(...headers.value);
-  if (methods.status === 'fulfilled') findings.push(...methods.value);
+  for (const r of [bypass, cors, info, exposure, leak, headers, methods]) {
+    if (r.status === 'fulfilled') findings.push(...r.value);
+  }
 
   return findings;
 }

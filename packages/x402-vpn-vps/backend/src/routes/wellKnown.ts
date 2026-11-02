@@ -1,5 +1,7 @@
 import { Router } from "express";
 import env from "../config.js";
+import { NETWORKS, STABLECOINS } from "@hfsp/x402-common";
+import { enabledNetworks } from "../middleware/x402.js";
 
 const router = Router();
 
@@ -10,18 +12,33 @@ const REGIONS = [
   { id: "SG_SIN", city: "Singapore",               continent: "APAC" },
 ];
 
+// Every rail a buyer can pay on. The 402 challenge is authoritative; this list
+// only saves crawlers a request per route.
+const acceptedPayments = [
+  { network: NETWORKS.solana, asset: STABLECOINS.solana!.USDC!.address, symbol: "USDC", payTo: env.OPERATOR_SOLANA_ADDRESS },
+  ...(enabledNetworks.includes("celo") ? (["USDC", "USDT"] as const).map(symbol => ({
+    network: NETWORKS.celo, asset: STABLECOINS.celo![symbol]!.address, symbol, payTo: env.CELO_PAYMENT_RECIPIENT!,
+  })) : []),
+];
+
 // x402 discovery manifest — indexed by Agentic.Market, x402scan, pay-skills, and CDP AgentKit
 const manifest = {
   name:        "HFSP VPN x402",
-  description: "Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana. No account, no logs, no identity.",
+  description: `Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana${enabledNetworks.includes("celo") ? ", or USDC/USDT on Celo" : ""}. No account, no logs, no identity.`,
   version:     "2.0.0",
   contact:     "info@hfsp.xyz",
   url:         "https://vpn.hfsp.cloud",
-  network:     "solana",
+  x402Version: 2,
+  network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
   networkId:   "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
   asset:       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   recipient:   env.OPERATOR_SOLANA_ADDRESS,
-  paymentHeader: "X-Solana-Tx",
+  acceptedPayments,
+  // Standard V2 header. X-Solana-Tx still works but is not advertised as the
+  // primary path — a crawler that reads this should tell agents to use the
+  // standard flow, not our custom one.
+  paymentHeader:       "PAYMENT-SIGNATURE",
+  legacyPaymentHeader: "X-Solana-Tx",
   regions:     REGIONS,
   services: [
     // ── VPN ──────────────────────────────────────────────────────────────────
@@ -33,7 +50,7 @@ const manifest = {
       price:       "0.20",
       priceAtomic: 200000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "DE_NBG|FI_HEL|US_HIL|SG_SIN", clientWgPublicKey: "string (base64 X25519, generated client-side)" },
       output:      { ip: "string", serverWgPubKey: "string (base64)", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 1-hour burner. Generate X25519 keypair client-side, send public key, get server IP + pubkey back.",
@@ -46,7 +63,7 @@ const manifest = {
       price:       "0.79",
       priceAtomic: 790000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "string", clientWgPublicKey: "string" },
       output:      { ip: "string", serverWgPubKey: "string", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 24-hour pass.",
@@ -59,7 +76,7 @@ const manifest = {
       price:       "2.99",
       priceAtomic: 2990000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "string", clientWgPublicKey: "string" },
       output:      { ip: "string", serverWgPubKey: "string", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 7-day pass.",
@@ -72,7 +89,7 @@ const manifest = {
       price:       "7.99",
       priceAtomic: 7990000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "string", clientWgPublicKey: "string" },
       output:      { ip: "string", serverWgPubKey: "string", expiresAt: "ISO8601" },
       description: "Anonymous WireGuard VPN — 30-day pass.",
@@ -86,7 +103,7 @@ const manifest = {
       price:       "0.25",
       priceAtomic: 250000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "string", sshPublicKey: "string (OpenSSH Ed25519, generated client-side)" },
       output:      { ip: "string", wireguardClientConf: "string (base64)", expiresAt: "ISO8601" },
       description: "Ephemeral Ubuntu VPS — 1-hour burner. SSH public key generated client-side; private key never leaves the client. Server ready in ~60s.",
@@ -99,7 +116,7 @@ const manifest = {
       price:       "0.79",
       priceAtomic: 790000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "string", sshPublicKey: "string" },
       output:      { ip: "string", wireguardClientConf: "string", expiresAt: "ISO8601" },
       description: "Ephemeral Ubuntu VPS — 24-hour.",
@@ -112,7 +129,7 @@ const manifest = {
       price:       "3.99",
       priceAtomic: 3990000,
       currency:    "USDC",
-      network:     "solana",
+      network:     "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       input:       { region: "string", sshPublicKey: "string" },
       output:      { ip: "string", wireguardClientConf: "string", expiresAt: "ISO8601" },
       description: "Ephemeral Ubuntu VPS — 7-day.",
