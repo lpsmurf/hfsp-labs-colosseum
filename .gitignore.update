@@ -1,3 +1,0 @@
-# Keep .internal/ untracked (internal docs only)
-.internal/sessions/*.json
-.internal/sessions/*.log

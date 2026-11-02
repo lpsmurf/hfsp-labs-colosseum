@@ -87,7 +87,7 @@ fi
 
 # Start/restart services
 # Mac Mini: use mac-mini-ecosystem.config.json; legacy VPS used ecosystem.config.json
-PM2_CONFIG="${PM2_CONFIG:-mac-mini-ecosystem.config.json}"
+PM2_CONFIG="${PM2_CONFIG:-config/pm2/mac-mini-ecosystem.config.json}"
 if [ ! -f "$PM2_CONFIG" ]; then PM2_CONFIG="ecosystem.config.json"; fi
 pm2 start "$PM2_CONFIG" --env production || pm2 restart "$PM2_CONFIG"
 echo "✅ Services started with pm2"
