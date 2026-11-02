@@ -7,6 +7,7 @@ export function injectTelegramMock() {
 
   const mockUser = {
     id: 123456789,
+    is_bot: false,
     first_name: 'Dev',
     last_name: 'User',
     username: 'devuser',
@@ -40,17 +41,8 @@ export function injectTelegramMock() {
       viewportHeight: window.innerHeight,
       viewportStableHeight: window.innerHeight,
       isClosingConfirmationEnabled: false,
-      headerColor: '#1e1e1e',
-      backgroundColor: '#1e1e1e',
-      BackButton: { isVisible: false, show: () => {}, hide: () => {}, onClick: () => {} },
-      MainButton: {
-        text: '', color: '#0088cc', textColor: '#ffffff',
-        isVisible: false, isProgressVisible: false, isActive: true,
-        show: () => {}, hide: () => {}, enable: () => {}, disable: () => {},
-        showProgress: () => {}, hideProgress: () => {},
-        onClick: () => {}, offClick: () => {},
-        setText: () => {}, setParams: () => {},
-      },
+      HeaderColor: '#1e1e1e',
+      BackgroundColor: '#1e1e1e',
       HapticFeedback: {
         impactOccurred: () => {},
         notificationOccurred: () => {},
@@ -58,11 +50,9 @@ export function injectTelegramMock() {
       },
       CloudStorage: {
         setItem: (_k: string, _v: string, cb?: (e: null) => void) => cb?.(null),
-        getItem: (_k: string, cb?: (e: null, v: string) => void) => cb?.(null, ''),
-        getItems: (_k: string[], cb?: (e: null, v: Record<string, string>) => void) => cb?.(null, {}),
+        getItem: (_k: string, cb?: (v?: string) => void) => cb?.(''),
         removeItem: (_k: string, cb?: (e: null) => void) => cb?.(null),
-        removeItems: (_k: string[], cb?: (e: null) => void) => cb?.(null),
-        getKeys: (cb?: (e: null, k: string[]) => void) => cb?.(null, []),
+        getKeys: (cb?: (k?: string[]) => void) => cb?.([]),
       },
       ready: () => { console.log('[TG Mock] ready()'); },
       expand: () => {},
@@ -75,12 +65,13 @@ export function injectTelegramMock() {
       showPopup: () => {},
       showScanQrPopup: () => {},
       closeScanQrPopup: () => {},
-      readTextFromClipboard: (_cb: (text: string) => void) => _cb(''),
-      requestWriteAccess: (_cb: (ok: boolean) => void) => _cb(true),
-      requestPhoneNumber: (_cb: (ok: boolean) => void) => _cb(true),
+      readTextFromClipboard: (_cb?: (text?: string) => void) => _cb?.(''),
+      requestWriteAccess: (_cb?: (ok: boolean) => void) => _cb?.(true),
+      requestPhoneNumber: (_cb?: (ok: boolean) => void) => _cb?.(true),
       sendData: (data: string) => console.log('[TG Mock] sendData:', data),
       openLink: (url: string) => window.open(url, '_blank'),
       openTelegramLink: (url: string) => window.open(url, '_blank'),
+      openInvoice: (_url: string, onClosed?: (status: 'paid' | 'cancelled' | 'failed') => void) => onClosed?.('cancelled'),
       onEvent: (event: string, cb: () => void) => {
         console.log('[TG Mock] onEvent:', event);
         if (event === 'themeChanged') setTimeout(cb, 100);
