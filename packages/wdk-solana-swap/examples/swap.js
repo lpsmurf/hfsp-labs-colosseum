@@ -11,33 +11,33 @@ import { Keypair } from '@solana/web3.js'
 import bs58 from 'bs58'
 import SolanaSwapProtocol from '../index.js'
 
-const SOL_MINT  = 'So11111111111111111111111111111111111111112'
+const SOL_MINT = 'So11111111111111111111111111111111111111112'
 const USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
 
 async function run () {
   const privateKeyB58 = process.env.PRIVATE_KEY
-  const rpcUrl        = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com'
-  const amountSol     = parseFloat(process.env.AMOUNT_SOL || '0.002')
+  const rpcUrl = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com'
+  const amountSol = parseFloat(process.env.AMOUNT_SOL || '0.002')
 
   if (!privateKeyB58) {
     console.error('Error: PRIVATE_KEY env var required (base58 Solana private key)')
     process.exit(1)
   }
 
-  const keypair      = Keypair.fromSecretKey(bs58.decode(privateKeyB58))
+  const keypair = Keypair.fromSecretKey(bs58.decode(privateKeyB58))
   const amountAtomic = BigInt(Math.round(amountSol * 1e9)) // SOL has 9 decimals
 
   // WDK-compatible account wrapping the keypair
   const account = {
-    getAddress:      async () => keypair.publicKey.toBase58(),
-    keyPair:         { publicKey: keypair.publicKey.toBytes(), privateKey: keypair.secretKey },
+    getAddress: async () => keypair.publicKey.toBase58(),
+    keyPair: { publicKey: keypair.publicKey.toBytes(), privateKey: keypair.secretKey },
     sendTransaction: async () => {}
   }
 
   const swapper = new SolanaSwapProtocol(account, {
     rpcUrl,
     slippageBps: 50,
-    swapMaxFee:  100_000n
+    swapMaxFee: 100_000n
   })
 
   console.log('─'.repeat(60))
@@ -46,13 +46,13 @@ async function run () {
   console.log('─'.repeat(60))
   console.log(`\n Wallet:  ${keypair.publicKey.toBase58()}`)
   console.log(` Selling: ${amountSol} SOL`)
-  console.log(` Buying:  USDT`)
+  console.log(' Buying:  USDT')
 
   // Step 1: quote
   process.stdout.write('\n[1/3] Fetching Jupiter quote ...')
   const quote = await swapper.quoteSwap({
-    tokenIn:       SOL_MINT,
-    tokenOut:      USDT_MINT,
+    tokenIn: SOL_MINT,
+    tokenOut: USDT_MINT,
     tokenInAmount: amountAtomic
   })
   const outUsdc = (Number(quote.tokenOutAmount) / 1e6).toFixed(6)
@@ -68,7 +68,7 @@ async function run () {
   } catch (err) {
     if (err.message.includes('429')) {
       process.stdout.write(' rate limited, retrying in 5s ...')
-      await new Promise(r => setTimeout(r, 5000))
+      await new Promise(resolve => setTimeout(resolve, 5000))
       result = await swapper.swap({ tokenIn: SOL_MINT, tokenOut: USDT_MINT, tokenInAmount: amountAtomic })
     } else {
       throw err
