@@ -1,0 +1,84 @@
+# Baseline of pre-existing gitleaks findings.
+# These remain in git history; rotation of the underlying credentials
+# is tracked outside this file. New leaks will still fail CI.
+# Format: commit:path:rule:line (dir-scan findings omit the commit).
+0133e5e837cf81fe007bf2599383df79c2728035:install.sh:generic-api-key:32
+0133e5e837cf81fe007bf2599383df79c2728035:install.sh:generic-api-key:33
+0133e5e837cf81fe007bf2599383df79c2728035:packages/clawdrop-mcp/cli.cjs:generic-api-key:103
+0133e5e837cf81fe007bf2599383df79c2728035:packages/clawdrop-mcp/cli.cjs:generic-api-key:104
+032fc97ac3b27c1fa1bf7417ab38819428bcedd6:packages/prop-pool/.env.example:generic-api-key:11
+0647081d39b6e9d2c80c08ed9ad04b279e084aa7:packages/wdk-browser-extension/src/background/service-worker.js:generic-api-key:28
+09c40e0d0feec41c462fb78de802cab0b05117d0:scripts/migrate-to-mac-mini.sh:curl-auth-header:118
+0a9a388d3d75874fb520e60ca00004b3279bcf5d:x402-audit/archive/services-raw-2026-06-05.json:generic-api-key:1038258
+0a9a388d3d75874fb520e60ca00004b3279bcf5d:x402-audit/archive/services-raw-2026-06-05.json:jwt:936107
+109fb0fba3d1f278b867d2705b903e8d7a0aa777:packages/clawdrop-mcp/.clawdrop/agents/Sol test/docker-compose.yml:generic-api-key:12
+109fb0fba3d1f278b867d2705b903e8d7a0aa777:packages/clawdrop-mcp/.clawdrop/agents/Sol test/docker-compose.yml:telegram-bot-api-token:11
+1883650fbfdef1dac0b5130a2f7a41112f5c352f:packages/x402-audit-api/src/static/secrets.ts:private-key:41
+1b4b9d625ade6f57249d0cf7089a4abc679f42e9:docker-compose.trial.yml:generic-api-key:34
+1fabca0fa912a91c2cb1e3ca142dd841801676de:.claude/skills/colosseum-debug.md:generic-api-key:139
+25509fe1c0c9b0fc5c6fe7abc79941cb76df322c:packages/x402-audit-api/src/static/secrets.ts:private-key:41
+2650273b18b06a095d56854edcbb7120565f1a01:.claude/HANDOFFS.md:generic-api-key:1107
+2650273b18b06a095d56854edcbb7120565f1a01:.claude/HANDOFFS.md:generic-api-key:1118
+27c17b5156286fe01998966e54a989b377262158:docs/handoffs/KIMI_VPS_MIGRATION.md:generic-api-key:206
+27c17b5156286fe01998966e54a989b377262158:docs/handoffs/KIMI_VPS_MIGRATION.md:generic-api-key:207
+2b8e972e3d4624dace464bae3bf8e4cce59eda74:packages/clawdrop-mcp/.clawdrop/agents/Sol test/docker-compose.yml:generic-api-key:12
+2b8e972e3d4624dace464bae3bf8e4cce59eda74:packages/clawdrop-mcp/.clawdrop/agents/Sol test/docker-compose.yml:telegram-bot-api-token:11
+2ba439e2564888ba5430502db308a2acc19ae12d:3DAY_SPRINT.md:curl-auth-header:564
+2ba439e2564888ba5430502db308a2acc19ae12d:spec-kit/03-BACKEND_SPECS.md:generic-api-key:134
+2ba439e2564888ba5430502db308a2acc19ae12d:spec-kit/03-BACKEND_SPECS.md:generic-api-key:89
+2ba439e2564888ba5430502db308a2acc19ae12d:spec-kit/06-WIZARD_PAYWALL_ARCHITECTURE.md:generic-api-key:356
+2d28638e9bcf3b1969f30a675a2526492ca1dcd2:packages/trial-api/src/bento-guard.ts:generic-api-key:15
+31fe6a6a925f608ca7447643dc814f5a0ed30297:packages/clawdrop-mcp/.clawdrop/agents/hfsp/deployment.json:generic-api-key:26
+31fe6a6a925f608ca7447643dc814f5a0ed30297:packages/clawdrop-mcp/.clawdrop/agents/hfsp/deployment.json:telegram-bot-api-token:24
+3aa2c4bd40df6916e7b4c56ddba1153130d02fe4:install.sh:generic-api-key:32
+3aa2c4bd40df6916e7b4c56ddba1153130d02fe4:install.sh:generic-api-key:33
+3aa2c4bd40df6916e7b4c56ddba1153130d02fe4:packages/clawdrop-mcp/cli.cjs:generic-api-key:103
+3aa2c4bd40df6916e7b4c56ddba1153130d02fe4:packages/clawdrop-mcp/cli.cjs:generic-api-key:104
+412fa264e2bb4ed8ea93d8bb2928a7aa987bb358:packages/x402-audit/archive/services-raw-2026-06-05.json:generic-api-key:1038258
+412fa264e2bb4ed8ea93d8bb2928a7aa987bb358:packages/x402-audit/archive/services-raw-2026-06-05.json:jwt:936107
+488ac48d7d80627f54b5d03486552b7a4034116e:SESSIONS/KIMI-BRIEFING-2026-05-05.md:generic-api-key:88
+4aed9fb39976a6d525729c30156f31cad32893ea:SESSIONS/KIMI-BRIEFING-2026-05-05.md:generic-api-key:88
+4d1049c2b37cdf2ac822f12139b89984807f9fec:packages/clawdrop-vpn/.env.example:generic-api-key:15
+585771b4ffe4c66b40bc0d12ed31341194c09bb1:.claude/HANDOFFS.md:generic-api-key:1226
+585771b4ffe4c66b40bc0d12ed31341194c09bb1:.claude/HANDOFFS.md:generic-api-key:1265
+634d21405b3ee969d9be75edf7234b1f79450286:3DAY_SPRINT.md:curl-auth-header:564
+634d21405b3ee969d9be75edf7234b1f79450286:spec-kit/03-BACKEND_SPECS.md:generic-api-key:134
+634d21405b3ee969d9be75edf7234b1f79450286:spec-kit/03-BACKEND_SPECS.md:generic-api-key:89
+634d21405b3ee969d9be75edf7234b1f79450286:spec-kit/06-WIZARD_PAYWALL_ARCHITECTURE.md:generic-api-key:356
+66da5fa04fa1a670f477b3f8435970b783dd2c14:.claude/HANDOFFS.md:generic-api-key:1107
+66da5fa04fa1a670f477b3f8435970b783dd2c14:.claude/HANDOFFS.md:generic-api-key:1118
+6b559cc6297e835047c57431e6a3812b7cd7e56a:docs/guides/telegram-bridge-testing.md:generic-api-key:38
+6de6260d06c0ffa91764205c34fc86199fce205f:docs/guides/telegram-bridge-testing.md:generic-api-key:38
+6ecd8ea740c2cb595e0b1ffff3c922e3aeefa9ac:packages/trial-api/src/bento-guard.ts:generic-api-key:15
+721ffc73c14890af459c459b8f5add44a52384e5:worldcup-bounty/PREP-KIT.md:generic-api-key:68
+721ffc73c14890af459c459b8f5add44a52384e5:worldcup-bounty/txline-client.ts:generic-api-key:23
+7ebefed75ddc3c2f35a2e4fb9eef490786ec192b:ENV_SETUP.md:curl-auth-header:148
+7ebefed75ddc3c2f35a2e4fb9eef490786ec192b:ENV_SETUP.md:curl-auth-header:184
+97fb9c7dc34965c256d9009c985ece56a300db0c:packages/clawdrop-vpn/.env.example:generic-api-key:15
+9db8b6680068d7765757345746dd917f3ad07a79:packages/clawdrop-mcp/.clawdrop/agents/hfsp/deployment.json:generic-api-key:26
+9db8b6680068d7765757345746dd917f3ad07a79:packages/clawdrop-mcp/.clawdrop/agents/hfsp/deployment.json:telegram-bot-api-token:24
+a10e37bd3690e37eb26aeb1526526fee1ace4fe9:docker-compose.trial.yml:generic-api-key:34
+ab634c28326c0daa251d596b51b157f520e27dcf:.claude/skills/colosseum-debug.md:generic-api-key:139
+bb32f337b64b7b453847d8bdb5fed1ce5a521fe3:docs/handoffs/KIMI_VPS_MIGRATION.md:generic-api-key:206
+bb32f337b64b7b453847d8bdb5fed1ce5a521fe3:docs/handoffs/KIMI_VPS_MIGRATION.md:generic-api-key:207
+bc4883cf2d16018e0617dcab7a2c43afe156aeb5:packages/wdk-browser-extension/src/background/service-worker.js:generic-api-key:28
+bc4883cf2d16018e0617dcab7a2c43afe156aeb5:packages/worldcup-bounty/PREP-KIT.md:generic-api-key:68
+bc4883cf2d16018e0617dcab7a2c43afe156aeb5:packages/worldcup-bounty/txline-client.ts:generic-api-key:23
+bc4883cf2d16018e0617dcab7a2c43afe156aeb5:packages/x402-audit-api/src/static/secrets.ts:private-key:41
+c18d2a1d410127fc6e2b1d72d033d2504260ea01:packages/worldcup-bounty/PREP-KIT.md:generic-api-key:68
+c18d2a1d410127fc6e2b1d72d033d2504260ea01:packages/worldcup-bounty/txline-client.ts:generic-api-key:23
+c4a76f76234b809f559ab0e860673815bc7635e7:scripts/migrate-to-mac-mini.sh:curl-auth-header:118
+cb13970d303cc4f18c6cefcdf60fc01f232b8e27:packages/oobe-bounty/install.sh:generic-api-key:22
+e0276a38761c8f29a7d00b6f65be8d674ccf55dd:packages/oobe-bounty/install.sh:generic-api-key:22
+eaa2fac212c9a52531bac5e45b4d3a1feeae8151:.claude/HANDOFFS.md:generic-api-key:1226
+eaa2fac212c9a52531bac5e45b4d3a1feeae8151:.claude/HANDOFFS.md:generic-api-key:1265
+ecbdb2155ad652a90097d0ca5399905b9df109d9:worldcup-bounty/PREP-KIT.md:generic-api-key:68
+ecbdb2155ad652a90097d0ca5399905b9df109d9:worldcup-bounty/txline-client.ts:generic-api-key:23
+f4bd18e526b811e7c32c23144468710be02b15c4:packages/worldcup-bounty/PREP-KIT.md:generic-api-key:68
+f4bd18e526b811e7c32c23144468710be02b15c4:packages/worldcup-bounty/txline-client.ts:generic-api-key:23
+f4dea5aecc9b3d55e1e3facd971cc18d5fba56fc:ENV_SETUP.md:curl-auth-header:148
+f4dea5aecc9b3d55e1e3facd971cc18d5fba56fc:ENV_SETUP.md:curl-auth-header:184
+f8b618d92e21ac83035e920ec7ab73b4339c1cd2:SESSIONS/2026-05-05-multi-agent-orchestration.md:generic-api-key:60
+fe94a84cd0fd7fd85d7877fa3e865e3bd32d0a2b:packages/wdk-browser-extension/src/background/service-worker.js:generic-api-key:28
+febbe60b79cf454273b004426230df07d022a9e7:packages/prop-pool/.env.example:generic-api-key:11
+ff19273cdaab4f209c54e168f4b8d2ece91f6fe0:SESSIONS/2026-05-05-multi-agent-orchestration.md:generic-api-key:60
