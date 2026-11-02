@@ -11,6 +11,7 @@ Router skill for best-rate cross-chain execution from Solana to EVM. Load the re
 2. **Quoting a transfer?** → `skills/bridge-quote` — returns aggregated best + comparison. Quote first.
 3. **Executing?** → `skills/bridge-execute` — only after a quote + safety check; routes to the winning provider adapter or the HFSP relayer if preferred.
 4. **Safety / preflight?** → `skills/bridge-safety` — ALWAYS before execute. Allowlist, caps, slippage, RPC freshness.
+4b. **RPC fragile / lagging / failover?** → `skills/rpc-health` — detect lagging/dead RPCs and swap endpoints before execution (Solana + EVM). Reusable standalone utility.
 5. **Which chains/tokens/providers?** → `skills/evm-targets`.
 6. **Fund with fiat / cash out?** → `skills/fiat-onramp` (Onramper).
 7. **Reading Polymarket?** → `skills/polymarket-read`.
