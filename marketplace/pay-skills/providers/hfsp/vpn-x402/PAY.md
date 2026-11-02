@@ -4,6 +4,8 @@ title: "HFSP VPN x402"
 description: "Anonymous WireGuard VPN passes and ephemeral Ubuntu VPS servers. Pay USDC on Solana. No account, no logs, no identity. Servers auto-destroy at expiry."
 use_case: "Use for anonymous VPN tunnels, ephemeral compute, privacy-preserving network access, and burner VPS servers paid with Solana USDC."
 category: cloud
+license: MIT
+compatibility: "Requires a Solana mainnet wallet funded with USDC (mint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v). Requires ability to generate X25519 (WireGuard) or Ed25519 (SSH) keypairs client-side."
 service_url: https://vpn.hfsp.cloud
 openapi:
   path: openapi.json
@@ -15,6 +17,14 @@ ready-to-use WireGuard config or SSH IP — no accounts, no identity, no logs.
 Payment is Solana mainnet USDC via the x402 protocol. Send the USDC transfer,
 then retry the original request with `X-Solana-Tx: <confirmed-signature>`. The
 server verifies on-chain via Helius and provisions immediately.
+
+## Agent safety
+
+Always surface `pay.amount` (in USDC) and the provisioning duration to the user
+before sending any USDC. Never auto-provision without explicit approval.
+Private keys (WireGuard X25519 or SSH Ed25519) must be generated client-side
+and must never be sent to or stored by this service — only the public key is
+transmitted. Each transaction signature is single-use.
 
 ## Endpoints at a glance
 
@@ -39,7 +49,7 @@ POST /api/vpn/week
 { "region": "US_HIL", "clientWgPublicKey": "<base64 X25519>" }
 
 → 402  { pay: { amount: 2990000, mint: "EPjFWdd5...", payTo: "GdAWRcvr..." } }
-→ (send 2.99 USDC on Solana mainnet)
+→ (confirm 2.99 USDC with user, then send on Solana mainnet)
 → POST /api/vpn/week  X-Solana-Tx: <signature>
 → 200  { ip: "1.2.3.4", serverWgPubKey: "<base64>", expiresAt: "..." }
 ```
@@ -54,7 +64,7 @@ POST /api/vps/hour
 { "region": "SG_SIN", "sshPublicKey": "ssh-ed25519 AAAA..." }
 
 → 402  { pay: { amount: 250000, mint: "EPjFWdd5...", payTo: "GdAWRcvr..." } }
-→ (send 0.25 USDC on Solana mainnet)
+→ (confirm 0.25 USDC with user, then send on Solana mainnet)
 → POST /api/vps/hour  X-Solana-Tx: <signature>
 → 200  { ip: "5.6.7.8", wireguardClientConf: "<base64>", expiresAt: "..." }
 → ssh -i key.pem root@5.6.7.8  (server ready in ~60s)
@@ -73,9 +83,7 @@ POST /api/vps/hour
 
 ## Spend-aware usage
 
-- Each request is one USDC transfer — keep retries minimal. The tx signature is
-  single-use; a replay attempt returns 402 immediately.
+- Each request is one USDC transfer — keep retries minimal. The tx signature is single-use; a replay attempt returns 402 immediately.
 - For recurring usage, prefer `week` or `month` passes over many `hour` passes.
-- Use `GET /api/vps/regions` or `GET /api/vpn/regions` before provisioning to
-  verify the target region is listed — the set can change.
+- Use `GET /api/vps/regions` or `GET /api/vpn/regions` before provisioning to verify the target region is listed — the set can change.
 - VPS servers take ~60 seconds to boot. Add a health-check loop before SSH.
