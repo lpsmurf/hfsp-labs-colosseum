@@ -61,7 +61,7 @@ Solana Agent (Claude Code + this skill)
 ## 3. Modules to build
 
 ### Core (MVP — must ship)
-1. **`bridge-quote`** — given (amountUSDC, destChain, destToken), return route, **disclosed fee breakdown**, network fees, amountOut, ETA. Pure read. → `scripts/bridge-quote.ts`
+1. **`bridge-quote`** — given (srcToken, amountIn, destChain, destToken), return route, **disclosed fee breakdown**, network fees, amountOut, ETA. Pure read. → `scripts/bridge-quote.ts`
 2. **`bridge-execute`** — pay via x402, trigger relayer, return source+dest tx + status handle. → `scripts/bridge-execute.ts`
 3. **`bridge-safety`** — preflight gate: destination allowlist, per-tx + daily spend caps, slippage/min-amountOut check, and **freshness guard** (reject if source RPC slot-lag > threshold — never act on stale balance). Confirmation monitor on both chains. → `scripts/bridge-safety.ts` + `scripts/rpc-health.ts`
 4. **`evm-targets`** — registry of supported EVM chains + token addresses + relayer endpoints. → `scripts/evm-targets.ts`
@@ -101,7 +101,7 @@ Each module = a folder with `SKILL.md` (frontmatter `name` + `description`) + re
 ## 6. Acceptance criteria (definition of done)
 
 MVP:
-- [ ] `bridge-quote.ts <amount> <chain> <token>` returns a correct quote with disclosed fee breakdown.
+- [ ] `bridge-quote.ts <srcToken> <amountIn> <destChain> <destToken>` (e.g. `USDC 5 polygon USDC`) returns a correct quote with disclosed fee breakdown.
 - [ ] `bridge-execute.ts` completes a small real USDC bridge Solana → Polygon and returns both tx hashes.
 - [ ] `bridge-safety` blocks: a destination not on the allowlist, an over-cap amount, and a stale-RPC read.
 - [ ] `evm-targets` lists ≥3 EVM chains incl. Polygon.
