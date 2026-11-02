@@ -4,9 +4,9 @@
   "private": true,
   "description": "x402 VPN passes and ephemeral VPS servers — Base mainnet (EVM) via x402.org facilitator",
   "scripts": {
-    "dev":   "npm run dev   --workspace=backend",
-    "build": "npm run build --workspace=backend",
-    "start": "npm run start --workspace=backend"
+    "dev":   "cd backend && npm run dev",
+    "build": "cd backend && npm run build",
+    "start": "cd backend && npm run start"
   },
   "workspaces": ["backend"]
 }

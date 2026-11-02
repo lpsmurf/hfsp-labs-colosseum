@@ -1,0 +1,27 @@
+{
+  "files": 43,
+  "coverage": {
+    "js": 42,
+    "other": 1
+  },
+  "endpoints": [
+    "https://store.hfsp.cloud/api/celo/orders/0123456789abcdef",
+    "https://store.hfsp.cloud/api/celo/checkout/0123456789"
+  ],
+  "findings": [
+    {
+      "id": "STATIC-EXPOSE-001",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "title": "GET /:id returns an upstream response unfiltered",
+      "detail": "`data` comes from an upstream call and is sent to the client as-is. Supplier and provider payloads routinely include the purchased goods (voucher codes, PINs, card numbers), the buyer's contact details, and the provider's own ids — which often fetch the same data upstream. This route looks records up by an id in the path, so anyone who learns an id gets the payload.",
+      "location": "../x402-store/backend/src/routes/orders.ts:133",
+      "fix": "Return an explicit allowlist of fields (status, delivery state, display names) instead of the upstream object. Deliver goods through the channel the buyer controls (email, the paid response itself), and never expose the provider's order id.",
+      "refs": [
+        "CWE-200",
+        "CWE-359",
+        "OWASP API3:2023 Broken Object Property Level Authorization"
+      ]
+    }
+  ]
+}

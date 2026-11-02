@@ -18,7 +18,12 @@ export interface ClawdropRequestContext {
   fee_usd?: number;
   fee_type?: string;
   clawdrop_wallet?: string;
-  
+
+  // Set by the x402 gate once a payment proof has been verified on-chain.
+  // Downstream handlers must treat an absent/false value as unpaid.
+  payment_verified?: boolean;
+  payment_signature?: string;
+
   // From payment middleware (payment execution)
   feeType?: FeeType;
   feeAmount?: number;
