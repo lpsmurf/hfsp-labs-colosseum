@@ -135,12 +135,15 @@ class TelegramAppService {
     const haptic = this.getApp().HapticFeedback;
     if (!haptic) return;
 
+    const impactStyles = ['light', 'medium', 'heavy', 'rigid', 'soft'] as const;
+    const notificationStyles = ['error', 'success', 'warning'] as const;
+
     switch (type) {
       case 'impactOccurred':
-        haptic.impactOccurred(style || 'light');
+        haptic.impactOccurred(impactStyles.find((s) => s === style) ?? 'light');
         break;
       case 'notificationOccurred':
-        haptic.notificationOccurred(style || 'default');
+        haptic.notificationOccurred(notificationStyles.find((s) => s === style) ?? 'warning');
         break;
       case 'selectionChanged':
         haptic.selectionChanged();
