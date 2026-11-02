@@ -13,6 +13,7 @@
     "clawdrop": "./packages/clawdrop-mcp/cli.cjs"
   },
   "workspaces": [
+    "packages/agent-kit-mcp-adapter",
     "packages/agent-provisioning",
     "packages/clawdrop-agent-runtime",
     "packages/clawdrop-landing",
@@ -27,13 +28,18 @@
     "packages/trial-frontend",
     "packages/wdk-solana-swap",
     "packages/wdk-tron-swap",
+    "packages/x402-common",
     "packages/x402-audit-api",
     "packages/x402-bunny-storage",
     "packages/x402-donate",
     "packages/x402-vpn-vps",
     "packages/x402-store",
     "packages/x402-vpn-vps-base",
-    "packages/x402-wallet"
+    "packages/x402-wallet",
+    "packages/x402-vpn-vps/backend",
+    "packages/x402-vpn-vps-base/backend",
+    "packages/x402-store/backend",
+    "packages/celo-commerce-mcp"
   ],
   "scripts": {
     "start": "cd packages/clawdrop-mcp && node dist/api-server.js",
@@ -65,5 +71,17 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lpsmurf/hfsp-labs-colosseum.git"
+  },
+  "overrides": {
+    "aptos": {
+      "form-data": "^4.0.4"
+    },
+    "@okxweb3/crypto-lib": {
+      "protobufjs": "^7.5.5"
+    }
+  },
+  "devDependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   }
 }

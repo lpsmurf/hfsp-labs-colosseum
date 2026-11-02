@@ -21,6 +21,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci --ignore-scripts
+      - run: npm run build --workspace=packages/x402-common
       - run: npm run typecheck --workspaces --if-present
 
   lint:
@@ -33,6 +34,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci --ignore-scripts
+      - run: npm run build --workspace=packages/x402-common
       - run: npm run lint --workspaces --if-present
 
   test:
@@ -45,6 +47,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci --ignore-scripts
+      - run: npm run build --workspace=packages/x402-common
       - run: npm run test --workspaces --if-present
 
   build:
@@ -52,6 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [typecheck, lint]
     strategy:
+      fail-fast: false
       matrix:
         package:
           - x402-vpn-vps
@@ -66,5 +70,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci --ignore-scripts
+      - run: npm run build --workspace=packages/x402-common
       - name: Build ${{ matrix.package }}
         run: npm run build --workspace=packages/${{ matrix.package }} --if-present

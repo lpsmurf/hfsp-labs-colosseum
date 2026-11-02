@@ -11,7 +11,9 @@
     }
   },
   "servers": [
-    { "url": "https://vpn.hfsp.cloud" }
+    {
+      "url": "https://vpn.hfsp.cloud"
+    }
   ],
   "x-x402": {
     "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
@@ -24,38 +26,76 @@
     "schemas": {
       "Region": {
         "type": "string",
-        "enum": ["DE_NBG", "FI_HEL", "US_HIL", "SG_SIN"],
+        "enum": [
+          "DE_NBG",
+          "FI_HEL",
+          "US_HIL",
+          "SG_SIN"
+        ],
         "description": "DE_NBG=Nuremberg Germany, FI_HEL=Helsinki Finland, US_HIL=Hillsboro Oregon USA, SG_SIN=Singapore"
       },
       "PaymentRequired": {
         "type": "object",
         "properties": {
-          "ok":    { "type": "boolean", "example": false },
-          "error": { "type": "string",  "example": "Payment required" },
+          "ok": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Payment required"
+          },
           "pay": {
             "type": "object",
             "properties": {
-              "amount":    { "type": "integer", "description": "Atomic USDC units (6 decimals)", "example": 2990000 },
-              "amountUsd": { "type": "string",  "example": "2.9900" },
-              "mint":      { "type": "string",  "example": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
-              "payTo":     { "type": "string",  "example": "GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY" },
-              "network":   { "type": "string",  "example": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" },
-              "description":{ "type": "string" }
+              "amount": {
+                "type": "integer",
+                "description": "Atomic USDC units (6 decimals)",
+                "example": 2990000
+              },
+              "amountUsd": {
+                "type": "string",
+                "example": "2.9900"
+              },
+              "mint": {
+                "type": "string",
+                "example": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+              },
+              "payTo": {
+                "type": "string",
+                "example": "GdAWRcvrVabFi6QtciGJNYsS8cykJkZTNZ3cFea6ywfY"
+              },
+              "network": {
+                "type": "string",
+                "example": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+              },
+              "description": {
+                "type": "string"
+              }
             }
           },
           "instructions": {
             "type": "string",
-            "example": "Send Solana mainnet USDC, then retry with X-Solana-Tx: <signature>"
+            "example": "Preferred: retry with PAYMENT-SIGNATURE (any x402 V2 client). Legacy: send Solana mainnet USDC yourself, then retry with X-Solana-Tx: <signature>"
           }
         }
       },
       "ApiError": {
         "type": "object",
         "properties": {
-          "ok":     { "type": "boolean", "example": false },
-          "code":   { "type": "string" },
-          "error":  { "type": "string" },
-          "detail": { "type": "string" }
+          "ok": {
+            "type": "boolean",
+            "example": false
+          },
+          "code": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
         }
       }
     }
@@ -71,7 +111,9 @@
             "description": "Discovery manifest",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           }
@@ -90,19 +132,29 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok":      { "type": "boolean" },
+                    "ok": {
+                      "type": "boolean"
+                    },
                     "regions": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id":        { "$ref": "#/components/schemas/Region" },
-                          "city":      { "type": "string" },
-                          "continent": { "type": "string" }
+                          "id": {
+                            "$ref": "#/components/schemas/Region"
+                          },
+                          "city": {
+                            "type": "string"
+                          },
+                          "continent": {
+                            "type": "string"
+                          }
                         }
                       }
                     },
-                    "default": { "$ref": "#/components/schemas/Region" }
+                    "default": {
+                      "$ref": "#/components/schemas/Region"
+                    }
                   }
                 }
               }
@@ -113,7 +165,7 @@
     },
     "/api/vpn/hour": {
       "post": {
-        "summary": "Buy a 1-hour WireGuard VPN pass — $0.20 USDC",
+        "summary": "Buy a 1-hour WireGuard VPN pass \u2014 $0.20 USDC",
         "operationId": "vpnHour",
         "x-x402-amount": "200000",
         "requestBody": {
@@ -122,17 +174,42 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["clientWgPublicKey"],
+                "required": [
+                  "clientWgPublicKey"
+                ],
                 "properties": {
-                  "region":            { "$ref": "#/components/schemas/Region", "default": "DE_NBG" },
-                  "clientWgPublicKey": { "type": "string", "description": "Base64-encoded X25519 WireGuard public key, generated client-side." }
+                  "region": {
+                    "$ref": "#/components/schemas/Region",
+                    "default": "DE_NBG"
+                  },
+                  "clientWgPublicKey": {
+                    "type": "string",
+                    "description": "Base64-encoded X25519 WireGuard public key, generated client-side."
+                  }
                 }
               }
             }
           }
         },
         "parameters": [
-          { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" }, "description": "Confirmed Solana transaction signature proving USDC payment." }
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Legacy payment path: confirmed Solana transaction signature proving USDC payment. Prefer PAYMENT-SIGNATURE."
+          }
         ],
         "responses": {
           "200": {
@@ -142,60 +219,153 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok":    { "type": "boolean", "example": true },
+                    "ok": {
+                      "type": "boolean",
+                      "example": true
+                    },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "ip":            { "type": "string", "example": "1.2.3.4" },
-                        "serverWgPubKey":{ "type": "string", "description": "Base64 X25519 server public key — use to build WireGuard [Peer] section." }
+                        "ip": {
+                          "type": "string",
+                          "example": "1.2.3.4"
+                        },
+                        "serverWgPubKey": {
+                          "type": "string",
+                          "description": "Base64 X25519 server public key \u2014 use to build WireGuard [Peer] section."
+                        }
                       }
                     },
-                    "expiresAt": { "type": "string", "format": "date-time" }
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
                   }
                 }
               }
             }
           },
-          "402": { "description": "Payment required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequired" } } } }
+          "402": {
+            "description": "Payment required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequired"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/vpn/day": {
       "post": {
-        "summary": "Buy a 24-hour WireGuard VPN pass — $0.79 USDC",
+        "summary": "Buy a 24-hour WireGuard VPN pass \u2014 $0.79 USDC",
         "operationId": "vpnDay",
         "x-x402-amount": "790000",
-        "requestBody": { "$ref": "#/paths/~1api~1vpn~1hour/post/requestBody" },
-        "parameters": [ { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "$ref": "#/paths/~1api~1vpn~1hour/post/requestBody"
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "$ref": "#/paths/~1api~1vpn~1hour/post/responses/200" },
-          "402": { "$ref": "#/paths/~1api~1vpn~1hour/post/responses/402" }
+          "200": {
+            "$ref": "#/paths/~1api~1vpn~1hour/post/responses/200"
+          },
+          "402": {
+            "$ref": "#/paths/~1api~1vpn~1hour/post/responses/402"
+          }
         }
       }
     },
     "/api/vpn/week": {
       "post": {
-        "summary": "Buy a 7-day WireGuard VPN pass — $2.99 USDC",
+        "summary": "Buy a 7-day WireGuard VPN pass \u2014 $2.99 USDC",
         "operationId": "vpnWeek",
         "x-x402-amount": "2990000",
-        "requestBody": { "$ref": "#/paths/~1api~1vpn~1hour/post/requestBody" },
-        "parameters": [ { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "$ref": "#/paths/~1api~1vpn~1hour/post/requestBody"
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "$ref": "#/paths/~1api~1vpn~1hour/post/responses/200" },
-          "402": { "$ref": "#/paths/~1api~1vpn~1hour/post/responses/402" }
+          "200": {
+            "$ref": "#/paths/~1api~1vpn~1hour/post/responses/200"
+          },
+          "402": {
+            "$ref": "#/paths/~1api~1vpn~1hour/post/responses/402"
+          }
         }
       }
     },
     "/api/vpn/month": {
       "post": {
-        "summary": "Buy a 30-day WireGuard VPN pass — $7.99 USDC",
+        "summary": "Buy a 30-day WireGuard VPN pass \u2014 $7.99 USDC",
         "operationId": "vpnMonth",
         "x-x402-amount": "7990000",
-        "requestBody": { "$ref": "#/paths/~1api~1vpn~1hour/post/requestBody" },
-        "parameters": [ { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "$ref": "#/paths/~1api~1vpn~1hour/post/requestBody"
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "$ref": "#/paths/~1api~1vpn~1hour/post/responses/200" },
-          "402": { "$ref": "#/paths/~1api~1vpn~1hour/post/responses/402" }
+          "200": {
+            "$ref": "#/paths/~1api~1vpn~1hour/post/responses/200"
+          },
+          "402": {
+            "$ref": "#/paths/~1api~1vpn~1hour/post/responses/402"
+          }
         }
       }
     },
@@ -211,19 +381,29 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok":      { "type": "boolean" },
+                    "ok": {
+                      "type": "boolean"
+                    },
                     "regions": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id":        { "$ref": "#/components/schemas/Region" },
-                          "city":      { "type": "string" },
-                          "continent": { "type": "string" }
+                          "id": {
+                            "$ref": "#/components/schemas/Region"
+                          },
+                          "city": {
+                            "type": "string"
+                          },
+                          "continent": {
+                            "type": "string"
+                          }
                         }
                       }
                     },
-                    "default": { "$ref": "#/components/schemas/Region" }
+                    "default": {
+                      "$ref": "#/components/schemas/Region"
+                    }
                   }
                 }
               }
@@ -234,7 +414,7 @@
     },
     "/api/vps/hour": {
       "post": {
-        "summary": "Provision a 1-hour ephemeral Ubuntu VPS — $0.25 USDC",
+        "summary": "Provision a 1-hour ephemeral Ubuntu VPS \u2014 $0.25 USDC",
         "operationId": "vpsHour",
         "x-x402-amount": "250000",
         "description": "Returns the server IP and a base64 WireGuard client config template. Server is SSH-accessible ~60s after provisioning. Private key never leaves the client.",
@@ -244,17 +424,42 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["sshPublicKey"],
+                "required": [
+                  "sshPublicKey"
+                ],
                 "properties": {
-                  "region":       { "$ref": "#/components/schemas/Region", "default": "DE_NBG" },
-                  "sshPublicKey": { "type": "string", "description": "OpenSSH Ed25519 public key (ssh-ed25519 AAAA...). Generate client-side — private key never sent." }
+                  "region": {
+                    "$ref": "#/components/schemas/Region",
+                    "default": "DE_NBG"
+                  },
+                  "sshPublicKey": {
+                    "type": "string",
+                    "description": "OpenSSH Ed25519 public key (ssh-ed25519 AAAA...). Generate client-side \u2014 private key never sent."
+                  }
                 }
               }
             }
           }
         },
         "parameters": [
-          { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" }, "description": "Confirmed Solana transaction signature proving USDC payment." }
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Legacy payment path: confirmed Solana transaction signature proving USDC payment. Prefer PAYMENT-SIGNATURE."
+          }
         ],
         "responses": {
           "200": {
@@ -264,49 +469,123 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok":    { "type": "boolean", "example": true },
+                    "ok": {
+                      "type": "boolean",
+                      "example": true
+                    },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "ip":                  { "type": "string", "example": "5.6.7.8", "description": "Use: ssh -i key.pem root@<ip>" },
-                        "wireguardClientConf": { "type": "string", "description": "Base64-encoded WireGuard client config template for optional VPN access to the VPS." }
+                        "ip": {
+                          "type": "string",
+                          "example": "5.6.7.8",
+                          "description": "Use: ssh -i key.pem root@<ip>"
+                        },
+                        "wireguardClientConf": {
+                          "type": "string",
+                          "description": "Base64-encoded WireGuard client config template for optional VPN access to the VPS."
+                        }
                       }
                     },
-                    "expiresAt": { "type": "string", "format": "date-time", "description": "Server is destroyed at this time." }
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Server is destroyed at this time."
+                    }
                   }
                 }
               }
             }
           },
-          "402": { "description": "Payment required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequired" } } } }
+          "402": {
+            "description": "Payment required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequired"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/vps/day": {
       "post": {
-        "summary": "Provision a 24-hour ephemeral Ubuntu VPS — $0.99 USDC",
-          "operationId": "vpsDay",
-          "x-x402-amount": "990000",
-        "requestBody": { "$ref": "#/paths/~1api~1vps~1hour/post/requestBody" },
-        "parameters": [ { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" } } ],
+        "summary": "Provision a 24-hour ephemeral Ubuntu VPS \u2014 $0.99 USDC",
+        "operationId": "vpsDay",
+        "x-x402-amount": "990000",
+        "requestBody": {
+          "$ref": "#/paths/~1api~1vps~1hour/post/requestBody"
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "$ref": "#/paths/~1api~1vps~1hour/post/responses/200" },
-          "402": { "$ref": "#/paths/~1api~1vps~1hour/post/responses/402" }
+          "200": {
+            "$ref": "#/paths/~1api~1vps~1hour/post/responses/200"
+          },
+          "402": {
+            "$ref": "#/paths/~1api~1vps~1hour/post/responses/402"
+          }
         }
       }
     },
     "/api/vps/week": {
       "post": {
-        "summary": "Provision a 7-day ephemeral Ubuntu VPS — $3.99 USDC",
+        "summary": "Provision a 7-day ephemeral Ubuntu VPS \u2014 $3.99 USDC",
         "operationId": "vpsWeek",
         "x-x402-amount": "3990000",
-        "requestBody": { "$ref": "#/paths/~1api~1vps~1hour/post/requestBody" },
-        "parameters": [ { "in": "header", "name": "X-Solana-Tx", "required": false, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "$ref": "#/paths/~1api~1vps~1hour/post/requestBody"
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "PAYMENT-SIGNATURE",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 V2 payment payload (base64 PaymentPayload). Preferred: any standard x402 client (@x402/fetch, @x402/axios) produces this automatically."
+          },
+          {
+            "in": "header",
+            "name": "X-Solana-Tx",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "$ref": "#/paths/~1api~1vps~1hour/post/responses/200" },
-          "402": { "$ref": "#/paths/~1api~1vps~1hour/post/responses/402" }
+          "200": {
+            "$ref": "#/paths/~1api~1vps~1hour/post/responses/200"
+          },
+          "402": {
+            "$ref": "#/paths/~1api~1vps~1hour/post/responses/402"
+          }
         }
       }
     }
-  }
+  },
+  "paymentHeader": "PAYMENT-SIGNATURE",
+  "legacyPaymentHeader": "X-Solana-Tx",
+  "x402Version": 2
 }

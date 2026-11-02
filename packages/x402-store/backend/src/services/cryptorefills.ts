@@ -2,9 +2,15 @@
 // Phase 1 (get payment requirements) and Phase 2 (fulfill with signed payment).
 // Catalog endpoints are public and free — no payment needed.
 import env from "../config.js";
+import { verifyAttestation } from "./crAttestation.js";
 
 const CR_HOST = env.CR_HOST;
 const CR_API  = `${CR_HOST}/v1`;
+// A hung upstream call must not stall the serial fulfilment queue. Phase 2 gets
+// longer: it settles our signed payment, and cutting it short sends the order to
+// reconciliation even if the purchase went through.
+const TIMEOUT_MS = 20_000;
+const SETTLE_TIMEOUT_MS = 90_000;
 
 export interface CrPaymentAccept {
   scheme:            string;
@@ -44,14 +50,14 @@ export interface CrOrderItem {
 // ── Catalog (public, no auth) ──────────────────────────────────────────────
 
 export async function getBrands(countryCode: string) {
-  const res = await fetch(`${CR_API}/brands?country_code=${encodeURIComponent(countryCode)}`);
+  const res = await fetch(`${CR_API}/brands?country_code=${encodeURIComponent(countryCode)}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`CR brands error: ${res.status}`);
   return res.json();
 }
 
 export async function getCatalog(countryCode: string, brandName: string) {
   const url = `${CR_API}/catalog?country_code=${encodeURIComponent(countryCode)}&brand_name=${encodeURIComponent(brandName)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`CR catalog error: ${res.status}`);
   return res.json();
 }
@@ -60,19 +66,46 @@ export async function getCatalog(countryCode: string, brandName: string) {
 
 // Phase 1: call Cryptorefills to get their exact payment requirements.
 // No payment happens here — just negotiation.
-// network = "solana" pins to Solana SPL USDC flow.
+// body.network pins the settlement chain: "solana" (SPL USDC) or "base" (EIP-3009 USDC).
+/** The supplier refused the order itself (below minimum, out of stock, bad number…). */
+export class OrderRejected extends Error {
+  constructor(readonly status: number, readonly reason: string, text: string) {
+    super(`CR Phase 1 expected 402, got ${status}: ${text.slice(0, 200)}`);
+  }
+}
+
+const SUPPLIER_REASONS: Record<string, string> = {
+  AMOUNT_LESS_THEN_MINIMUM_ALLOWED: "This product is below the supplier's minimum order (about €0.50). Pick a larger amount.",
+  OUT_OF_STOCK: "This product or amount is not available right now. For airtime, check the amount is within the product's range.",
+};
+
+export const rejectionMessage = (e: OrderRejected) => SUPPLIER_REASONS[e.reason] ?? "The supplier refused this order. Check the product, amount and phone number.";
+
+// Cryptorefills requires beneficiary_account on every item. Top-ups use the phone
+// number; for gift cards and eSIMs it is the buyer's email, so default to that.
+const withBeneficiary = (body: CrOrderBody): CrOrderBody => ({
+  ...body,
+  items: body.items.map(item => ({ ...item, beneficiary_account: item.beneficiary_account ?? body.email })),
+});
+
 export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
   const res = await fetch(`${CR_API}/orders`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type":       "application/json",
-      "X-Preferred-Network": "solana",
+      "X-Preferred-Network": body.network ?? "solana",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(withBeneficiary(body)),
   });
 
   if (res.status !== 402) {
     const text = await res.text();
+    if (res.status >= 400 && res.status < 500) {
+      // The upstream nests the supplier's JSON inside an escaped message string.
+      const reason = text.replace(/\\/g, "").match(/"detail"\s*:\s*"([A-Z_]+)"/)?.[1] ?? "REJECTED";
+      throw new OrderRejected(res.status, reason, text);
+    }
     throw new Error(`CR Phase 1 expected 402, got ${res.status}: ${text.slice(0, 200)}`);
   }
 
@@ -100,6 +133,18 @@ export async function crPhase1(body: CrOrderBody): Promise<CrPhase1Result> {
     throw new Error(`CR Phase 1: invalid amount in accept: ${rawAmount} (${err?.message ?? err})`);
   }
 
+  // Verify the gateway's signature over this 402 before the amount or payTo is
+  // trusted anywhere. payTo is a per-session wallet, so this is the only proof
+  // (beyond TLS) that it is really Cryptorefills' — a tampered payTo must never
+  // be paid. Fail closed.
+  await verifyAttestation({
+    origin: CR_HOST,
+    prHeader,
+    sessionId,
+    jws: res.headers.get("X-Payment-Required-Signature") ?? res.headers.get("x-payment-required-signature"),
+    accept: { payTo: accept.payTo, network: accept.network },
+  });
+
   return {
     paymentRequired: pr,
     sessionId,
@@ -113,14 +158,15 @@ export async function crPhase2(body: CrOrderBody, sessionId: string, paymentSigH
   const headers: Record<string, string> = {
     "Content-Type":       "application/json",
     "PAYMENT-SIGNATURE":  paymentSigHeader,
-    "X-Preferred-Network": "solana",
+    "X-Preferred-Network": body.network ?? "solana",
   };
   if (sessionId) headers["X-Session-Id"] = sessionId;
 
   const res = await fetch(`${CR_API}/orders`, {
+    signal: AbortSignal.timeout(SETTLE_TIMEOUT_MS),
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(withBeneficiary(body)),
   });
 
   if (!res.ok) {
@@ -134,6 +180,7 @@ export async function crPhase2(body: CrOrderBody, sessionId: string, paymentSigH
 // Poll order status
 export async function getOrder(orderId: string) {
   const res = await fetch(`${CR_API}/orders/${encodeURIComponent(orderId)}`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: { "X-Preferred-Network": "solana" },
   });
   if (!res.ok) throw new Error(`CR getOrder ${orderId} failed: ${res.status}`);

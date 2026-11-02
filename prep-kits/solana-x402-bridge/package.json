@@ -1,0 +1,31 @@
+{
+  "name": "solana-x402-bridge-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Jupiter of cross-chain for Solana agents — aggregate bridges for best rate, fund via Onramper, execute on EVM (Polymarket demo).",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "quote": "tsx scripts/bridge-quote.ts",
+    "auto": "tsx scripts/auto-bridge.ts",
+    "execute": "tsx scripts/bridge-execute.ts",
+    "return": "tsx scripts/bridge-return.ts",
+    "targets": "tsx scripts/evm-targets.ts",
+    "rpc-health": "tsx scripts/rpc-health.ts",
+    "onramp": "tsx scripts/onramp.ts",
+    "position": "tsx scripts/position.ts",
+    "polymarket": "tsx scripts/polymarket.ts",
+    "test": "tsx scripts/test.ts",
+    "test:clmm": "tsx scripts/clmm-engine.test.ts"
+  },
+  "dependencies": {
+    "@allbridge/bridge-core-sdk": "3.31.0",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "4.0.1",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

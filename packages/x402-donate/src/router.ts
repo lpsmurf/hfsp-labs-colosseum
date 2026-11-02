@@ -22,22 +22,34 @@ function getClients() {
   return { provider: _provider, contract: _contract };
 }
 
+export interface RouteResult {
+  ok: boolean;
+  error?: string;
+  paidUsdc: number;
+  netToCharityUsdc: number;
+  routeTxHash?: string;
+}
+
 /**
  * Verify that `txHash` sent USDC to our DonationRouter, then call route() on-chain
  * to atomically split 97% → charity and 3% → treasury.
+ *
+ * Legacy flow only. On the x402 V2 path the donor never broadcasts a transaction
+ * of their own — the facilitator moves the USDC — so there is nothing to verify
+ * here and `routeOnChain` is called from the afterSettle hook instead.
  */
 export async function verifyAndRoute(
   txHash:       string,
   charityAddr:  string,
   minUsdc:      number,
-): Promise<{ ok: boolean; error?: string; paidUsdc: number; netToCharityUsdc: number; routeTxHash?: string }> {
+): Promise<RouteResult> {
   const key = txHash.toLowerCase();
 
   if (routed.has(key)) {
     return { ok: false, error: 'Transaction already used for a donation', paidUsdc: 0, netToCharityUsdc: 0 };
   }
 
-  const { provider, contract } = getClients();
+  const { provider } = getClients();
 
   // ── 1. Verify the donor tx ────────────────────────────────────────────────
   let receipt: ethers.TransactionReceipt | null;
@@ -85,20 +97,42 @@ export async function verifyAndRoute(
     };
   }
 
-  // ── 2. Check on-chain replay protection ───────────────────────────────────
-  const txHashBytes = ethers.hexlify(ethers.toBeArray(txHash).slice(0, 32)) as `0x${string}`;
-  const alreadySettled = await contract.settled(txHashBytes) as boolean;
+  // ── 2 & 3. Replay check + route() ─────────────────────────────────────────
+  const result = await routeOnChain(txHash, charityAddr, paidUsdc);
+  if (result.ok) {
+    routed.add(key);
+    setTimeout(() => routed.delete(key), 15 * 60 * 1000);
+  }
+  return result;
+}
+
+/**
+ * Split USDC already sitting in the DonationRouter: 97% → charity, 3% → treasury.
+ *
+ * `settlementId` is any 32-byte-derivable unique reference for this donation — the
+ * donor's tx hash on the legacy path, the facilitator's settlement tx hash on the
+ * V2 path. The contract stores it in `settled()` so the same donation cannot be
+ * routed twice even if this process restarts.
+ */
+export async function routeOnChain(
+  settlementId: string,
+  charityAddr:  string,
+  paidUsdc:     number,
+): Promise<RouteResult> {
+  const { contract } = getClients();
+
+  const idBytes = ethers.hexlify(ethers.toBeArray(settlementId).slice(0, 32)) as `0x${string}`;
+  const alreadySettled = await contract.settled(idBytes) as boolean;
   if (alreadySettled) {
     return { ok: false, error: 'Already routed on-chain', paidUsdc, netToCharityUsdc: 0 };
   }
 
-  // ── 3. Call route() on DonationRouter ─────────────────────────────────────
   const amountUnits = BigInt(Math.round(paidUsdc * 1_000_000));
 
   let routeTx: ethers.TransactionResponse;
   try {
     routeTx = await (contract.route as (a: string, b: string, c: bigint) => Promise<ethers.TransactionResponse>)(
-      txHashBytes,
+      idBytes,
       charityAddr,
       amountUnits,
     );
@@ -111,9 +145,6 @@ export async function verifyAndRoute(
       netToCharityUsdc: 0,
     };
   }
-
-  routed.add(key);
-  setTimeout(() => routed.delete(key), 15 * 60 * 1000);
 
   const FEE_BPS = 300n;
   const fee = (amountUnits * FEE_BPS) / 10_000n;
