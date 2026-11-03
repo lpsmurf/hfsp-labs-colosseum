@@ -138,6 +138,8 @@ packages/x402-wallet/tsconfig.tsbuildinfo
 # Demo recordings and wallet envs (never commit private keys)
 packages/x402-vpn-vps/*.cast
 packages/x402-vpn-vps/.env.demo
+# storefront-bot demo scratch (local validator ledger, sqlite, stub tenants)
+packages/agent-provisioning/**/.demo/
 
 # Security audit working files — may contain unpatched vulnerability detail
 # under coordinated-disclosure embargo. NEVER commit to a public repo.

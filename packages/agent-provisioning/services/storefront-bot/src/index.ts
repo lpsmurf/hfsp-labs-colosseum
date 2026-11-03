@@ -97,6 +97,8 @@ function protectWizardData(data: WizardData): WizardData {
   if (out.botToken) out.botToken = encryptString(out.botToken);
   if (out.openaiApiKey) out.openaiApiKey = encryptString(out.openaiApiKey);
   if (out.anthropicApiKey) out.anthropicApiKey = encryptString(out.anthropicApiKey);
+  if (out.openrouterApiKey) out.openrouterApiKey = encryptString(out.openrouterApiKey);
+  if (out.kimiApiKey) out.kimiApiKey = encryptString(out.kimiApiKey);
   if (out.lastGatewayToken) out.lastGatewayToken = encryptString(out.lastGatewayToken);
   return out;
 }
@@ -106,6 +108,8 @@ function unprotectWizardData(data: WizardData): WizardData {
   try { if (out.botToken) out.botToken = decryptString(out.botToken); } catch {}
   try { if (out.openaiApiKey) out.openaiApiKey = decryptString(out.openaiApiKey); } catch {}
   try { if (out.anthropicApiKey) out.anthropicApiKey = decryptString(out.anthropicApiKey); } catch {}
+  try { if (out.openrouterApiKey) out.openrouterApiKey = decryptString(out.openrouterApiKey); } catch {}
+  try { if (out.kimiApiKey) out.kimiApiKey = decryptString(out.kimiApiKey); } catch {}
   try { if (out.lastGatewayToken) out.lastGatewayToken = decryptString(out.lastGatewayToken); } catch {}
   return out;
 }
@@ -138,6 +142,14 @@ const SOLANA_NETWORK = process.env.SOLANA_NETWORK ?? 'devnet';
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com';
 const SOLANA_WALLET_ADDRESS = process.env.SOLANA_WALLET_ADDRESS ?? '';
 const SOLANA_WALLET_SECRET_KEY = process.env.SOLANA_WALLET_SECRET_KEY ?? '';
+// SPL mint payments are verified against. Mainnet USDC default; set SOLANA_USDC_MINT
+// for devnet/demo mints.
+const SOLANA_USDC_MINT = process.env.SOLANA_USDC_MINT ?? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDC_DECIMALS = 6;
+
+// Demo provisioning: write tenant files under a local dir and stub docker/ssh
+// so the full payment → provisioning flow can be exercised without a VPS.
+const DEMO_PROVISION_DIR = process.env.HFSP_DEMO_PROVISION_DIR ?? '';
 
 // Stripe/SumUp (for later fiat implementation)
 // const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? '';
@@ -491,12 +503,41 @@ function shSingleQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
+const demoContainers = new Set<string>();
+
 function sshTenant(command: string): string {
+  if (DEMO_PROVISION_DIR) return sshTenantDemo(command);
   return execFileSync(
     'ssh',
     [...TENANT_VPS_SSH_OPTS, `${TENANT_VPS_USER}@${TENANT_VPS_HOST}`, command],
     { encoding: 'utf8' }
   ).trim();
+}
+
+// Local stub for demo runs: file ops execute under DEMO_PROVISION_DIR (with
+// TENANT_VPS_BASEDIR rewritten), sudo helpers return OK, and `docker run`
+// becomes a small local HTTP stub listening on the dashboard port.
+function sshTenantDemo(command: string): string {
+  const rewritten = command.split(TENANT_VPS_BASEDIR).join(DEMO_PROVISION_DIR);
+  if (command.startsWith('sudo ')) return 'OK';
+  if (command.startsWith('docker exec') || command.startsWith('docker rm')) return 'OK';
+  if (command.startsWith('docker run')) {
+    const nameMatch = command.match(/--name (\S+)/);
+    const portMatch = command.match(/-p 127\.0\.0\.1:(\d+):\d+/);
+    if (nameMatch && portMatch) {
+      const port = Number(portMatch[1]);
+      demoContainers.add(nameMatch[1]);
+      execFileSync('bash', ['-lc',
+        `nohup node -e "require('http').createServer((q,s)=>{s.end('demo-agent-ok')}).listen(${port},'127.0.0.1')" >/dev/null 2>&1 &`]);
+    }
+    return 'OK';
+  }
+  if (command.startsWith('docker ps')) {
+    const nameMatch = command.match(/name=(\S+)/);
+    return nameMatch && demoContainers.has(nameMatch[1]) ? 'Up 1 minute' : '';
+  }
+  if (command.startsWith('docker logs')) return 'demo stub: container running';
+  return execFileSync('bash', ['-lc', rewritten], { encoding: 'utf8' }).trim();
 }
 
 async function renderChoosePreset(chatId: number) {
@@ -630,8 +671,8 @@ app.use((req: any, res: any, next: any) => {
   next();
 });
 
-// Apply API key middleware AFTER CORS so preflight requests work
-app.use(requireApiKey);
+// No global auth gate: every route authenticates itself (JWT via requireAuth /
+// verifyToken, or requireApiKey applied per-route for machine-only endpoints).
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
@@ -1129,6 +1170,8 @@ app.post('/telegram/webhook', async (req, res) => {
             const k = Buffer.from(w.data.kimiApiKey.trim() + '\n').toString('base64');
             sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/moonshot.key'`);
           }
+
+          sshTenant(`chmod 700 ${secretsDir}; chmod 600 ${secretsDir}/* 2>/dev/null || true`);
 
           // Write tenant openclaw.json
           // Reuse existing gateway token if present; otherwise generate.
@@ -2115,6 +2158,28 @@ app.post('/telegram/webhook', async (req, res) => {
       return;
     }
 
+    if (w.step === 'await_openrouter_api_key') {
+      const key = text.trim();
+      if (key.length < 10) {
+        await sendMessage(chatId, 'That key looks too short. Paste the full OpenRouter API key (sk-or-...).');
+        return;
+      }
+      transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, openrouterApiKey: key });
+      await renderChoosePreset(chatId);
+      return;
+    }
+
+    if (w.step === 'await_kimi_api_key') {
+      const key = text.trim();
+      if (key.length < 10) {
+        await sendMessage(chatId, 'That key looks too short. Paste the full Kimi (Moonshot) API key.');
+        return;
+      }
+      transition(telegramUserId, w.step, 'await_model_preset', { ...w.data, kimiApiKey: key });
+      await renderChoosePreset(chatId);
+      return;
+    }
+
     // Help chat mode: answer without advancing the wizard.
     if (w.data.helpMode) {
       const q = text.trim();
@@ -2429,9 +2494,12 @@ app.post('/api/v1/auth/solana-pay-qr', async (req, res) => {
       VALUES (?, ?, ?, ?)
     `).run(paymentId, userId, amountUsdc, 'pending');
 
+    if (!SOLANA_WALLET_ADDRESS) {
+      return res.status(503).json({ error: 'Payments not configured (SOLANA_WALLET_ADDRESS missing)' });
+    }
+
     // Generate Solana Pay link (format: solana:WALLET?amount=AMOUNT&spl-token=USDC_TOKEN&reference=PAYMENT_ID)
-    const USDC_MINT = 'EPjFWaJy47gHeQZzauRN123i8DAShsFXCqnnV6471zo'; // USDC on mainnet
-    const solanaPayLink = `solana:${SOLANA_WALLET_ADDRESS}?amount=${amountUsdc}&spl-token=${USDC_MINT}&reference=${paymentId}`;
+    const solanaPayLink = `solana:${SOLANA_WALLET_ADDRESS}?amount=${amountUsdc}&spl-token=${SOLANA_USDC_MINT}&reference=${paymentId}`;
 
     // Generate QR code
     const qrCode = await QRCode.toDataURL(solanaPayLink);
@@ -2450,6 +2518,29 @@ app.post('/api/v1/auth/solana-pay-qr', async (req, res) => {
   }
 });
 
+// Sum the SPL token balance increase across token accounts owned by `owner`
+// for `mint` between pre/post balances, keyed by accountIndex.
+function tokenDeltaToOwner(
+  meta: { preTokenBalances?: any[] | null; postTokenBalances?: any[] | null } | null,
+  owner: string,
+  mint: string
+): bigint {
+  if (!meta) return 0n;
+  const pre = new Map<number, bigint>();
+  for (const b of meta.preTokenBalances ?? []) {
+    if (b?.owner === owner && b?.mint === mint && b?.uiTokenAmount?.amount != null) {
+      pre.set(b.accountIndex, BigInt(b.uiTokenAmount.amount));
+    }
+  }
+  let delta = 0n;
+  for (const b of meta.postTokenBalances ?? []) {
+    if (b?.owner === owner && b?.mint === mint && b?.uiTokenAmount?.amount != null) {
+      delta += BigInt(b.uiTokenAmount.amount) - (pre.get(b.accountIndex) ?? 0n);
+    }
+  }
+  return delta;
+}
+
 // POST /api/v1/auth/verify-payment
 app.post('/api/v1/auth/verify-payment', async (req, res) => {
   try {
@@ -2462,22 +2553,76 @@ app.post('/api/v1/auth/verify-payment', async (req, res) => {
       return res.status(400).json({ error: 'Missing payment ID or transaction signature' });
     }
 
+    const auth = req.headers.authorization ?? '';
+    const jwt = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    const payload = verifyToken(jwt);
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid or missing token' });
+    }
+    const userId = payload.sub as string;
+
     const payment = db.prepare('SELECT * FROM crypto_payments WHERE payment_id = ?').get(paymentId) as any;
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    // In MVP: trust the client-provided signature (TODO: verify on chain)
-    // In production: query Solana RPC to verify the transaction
+    // The payment must belong to the caller (sub is user_id for email users,
+    // telegram_user_id for webapp users).
+    const userRow = db.prepare(
+      'SELECT user_id, telegram_user_id FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?'
+    ).get(userId, userId) as any;
+    const owned = payment.user_id === userId
+      || String(payment.user_id) === String(userRow?.telegram_user_id ?? '');
+    if (!owned) {
+      return res.status(403).json({ error: 'Payment does not belong to this user' });
+    }
+
+    if (payment.status === 'confirmed') {
+      return res.json({ success: true, message: 'Payment already confirmed.', subscriptionTier: 'pro' });
+    }
+
+    if (!SOLANA_WALLET_ADDRESS) {
+      return res.status(503).json({ error: 'Payments not configured (SOLANA_WALLET_ADDRESS missing)' });
+    }
+
+    // Reject a signature already attached to a different payment before hitting
+    // the RPC — the UNIQUE column otherwise turns a replay into a 500.
+    const sigOwner = db.prepare(
+      'SELECT payment_id FROM crypto_payments WHERE transaction_signature = ?'
+    ).get(transactionSignature) as { payment_id: string } | undefined;
+    if (sigOwner && sigOwner.payment_id !== paymentId) {
+      return res.status(409).json({ error: 'Transaction signature already used for another payment' });
+    }
+
+    // Verify on chain — fail CLOSED: the transaction must exist, have succeeded,
+    // and transfer >= the price in USDC to a token account owned by the platform
+    // wallet. An RPC error never upgrades a user.
     const connection = new Connection(SOLANA_RPC_URL);
+    let tx;
     try {
-      const tx = await connection.getTransaction(transactionSignature, { commitment: 'confirmed' });
-      if (!tx) {
-        return res.status(400).json({ error: 'Transaction not found on chain' });
-      }
+      tx = await connection.getTransaction(transactionSignature, {
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0,
+      });
     } catch (err) {
-      console.error('Failed to verify transaction on chain:', err);
-      // For MVP, continue anyway
+      console.error('RPC error verifying transaction:', err);
+      return res.status(502).json({ error: 'Could not reach Solana RPC — try again' });
+    }
+    if (!tx) {
+      return res.status(400).json({ error: 'Transaction not found on chain' });
+    }
+    if (tx.meta?.err) {
+      return res.status(400).json({ error: 'Transaction failed on chain' });
+    }
+
+    const requiredAmount = BigInt(Math.ceil(payment.amount_usdc * 10 ** USDC_DECIMALS));
+    const paid = tokenDeltaToOwner(tx.meta, SOLANA_WALLET_ADDRESS, SOLANA_USDC_MINT);
+    if (paid < requiredAmount) {
+      return res.status(402).json({
+        error: 'Insufficient payment',
+        expectedUsdc: payment.amount_usdc,
+        receivedUsdc: Number(paid) / 10 ** USDC_DECIMALS,
+      });
     }
 
     // Update payment status
@@ -2655,6 +2800,8 @@ app.post('/api/v1/agents', async (req, res) => {
           const k = Buffer.from(kimiApiKey.trim() + '\n').toString('base64');
           sshTenant(`bash -lc 'echo ${shSingleQuote(k)} | base64 -d > ${secretsDir}/moonshot.key'`);
         }
+
+        sshTenant(`chmod 700 ${secretsDir}; chmod 600 ${secretsDir}/* 2>/dev/null || true`);
 
         // Generate gateway token
         const gatewayToken = Buffer.from(`${tenantId}:${Math.random().toString(36).slice(2)}`).toString('hex').slice(0, 48);
@@ -2962,7 +3109,7 @@ app.delete('/api/v1/agents/:id', async (req, res) => {
 });
 
 // POST /api/v1/agents/deploy - Deploy a new agent (called by Clawdrop MCP)
-app.post('/api/v1/agents/deploy', async (req, res) => {
+app.post('/api/v1/agents/deploy', requireApiKey, async (req, res) => {
   try {
     const {
       deployment_id,
@@ -3117,9 +3264,28 @@ function tierIdToBotUsername(tierId: string): string {
 }
 
 // GET /api/v1/agents/:id/status - Get agent status
+// Resolve a JWT caller to telegram_user_id and confirm they own `agentId`.
+// Returns the tenant row on success, else null (response already sent).
+function ownedTenantOrNull(req: any, res: any, agentId: string): any | null {
+  const payload = requireAuth(req, res);
+  if (!payload) return null;
+  const userId = payload.sub as string;
+  const userRow = db.prepare(`SELECT telegram_user_id FROM users WHERE user_id = ? OR CAST(telegram_user_id AS TEXT) = ?`).get(userId, userId) as any;
+  const tgId = userRow?.telegram_user_id ?? userId;
+  const tenant = db.prepare(
+    'SELECT * FROM tenants WHERE tenant_id = ? AND telegram_user_id = ? AND deleted_at IS NULL'
+  ).get(agentId, tgId) as any;
+  if (!tenant) {
+    res.status(403).json({ error: 'Agent not found or not owned by you' });
+    return null;
+  }
+  return tenant;
+}
+
 app.get('/api/v1/agents/:id/status', async (req, res) => {
   try {
     const agentId = req.params.id;
+    if (!ownedTenantOrNull(req, res, agentId)) return;
     const containerName = `hfsp_${agentId}`;
 
     // Check container status via SSH
@@ -3174,6 +3340,7 @@ app.get('/api/v1/agents/:id/status', async (req, res) => {
 app.get('/api/v1/agents/:id/logs', async (req, res) => {
   try {
     const agentId = req.params.id;
+    if (!ownedTenantOrNull(req, res, agentId)) return;
     const containerName = `hfsp_${agentId}`;
 
     let logs: Array<{ timestamp: string; level: 'info' | 'warn' | 'error'; message: string }> = [];
