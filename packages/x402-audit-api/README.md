@@ -34,6 +34,23 @@ brew install gitleaks semgrep      # macOS
 # or: gitleaks install script + pipx install semgrep
 ```
 
+## Dynamic probes (`src/dynamic/`)
+
+Live checks against the target endpoint. Several were generalized from the MultiHopper
+agentic-flow audit (see `multihopper-flow-audit/`), turning one-off findings into reusable checks:
+
+| Probe | Finding IDs | What it catches |
+|-------|-------------|-----------------|
+| `auth-bypass` | `DYN-AUTH-001` | Fake `X-PAYMENT` header accepted (payment gate bypass) |
+| `cors-probe` | `DYN-CORS-001/002` | Arbitrary-origin reflection with `credentials:true` |
+| `info-leak` | `DYN-INFO-001/002` | Stack traces / secrets in error responses |
+| **`schema-leak`** | `DYN-LEAK-001/002` | **DB query/schema leaked on crafted input** (numeric overflow 2^63, type confusion, prototype pollution, malformed JSON) — the A13 / auth-table-leak class; plus unhandled 500s on bad input |
+| **`headers`** | `DYN-HDR-001` | Missing recommended security headers |
+| **`solana-upgrade-authority`** | `CHAIN-UPGRADE-001` | **Solana programs upgradeable by a single plain keypair** (not immutable / not multisig) — the "UPGRADE-AUTH" centralization class. Exported `checkProgramUpgradeAuthority(programIds, cluster)`; feed program IDs extracted from the repo or provided explicitly (read-only RPC) |
+
+All endpoint probes run behind an SSRF guard (`assertSafeEndpoint`) that refuses non-HTTPS and
+private/reserved/link-local/metadata targets before any request is made.
+
 ## Endpoints
 
 | Method | Path | Description |
