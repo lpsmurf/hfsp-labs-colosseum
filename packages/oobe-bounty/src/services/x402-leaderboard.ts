@@ -12,7 +12,7 @@ import type { Request, Response } from 'express';
 
 const HELIUS_KEY = process.env.HELIUS_API_KEY
   ?? process.env.SOLANA_MAINNET_RPC?.match(/api-key=([^&]+)/)?.[1]
-  ?? 'b72c1253-4c5d-441b-8b54-46b08d10d447';
+  ?? '';
 const HELIUS_BASE = `https://api.helius.xyz/v0`;
 const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
 const SAP_AGENTS_API = 'https://explorer.oobeprotocol.ai/api/sap/agents?limit=200';

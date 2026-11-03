@@ -12,7 +12,7 @@ Run this with `node`:
 
 ```javascript
 // oobe-leaderboard.mjs
-const HELIUS_KEY = process.env.HELIUS_API_KEY ?? 'b72c1253-4c5d-441b-8b54-46b08d10d447';
+const HELIUS_KEY = process.env.HELIUS_API_KEY ?? 'your_helius_api_key_here';
 const HELIUS_BASE = `https://api.helius.xyz/v0`;
 const FACILITATOR = '5iVXFrYaYWX2GUTbkQj8mDBoBhAX8bneYigS2LJTia43';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
