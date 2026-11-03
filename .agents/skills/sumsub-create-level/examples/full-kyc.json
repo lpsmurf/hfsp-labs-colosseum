@@ -1,0 +1,34 @@
+{
+  "name": "Full KYC + Source of Funds (example)",
+  "applicantType": "individual",
+  "type": "standalone",
+  "docSets": [
+    {
+      "type": "APPLICANT_DATA",
+      "fields": [
+        "firstName",
+        "lastName",
+        "dob",
+        {"name": "country", "required": false}
+      ]
+    },
+    {
+      "type": "IDENTITY",
+      "docTypes": ["PASSPORT", "ID_CARD", "DRIVERS", "RESIDENCE_PERMIT"],
+      "videoRequired": "disabled"
+    },
+    {
+      "type": "SELFIE",
+      "videoRequired": "passiveLiveness"
+    },
+    {
+      "type": "PROOF_OF_RESIDENCE",
+      "docTypes": ["UTILITY_BILL", "BANK_STATEMENT"],
+      "poaStepSettingsId": "example-poa-preset"
+    },
+    {
+      "type": "QUESTIONNAIRE",
+      "questionnaireDefId": "source-of-funds-example"
+    }
+  ]
+}

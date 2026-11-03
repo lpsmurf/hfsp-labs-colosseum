@@ -1,0 +1,8 @@
+{
+  "title": "Strict name match (address on defaults)",
+  "description": "Tighten name comparison; leave address comparison on the workspace default.",
+  "mode": "basic",
+  "basicSettings": {
+    "nameComparisonMode": "strict"
+  }
+}

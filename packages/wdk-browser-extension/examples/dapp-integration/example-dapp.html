@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WDK Wallet — dApp Integration Example</title>
+  <style>
+    body { font-family: monospace; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    button { margin: 6px 4px; padding: 8px 16px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>WDK Wallet dApp Integration</h2>
+  <p id="status">Waiting for wallet extension…</p>
+
+  <button id="btn-state">Get State</button>
+  <button id="btn-balance">Get Balance</button>
+  <button id="btn-sign">Sign "Hello WDK"</button>
+  <button id="btn-switch-eth">Switch to Ethereum</button>
+  <button id="btn-switch-sol">Switch to Solana</button>
+
+  <pre id="output">—</pre>
+
+  <script>
+    const out = document.getElementById('output')
+    const show = (data) => out.textContent = JSON.stringify(data, null, 2)
+    const showErr = (e) => { out.textContent = e.message; out.className = 'error' }
+
+    window.addEventListener('wdkWalletReady', () => {
+      document.getElementById('status').textContent = '✓ WDK Wallet connected'
+    })
+
+    document.getElementById('btn-state').onclick = () =>
+      window.wdkWallet.getState().then(show).catch(showErr)
+
+    document.getElementById('btn-balance').onclick = () =>
+      window.wdkWallet.getBalance().then(show).catch(showErr)
+
+    document.getElementById('btn-sign').onclick = () =>
+      window.wdkWallet.signMessage('Hello WDK').then(show).catch(showErr)
+
+    document.getElementById('btn-switch-eth').onclick = () =>
+      window.wdkWallet.switchNetwork('ethereum').then(show).catch(showErr)
+
+    document.getElementById('btn-switch-sol').onclick = () =>
+      window.wdkWallet.switchNetwork('solana').then(show).catch(showErr)
+  </script>
+</body>
+</html>

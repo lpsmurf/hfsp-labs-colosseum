@@ -1,0 +1,28 @@
+{
+  "_levelName": "Default",
+  "txnId": "first-ever-txn-0001",
+  "txnDate": "2026-05-21 14:50:00+0000",
+  "type": "finance",
+
+  "amount": 250.00,
+  "currency": "USD",
+  "currencyType": "fiat",
+  "direction": "in",
+  "paymentDetails": "Initial deposit",
+
+  "applicant": {
+    "externalUserId": "brand-new-user-002",
+    "type": "individual",
+    "fullName": "Jane Doe",
+    "dob": "1992-07-15",
+    "email": "jane@example.com",
+    "address": { "country": "GBR", "town": "London" }
+  },
+
+  "counterparty": {
+    "externalUserId": "bank:hsbc-uk",
+    "type": "company",
+    "fullName": "HSBC UK",
+    "address": { "country": "GBR" }
+  }
+}
