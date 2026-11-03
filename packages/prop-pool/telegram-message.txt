@@ -1,0 +1,13 @@
+Hi TxLINE team 👋 We're building for the World Cup hackathon on Superteam Earn — targeting the Prediction Markets & Settlement and Trading Tools & Agents bounties.
+
+We're a Solana/x402 team, so TxLine being on-chain-subscription native is a perfect fit. We've already got a working edge engine (sharp odds vs Polymarket, de-vig + Kelly + CLV) and we want to drive it off your feed, plus build an on-chain settlement oracle that verifies your score Merkle proofs to resolve markets trustlessly.
+
+Three quick questions to start:
+
+1. Can you confirm the devnet subscribe flow for the free World Cup tier? We have the program ID 6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J and mint 4Zao8ocPhmMgq7PdsYWyxvqySMGx7xb9cMftPMkEokRG — is there a published Anchor IDL we can pull (the /documentation/programs/devnet link)?
+
+2. For the score Merkle proofs — is there a doc/example of the proof format and the root we verify against on-chain? That's central to our settlement build.
+
+3. Any judging guidance you can share beyond the listing (what a winning submission looks like to you)?
+
+Happy to share our repo/demo as we go. Thanks! 🙏
