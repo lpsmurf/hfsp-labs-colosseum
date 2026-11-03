@@ -1,6 +1,7 @@
 import { ShellProvisioner } from './provisioners/ShellProvisioner';
 import { ProvisionerConfig } from './provisioners/types';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -634,6 +635,9 @@ async function sendMenu(chatId: number) {
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+// Public API surface (auth, payments, agent CRUD): 120 req / 15 min / IP.
+// (cast: express-rate-limit resolves the hoisted root @types/express)
+app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }) as unknown as express.RequestHandler);
 
 // API Key authentication for MCP endpoints
 const HFSP_API_KEY = process.env.HFSP_API_KEY;
@@ -2544,22 +2548,22 @@ function tokenDeltaToOwner(
 // POST /api/v1/auth/verify-payment
 app.post('/api/v1/auth/verify-payment', async (req, res) => {
   try {
+    const payload = requireAuth(req, res);
+    if (!payload) return;
+    const userId = payload.sub as string;
+
     const { paymentId, transactionSignature } = req.body as {
       paymentId?: string;
       transactionSignature?: string;
     };
 
-    if (!paymentId || !transactionSignature) {
+    if (typeof paymentId !== 'string' || typeof transactionSignature !== 'string') {
       return res.status(400).json({ error: 'Missing payment ID or transaction signature' });
     }
-
-    const auth = req.headers.authorization ?? '';
-    const jwt = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    const payload = verifyToken(jwt);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or missing token' });
+    // Base58-encoded 64-byte ed25519 signature
+    if (!/^[1-9A-HJ-NP-Za-km-z]{86,88}$/.test(transactionSignature)) {
+      return res.status(400).json({ error: 'Malformed transaction signature' });
     }
-    const userId = payload.sub as string;
 
     const payment = db.prepare('SELECT * FROM crypto_payments WHERE payment_id = ?').get(paymentId) as any;
     if (!payment) {

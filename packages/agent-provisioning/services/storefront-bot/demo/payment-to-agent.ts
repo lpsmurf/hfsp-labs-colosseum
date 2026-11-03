@@ -104,8 +104,17 @@ async function main() {
     method: 'POST', token,
     body: { paymentId, transactionSignature: 'NotARealSignature_111111111111111111111111111111111111111111111111' },
   });
-  log('3/8  Bogus signature rejected', `HTTP ${bogus.status} — ${bogus.json.error}`);
+  log('3/8  Malformed signature rejected', `HTTP ${bogus.status} — ${bogus.json.error}`);
   if (bogus.status === 200) throw new Error('REGRESSION: bogus signature accepted');
+
+  // Well-formed signature that was never submitted on chain
+  const bs58 = require('bs58');
+  const ghostSig = (bs58.default ?? bs58).encode(Keypair.generate().secretKey);
+  const ghost = await api('/api/v1/auth/verify-payment', {
+    method: 'POST', token, body: { paymentId, transactionSignature: ghostSig },
+  });
+  log('3/8  Non-existent transaction rejected', `HTTP ${ghost.status} — ${ghost.json.error}`);
+  if (ghost.status === 200) throw new Error('REGRESSION: non-existent transaction accepted');
 
   const underpaySig = await transfer(
     conn, payer, payerAta.address, platformAta.address, payer,
@@ -144,7 +153,8 @@ async function main() {
     conn, payer, payerAta.address, platformAta.address, payer,
     BigInt(PRICE_USDC * 10 ** DECIMALS),
   );
-  log('4/8  On-chain transfer', `sig=${sig}\n  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+  const cluster = RPC.includes('devnet') ? 'cluster=devnet' : `cluster=custom&customUrl=${encodeURIComponent(RPC)}`;
+  log('4/8  On-chain transfer', `sig=${sig}\n  https://explorer.solana.com/tx/${sig}?${cluster}`);
 
   const verified = await api('/api/v1/auth/verify-payment', {
     method: 'POST', token, body: { paymentId, transactionSignature: sig },

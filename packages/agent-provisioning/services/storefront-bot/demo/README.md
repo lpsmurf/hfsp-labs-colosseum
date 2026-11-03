@@ -23,10 +23,11 @@ Requires `solana-test-validator` on PATH (or `SOLANA_TEST_VALIDATOR`) when
 What it shows:
 
 1. `POST /api/v1/auth/email-signup` → `solana-pay-qr` creates a $9 payment.
-2. Verification **fails closed**: bogus signature (`502`), on-chain
-   underpayment (`402`), correct amount to the wrong wallet (`402`),
-   unauthenticated call (`401`). No confirmed transfer of the right mint to
-   the platform wallet → no upgrade.
+2. Verification **fails closed**: malformed signature (`400`), well-formed
+   but non-existent transaction (`400`), on-chain underpayment (`402`),
+   correct amount to the wrong wallet (`402`), unauthenticated call (`401`).
+   RPC errors return `502` and never upgrade. No confirmed transfer of the
+   right mint to the platform wallet → no upgrade.
 3. A real transfer of $9 in the demo mint is verified by the transaction's
    token-balance delta to the platform wallet → `pro`.
 4. `POST /api/v1/agents` provisions a tenant (demo mode writes

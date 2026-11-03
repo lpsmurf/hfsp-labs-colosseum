@@ -41,7 +41,7 @@ if [[ -z "${SOLANA_RPC_URL:-}" ]]; then
 fi
 
 # Step 1 — create the demo mint first (server must verify against it)
-echo "── Creating demo mint on devnet…"
+echo "── Creating demo mint on ${SOLANA_RPC_URL}…"
 MINT=$(npx ts-node "$PWD/demo/create-mint.ts" "$SOLANA_WALLET_ADDRESS")
 export SOLANA_USDC_MINT="$MINT"
 echo "   SOLANA_USDC_MINT=$SOLANA_USDC_MINT"
