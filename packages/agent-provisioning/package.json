@@ -23,19 +23,20 @@
   },
   "homepage": "https://github.com/lpsmurf/hfsp-agent-provisioning#readme",
   "dependencies": {
+    "@solana/spl-token": "^0.4.5",
+    "@solana/web3.js": "^1.95.0",
+    "bcrypt": "^5.1.1",
     "better-sqlite3": "^12.8.0",
     "express": "^5.2.1",
-    "bcrypt": "^5.1.1",
-    "tweetnacl": "^1.0.3",
-    "@solana/web3.js": "^1.95.0",
-    "@solana/spl-token": "^0.4.5",
-    "qrcode": "^1.5.4"
+    "express-rate-limit": "^8.5.2",
+    "qrcode": "^1.5.4",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
-    "@types/bcrypt": "^5.0.2",
     "@types/qrcode": "^1.5.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
