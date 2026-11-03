@@ -13,6 +13,7 @@ const PRIVATE_KEY_HEX = process.env.WALLET_PRIVATE_KEY_HEX ?? '';
 
 async function main() {
   if (!WALLET) throw new Error('WALLET_PUBLIC_KEY is required');
+  if (!PRIVATE_KEY_HEX) throw new Error('WALLET_PRIVATE_KEY_HEX is required');
 
   const db = openDb(DB_PATH);
   initSchema(db);

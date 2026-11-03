@@ -1,0 +1,13 @@
+{
+  "name": "x402-commerce-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "node demo.mjs"
+  },
+  "dependencies": {
+    "@hfsp/x402-sdk": "file:../../../../packages/x402-sdk",
+    "express": "^4.19.2"
+  }
+}
