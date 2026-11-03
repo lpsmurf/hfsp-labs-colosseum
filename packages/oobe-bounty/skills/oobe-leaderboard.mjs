@@ -4,7 +4,7 @@
  * Usage: node oobe-leaderboard.mjs [hours]
  *   hours = 0 or omit for all-time, 48 for last 48h, 24 for last 24h
  */
-const HELIUS_KEY = process.env.HELIUS_API_KEY ?? 'b72c1253-4c5d-441b-8b54-46b08d10d447';
+const HELIUS_KEY = process.env.HELIUS_API_KEY ?? '';
 const HELIUS_BASE = `https://api.helius.xyz/v0`;
 const FACILITATOR = '5iVXFrYaYWX2GUTbkQj8mDBoBhAX8bneYigS2LJTia43';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

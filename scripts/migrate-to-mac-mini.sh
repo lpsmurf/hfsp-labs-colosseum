@@ -116,7 +116,7 @@ step_ssh_export() {
     info "  VPS ID: 1313715 → Browser SSH → run export commands"
     info "Option C: Use Hostinger API to get VNC access:"
     info "  curl -X POST https://api.hostinger.com/v1/vps/1313715/restart \\"
-    info "    -H 'Authorization: Bearer 9L8MHqOGJ0ryhiD9SyDIzKkgSgtGfN8x7RlNo7fN1fc23c37'"
+    info "    -H 'Authorization: Bearer ${HOSTINGER_API_TOKEN}'"
     info ""
     info "After getting access, run on VPS:"
     info "  tar czf /tmp/clawdrop-data.tar.gz /opt/hfsp-labs/data/ 2>/dev/null || true"

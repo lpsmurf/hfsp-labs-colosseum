@@ -1,7 +1,7 @@
 {
-  "name": "clawdrop",
+  "name": "hfsp-labs-colosseum",
   "version": "1.0.0",
-  "description": "Deploy per-user autonomous Solana AI agents powered by SendAI Agent Kit. Free trial chatbot → paid agent running 24/7.",
+  "description": "Clawdrop per-user Solana AI agents + the x402 payments ecosystem \u2014 audit API, store, VPN/VPS, wallet, donation router, Gnosis Card, prop pools.",
   "private": true,
   "license": "MIT",
   "engines": {

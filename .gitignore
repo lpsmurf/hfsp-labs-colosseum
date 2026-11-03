@@ -69,6 +69,12 @@ coverage/
 tmp/
 temp/
 
+# Local agent/tool workspaces (contain session state, logs, keys)
+.codex/
+.firecrawl/
+.superstack/
+.tmp-pay-skills/
+
 # Python
 __pycache__/
 *.py[cod]
