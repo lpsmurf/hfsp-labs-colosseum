@@ -30,6 +30,7 @@
     "packages/wdk-tron-swap",
     "packages/x402-common",
     "packages/x402-audit-api",
+    "packages/x402-bunny-storage",
     "packages/x402-donate",
     "packages/x402-vpn-vps",
     "packages/x402-store",
