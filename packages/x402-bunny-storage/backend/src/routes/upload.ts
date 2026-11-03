@@ -14,6 +14,7 @@
 // The client resends the identical PUT (path + body) for both phases, matching
 // the x402 "identical request, price computed from request content" contract.
 import { Router, raw } from "express";
+import rateLimit from "express-rate-limit";
 import crypto from "node:crypto";
 import env from "../config.js";
 import { sanitizeStoragePath, uploadToBunny } from "../services/bunny.js";
@@ -24,6 +25,7 @@ import { TxAlreadyUsed } from "../errors.js";
 const router = Router();
 
 router.use(raw({ type: "*/*", limit: `${env.MAX_UPLOAD_MB}mb` }));
+router.use(rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false }));
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const OPERATOR  = env.OPERATOR_SOLANA_ADDRESS;
@@ -71,10 +73,12 @@ function make402(amount: bigint, url: string, sizeBytes: number) {
 
 // PUT /api/upload/*path — path becomes the object's storage path (namespaced under a random prefix)
 router.put(/^\/(.*)$/, async (req, res) => {
-  const txSig   = req.headers["x-solana-tx"] as string | undefined;
-  const rawPath = req.params[0] ?? "";
-  const body    = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-  const url     = `${env.PUBLIC_BASE_URL}/api/upload/${rawPath}`;
+  const txHeader = req.headers["x-solana-tx"];
+  const txSig    = typeof txHeader === "string" ? txHeader : undefined;
+  const pathParam = req.params[0];
+  const rawPath  = typeof pathParam === "string" ? pathParam : "";
+  const body     = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+  const url      = `${env.PUBLIC_BASE_URL}/api/upload/${rawPath}`;
 
   let storagePath: string;
   try {

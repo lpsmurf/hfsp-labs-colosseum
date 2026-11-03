@@ -7,11 +7,11 @@ const PII_PATTERNS = [
 ];
 
 const CRYPTO_PATTERNS = [
-  /(?:solana_address|solanaAddress|sender|recipient|wallet|from|to)["':\s]*[:=]?\s*["']?[1-9A-HJ-NP-Za-km-z]{32,44}["']?/gi,
+  /(?:solana_address|solanaAddress|sender|recipient|wallet|from|to)["':\s]{0,10}[:=]?\s{0,10}["']?[1-9A-HJ-NP-Za-km-z]{32,44}["']?/gi,
 ];
 
 function redact(value: string): string {
-  let out = value;
+  let out = value.slice(0, 4096);
   for (const pattern of PII_PATTERNS) out = out.replace(pattern, "[REDACTED]");
   for (const pattern of CRYPTO_PATTERNS) {
     out = out.replace(pattern, (match) => {
@@ -44,6 +44,6 @@ export function noLogs(req: Request, _res: Response, next: NextFunction) {
   if (req.body && typeof req.body === "object") {
     req.body = deepRedact(req.body) as any;
   }
-  console.log(`${req.method} ${redact(req.url)}`);
+  console.log(`${req.method} ${redact(req.url).replace(/[\r\n]/g, " ")}`);
   next();
 }
