@@ -38,6 +38,7 @@ packages/                     All projects live here (npm workspaces = "packages
 ├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator
 ├── x402-polymarket-edge      Non-custodial Polymarket edge-signals API (x402-gated)
 ├── x402-commerce-skill       Solana AI Kit skill — ship a paid API agents discover & buy over x402
+├── x402-bunny-storage       Pay-per-upload Bunny.net object storage for agents (x402)
 ├── x402-xstocks              xStocks KYC gateway — Sumsub verification + xChange quote proxy (x402)
 ├── x402-xstocks-feed         x402-gated xStocks price feed
 
@@ -70,10 +71,10 @@ marketplace/                  Marketplace submissions (pay-skills, x402scan, Age
 └── providers/                Other provider marketplace entries (OpenClaw, etc.)
 ```
 
-> Note: every project lives under `packages/`. The npm `workspaces` field uses the
-> glob `"packages/*"`, so new packages are picked up automatically — keep this list
-> in sync when you add one. `packages/x402-audit` has no `package.json` (findings/
-> reports only) and is silently skipped by the workspace glob.
+> Note: every project lives under `packages/`, but the npm `workspaces` field is an
+> explicit list — add new packages there AND regenerate the root lockfile
+> (`npm install --package-lock-only`) or `npm ci` in CI fails. Packages with their
+> own nested `package-lock.json` are intentionally NOT workspaces.
 
 ---
 
@@ -119,6 +120,13 @@ npm run dev
 # - clawdrop-platform  http://localhost:8788
 ```
 
+Before typecheck/test, build the shared package once (workspace consumers resolve
+`@hfsp/x402-common` from its `dist/`):
+
+```bash
+npm run build --workspace=packages/x402-common
+```
+
 ---
 
 ## File Structure for Contributors
@@ -126,8 +134,8 @@ npm run dev
 - `/packages/*/src/` — Implementation code (TypeScript)
 - `/packages/*/tests/` — Unit + integration tests
 - `/docs/` — Public documentation, guides, architecture
-- `/.github/workflows/` — GitHub Actions CI/CD pipelines
-- `/.github/CODEOWNERS` — Code ownership declarations
+- `/.github/workflows/` — CI (typecheck, lint, test, build matrix) + CodeQL
+- `/.github/dependabot.yml` — grouped security updates only
 - `/config/` — Docker, nginx, PM2, system configs
 - `/config/vps/` — Production VPS server infra (nginx, PM2, systemd)
 - `/scripts/` — Deployment, dev, and utility scripts
@@ -141,6 +149,7 @@ npm run dev
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md) — commit style, PR process
 2. Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design
 3. Review [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md) — setup issues
+4. Never commit `.env*` files, keypairs, or `packages/prop-pool/.devnet-wallet.json`. `main` is protected: required checks must pass and review conversations must be resolved.
 
 ---
 
