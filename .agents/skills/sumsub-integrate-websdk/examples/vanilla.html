@@ -1,0 +1,123 @@
+<!doctype html>
+<!--
+  Runnable single-file Sumsub WebSDK integration (vanilla JS).
+
+  Prereqs:
+    - A backend endpoint at /api/sumsub/access-token that mints a token for
+      the currently-logged-in user (see SKILL.md "Stage 2"). The endpoint
+      should accept no body and return { token: "..." }.
+    - A levelName configured in the Sumsub dashboard (sandbox).
+
+  Sandbox tokens only. Do not use production credentials during integration.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Verify your identity</title>
+  <style>
+    body { font: 16px/1.4 system-ui, sans-serif; max-width: 720px; margin: 2rem auto; }
+    .kyc-stage { position: relative; min-height: 600px; }
+    #sumsub-websdk-container { min-height: 600px; }
+    /* Overlay loader covers the 1–3s empty-iframe gap after .launch(). */
+    #kyc-loader {
+      position: absolute; inset: 0;
+      display: grid; place-items: center; gap: 12px;
+      background: #fff; color: #555; font-size: 14px;
+    }
+    #kyc-loader.hidden { display: none; }
+    .spinner {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 3px solid #e4e4e7; border-top-color: #4f46e5;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status { margin-top: 1rem; padding: .75rem; background: #f4f4f5; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Verify your identity</h1>
+  <div class="kyc-stage">
+    <div id="sumsub-websdk-container"></div>
+    <div id="kyc-loader">
+      <div class="spinner"></div>
+      <div>Loading verification…</div>
+    </div>
+  </div>
+  <div id="status" class="status" hidden></div>
+
+  <script src="https://static.sumsub.com/idensic/static/sns-websdk-builder.js"></script>
+  <script>
+    async function getAccessToken() {
+      const r = await fetch('/api/sumsub/access-token', { method: 'POST' });
+      if (!r.ok) throw new Error('failed to mint access token: ' + r.status);
+      const { token } = await r.json();
+      return token;
+    }
+
+    function setStatus(msg) {
+      const el = document.getElementById('status');
+      el.hidden = false;
+      el.textContent = msg;
+    }
+
+    (async () => {
+      try {
+        const initialToken = await getAccessToken();
+
+        const sdk = snsWebSdk
+          .init(initialToken, () => getAccessToken())   // refresh on expiry
+          .withConf({
+            lang: 'en',
+            theme: 'light',
+            // email / phone optional; pass them to prefill the SDK form
+          })
+          .withOptions({
+            addViewportTag: false,
+            adaptIframeHeight: true,
+          })
+          .on('idCheck.onReady', () => {
+            // Required: hide the overlay loader so the SDK iframe becomes visible.
+            document.getElementById('kyc-loader').classList.add('hidden');
+            setStatus('Ready. Follow the steps in the widget.');
+          })
+          .on('idCheck.onApplicantSubmitted', () => {
+            setStatus('Documents submitted — Sumsub is reviewing. We will email you when done.');
+          })
+          .on('idCheck.onApplicantStatusChanged', (p) => {
+            // p.reviewStatus: 'pending' | 'queued' | 'prechecked' | 'onHold' | 'completed'
+            // UX hint only — server-side webhook is the source of truth.
+            console.debug('sumsub status', p.reviewStatus, p);
+          })
+          .on('idCheck.onApplicantReviewed', (p) => {
+            // 2.0 may emit onApplicantVerificationCompleted instead.
+            // Show a *preliminary* result; confirm server-side before granting access.
+            console.debug('sumsub final (client-side preliminary)', p);
+          })
+          .on('idCheck.onUploadError', (e) => {
+            console.warn('upload error', e.code, e.msg);
+          })
+          .on('idCheck.onUploadWarning', (e) => {
+            console.warn('upload warning', e.code, e.msg);
+          })
+          .on('idCheck.onError', (e) => {
+            console.error('sumsub error', e);
+            // Hide the overlay loader and display the error message in the status area
+            document.getElementById('kyc-loader').classList.add('hidden');
+            setStatus('Something went wrong — please retry. Error code: ' + (e.code || 'unknown'));
+          })
+          .onMessage((type, payload) => {
+            // Catch-all firehose. Useful for analytics during integration; trim before prod.
+            console.debug('sumsub event', type, payload);
+          })
+          .build();
+
+        sdk.launch('#sumsub-websdk-container');
+      } catch (err) {
+        console.error(err);
+        setStatus('Could not load verification widget. Please refresh.');
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -99,8 +99,8 @@ export async function verifyPayment(
   expectedTier: string,
   expectedToken: string,
 ): Promise<PaymentVerification> {
-  // Devnet / staging bypass — set BYPASS_PAYMENT_VERIFY=true to skip on-chain check
-  if (process.env.BYPASS_PAYMENT_VERIFY === 'true') {
+  // Devnet / staging bypass — never allowed in production
+  if (process.env.BYPASS_PAYMENT_VERIFY === 'true' && process.env.NODE_ENV !== 'production') {
     const tierPriceUsd = TIER_PRICES_USD[expectedTier.toLowerCase()] ?? 19;
     return { valid: true, token: expectedToken.toUpperCase(), amount: '1', amountUsd: tierPriceUsd, recipient: process.env.PLATFORM_WALLET_ADDRESS ?? '', sender: 'devnet-bypass' };
   }

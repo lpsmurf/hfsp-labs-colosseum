@@ -1,0 +1,27 @@
+{
+  "title": "High-Risk Tagger (action workflow)",
+  "kind": "actions",
+  "revisionStatus": "draft",
+  "desc": "Action workflow: after an applicant completes the SOF level, tag them based on questionnaire answers and add a note.",
+
+  "nodes": [
+    { "id": "sof-level",     "type": "actionLevel",  "name": "Source of Funds", "levelName": "Source-of-Funds" },
+    { "id": "branch",        "type": "actionCondition", "name": "Investments?" },
+    { "id": "tag-high-risk", "type": "actionActions", "name": "Tag high risk",
+      "actions": [
+        { "tag": ["High risk", "Investments-funded"] },
+        { "note": "Funds source is investments — confirm provenance" },
+        { "sourceKey": "manual-review" }
+      ]
+    },
+    { "id": "tag-baseline",  "type": "actionActions", "name": "Baseline tag",
+      "actions": [ { "tag": ["Reviewed by workflow"] } ]
+    }
+  ],
+
+  "edges": [
+    { "from": "sof-level", "to": "branch",        "on": "approved" },
+    { "from": "branch",    "to": "tag-high-risk", "when": "questionnaires.source-of-funds.primary.main = investments" },
+    { "from": "branch",    "to": "tag-baseline",  "when": "questionnaires.source-of-funds.primary.main != investments" }
+  ]
+}

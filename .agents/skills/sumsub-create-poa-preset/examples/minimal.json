@@ -1,0 +1,17 @@
+{
+  "name": "Standard PoA — 6 months (example)",
+  "desc": "Bare-minimum preset: bank / utility / government / mobile / other, 6-month validity, POI-as-POA off.",
+  "settings": {
+    "acceptMultiplePages": true,
+    "acceptDocScreenshot": true,
+    "validMonths": 6,
+    "addressTypes": ["dwelling", "poBox"],
+    "providers": {
+      "bank": { "subTypes": ["bankStatement", "bankLetter", "other"] },
+      "utilityProvider": { "subTypes": ["telecom", "utilityBill", "other"] },
+      "governmentOrganization": { "subTypes": ["statement", "voterRegistration", "taxBill", "other"] },
+      "mobileOperator": {},
+      "other": { "subTypes": ["lease", "other"] }
+    }
+  }
+}

@@ -1,58 +1,80 @@
-# HFSP Labs Colosseum — Developer Context
+# Clawdrop — Developer Context
 
 ## What This Project Is
 
-Two product families live in one monorepo:
+Clawdrop deploys per-user autonomous Solana AI agents that run 24/7. 
 
-- **Clawdrop** — per-user autonomous Solana AI agents running 24/7. Stage 1: free trial chatbot (`clawdrop.live/try`). Stage 2: paid deployed agent (private Docker container + MCP server + Telegram interface), built on **SendAI Solana Agent Kit**.
-- **x402 ecosystem** — x402-gated paid APIs (USDC on Solana, Base and Celo), the security audit service, and shared payment tooling.
+- **Stage 1** — Free trial chatbot (`clawdrop.live/try`): Proof of concept
+- **Stage 2** — Paid deployed agent: Private Docker container + MCP server + Telegram interface
+
+Built on **SendAI Solana Agent Kit** (60+ Solana tools, token/DeFi plugins).
 
 ---
 
 ## Monorepo Structure
 
 ```
-packages/
+packages/                     All projects live here (npm workspaces = "packages/*")
+
+# — Clawdrop agent platform —
 ├── trial-api                 Trial chatbot backend (Mastra + SendAI Agent Kit)
 ├── trial-frontend            Trial chatbot UI (React + Vite)
-├── clawdrop-mcp-server       Per-user MCP server (Agent Kit + x402 payment)
+├── clawdrop-mcp-server       Per-user MCP server (SendAI Agent Kit + x402 payment)
 ├── clawdrop-agent-runtime    Per-user autonomous agent (Telegram + MCP client)
 ├── clawdrop-platform         Subscriptions, Docker orchestration, ZK vault
 ├── agent-provisioning        Mastra brain + Telegram wizard + storefront API
 ├── clawdrop-mcp              MCP gateway + CLI wizard + payment protocol
-├── clawdrop-landing          Landing page
+├── clawdrop-landing          Landing page (stub — redesign in progress)
 ├── clawdrop-vpn              VPN x402 payment integration (clawdrop HTTP proxy)
-├── agent-kit-mcp-adapter     Agent Kit → MCP tool adapter
-├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent
-├── x402-common               Shared x402 V2 building blocks (@hfsp/x402-common)
-├── x402-audit-api            x402 ecosystem security audit API (Base + Solana + Celo)
-├── x402-donate               x402-gated donation router (Base, Endaoment)
-├── x402-store                Cryptorefills proxy — gift cards/top-ups (Solana + Celo rails)
-├── x402-wallet               x402 wallet UI + agent dashboard (Next.js)
-├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet, Helius verification
-├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet, x402.org facilitator
-├── celo-commerce-mcp         MCP server for buying top-ups over x402 on Celo
+
+# — x402 suite —
+├── x402-sdk                  Node.js middleware for Solana x402 payments (payment-gated APIs in <10 lines)
+├── x402-demo                 Live demo for x402-sdk — the 402 flow at demo.hfsp.cloud
+├── x402-audit-api            x402 ecosystem security audit API ($0.99 USDC, Base + Solana)
+├── x402-donate               x402-gated donation router (Base, Endaoment integration)
+├── x402-store                x402 Cryptorefills proxy — gift cards/top-ups/eSIMs (Solana USDC)
+├── x402-wallet               x402 wallet UI + agent dashboard
+├── x402-vpn-vps              x402 VPN + ephemeral VPS — Solana mainnet USDC, Helius verification
+├── x402-vpn-vps-base         x402 VPN + ephemeral VPS — Base mainnet USDC, x402.org facilitator
+├── x402-polymarket-edge      Non-custodial Polymarket edge-signals API (x402-gated)
+├── x402-commerce-skill       Solana AI Kit skill — ship a paid API agents discover & buy over x402
+├── x402-bunny-storage       Pay-per-upload Bunny.net object storage for agents (x402)
+├── x402-xstocks              xStocks KYC gateway — Sumsub verification + xChange quote proxy (x402)
+├── x402-xstocks-feed         x402-gated xStocks price feed
+
+# — Gnosis Card / Circles —
 ├── gnosis-card-x402          Gnosis Card x402 payment integration
+├── gnosis-card-frontend      Gnosis Card human frontend — top up Safe from Solana/Base (React+Vite)
 ├── gnosis-card-contracts     Gnosis Card Solidity contracts
-├── prop-pool                 txoracle-settled prop pools (Anchor + crank + Mini App)
+├── gnosis-circles-miniapp    Circles Garage mini app — gift card redemption
+├── circles-swap-miniapp      Bidirectional USDC bridge (Solana ↔ Gnosis)
+
+# — WDK community modules —
 ├── wdk-solana-swap           WDK community module — Jupiter swaps on Solana
-└── wdk-tron-swap             WDK community module — SunSwap on Tron
+├── wdk-browser-extension     WDK community module — Solana browser extension wallet (Chrome/Brave MV3)
+├── wdk-tron-swap             WDK community module — SunSwap on Tron
+
+# — Bounties & agents —
+├── oobe-bounty               OOBE Protocol bounty — autonomous x402 agent (live on mainnet)
+├── worldcup-bounty           World Cup bounty — settlement oracle + TxODDS hackathon prep kit
+├── shopping-agent            Self-funding Solana shopping agent (AgentMail + Keepa + Crossmint over x402)
+
+└── x402-audit               Security audit findings (findings/ reports/ archive/) — NOT an npm package
 
 config/                       Deployment infrastructure configs
 ├── vps/                      Server infra (nginx, PM2, systemd) for production VPS
-├── pm2/                      PM2 ecosystem files (Mac Mini production)
 ├── docker/                   Docker configs
 └── nginx/                    Nginx reverse proxy configs
 
 marketplace/                  Marketplace submissions (pay-skills, x402scan, Agentic Market)
-prep-kits/                    Spec handoff packs for agent-built skills (bridge, scheduled payments)
-skills/                       Agent skills
-x402-audit/                   Security audit findings for the x402 ecosystem
-├── findings/                 Vulnerability disclosures (CRITICAL → INFO)
-├── reports/                  Raw sweep data (JSON)
-├── archive/                  Historical probe data (LFS)
-└── scripts/                  Standalone probe/eval scripts (own lockfile)
+├── pay-skills/               solana-foundation/pay-skills catalog entries
+└── providers/                Other provider marketplace entries (OpenClaw, etc.)
 ```
+
+> Note: every project lives under `packages/`, but the npm `workspaces` field is an
+> explicit list — add new packages there AND regenerate the root lockfile
+> (`npm install --package-lock-only`) or `npm ci` in CI fails. Packages with their
+> own nested `package-lock.json` are intentionally NOT workspaces.
 
 ---
 
@@ -66,30 +88,30 @@ x402-audit/                   Security audit findings for the x402 ecosystem
 2. **Per-user Docker isolation**
    - Each subscriber gets isolated containers for MCP server + agent runtime
    - Private key injected only at spawn time (AES-GCM encrypted storage)
+   - Reason: No key sharing, concurrent safety
 
-3. **`@hfsp/x402-common` is the shared payment layer**
-   - CAIP-2 networks, USDC amounts, facilitator-backed resource servers
-   - Consumers resolve it from `dist/` — build it before typecheck/test (CI does)
-   - Nested backends (`*/backend`) build against the hoisted root install
+3. **x402 payment tools alongside Agent Kit tools in one MCP server**
+   - Both types registered in same `actionsRecord`
+   - Agent can reason about payments + execution together
+   - Reason: Budget awareness built into tool selection
 
-4. **x402 payment tools alongside Agent Kit tools in one MCP server**
-   - Budget awareness built into tool selection
-
-5. **LLM routing, not lock-in**
+4. **LLM routing, not lock-in**
    - Per-user modes: platform-managed keys, BYOK, custom endpoint
+   - Transparent to the tooling layer
+   - Reason: Users control their LLM choice
 
 ---
 
 ## Running Locally
 
 ```bash
-# Install dependencies (root workspaces)
+# Install dependencies
 npm install
 
 # Populate .env files (see docs/getting-started/development-setup.md)
 cp .env.example .env.trial
 
-# Start the trial stack with Docker Compose
+# Start with Docker Compose
 npm run dev
 
 # Services start on:
@@ -98,7 +120,8 @@ npm run dev
 # - clawdrop-platform  http://localhost:8788
 ```
 
-Before typecheck/test, build the shared package once:
+Before typecheck/test, build the shared package once (workspace consumers resolve
+`@hfsp/x402-common` from its `dist/`):
 
 ```bash
 npm run build --workspace=packages/x402-common
@@ -114,9 +137,9 @@ npm run build --workspace=packages/x402-common
 - `/.github/workflows/` — CI (typecheck, lint, test, build matrix) + CodeQL
 - `/.github/dependabot.yml` — grouped security updates only
 - `/config/` — Docker, nginx, PM2, system configs
+- `/config/vps/` — Production VPS server infra (nginx, PM2, systemd)
 - `/scripts/` — Deployment, dev, and utility scripts
-- `/prep-kits/` — Spec packs for skills built by coding agents
-- `/marketplace/` — Marketplace submissions
+- `/marketplace/` — Marketplace submissions (pay-skills, x402scan, Agentic Market)
 - `/x402-audit/` — Security audit findings and reports
 
 ---
@@ -125,5 +148,60 @@ npm run build --workspace=packages/x402-common
 
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md) — commit style, PR process
 2. Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design
-3. Review [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md)
+3. Review [docs/getting-started/development-setup.md](docs/getting-started/development-setup.md) — setup issues
 4. Never commit `.env*` files, keypairs, or `packages/prop-pool/.devnet-wallet.json`. `main` is protected: required checks must pass and review conversations must be resolved.
+
+---
+
+**Questions?** Check the docs or open an issue.
+
+---
+
+## Circles Mini Apps (Context7)
+
+When working on anything in `packages/gnosis-circles-miniapp/` or any other Circles integration:
+
+- **Always** use Context7 to fetch live Circles docs before writing code — never rely on training data alone
+- Use the slash syntax: `use library /aboutcircles/sdk` or `use library /aboutcircles/circles-docs`
+- The current SDK is `@aboutcircles/sdk` (not the deprecated `@circles-sdk/*`)
+- Use `@aboutcircles/miniapp-sdk` for Garage/embedded mini apps (wallet connection, `sendTransactions`, `signMessage`)
+- Gnosis Chain is chainId 100; all config comes from `circlesConfig[100]`
+- Token amounts are BigInt in atto-CRC (10^18 per CRC)
+- Use viem, not ethers, for Circles SDK v2 contracts
+
+**Circles Garage app submission** (PR to `aboutcircles/CirclesMiniapps`):
+- Mini app URL: `https://card.hfsp.cloud/circles/`
+- Test it at: `https://circles-dev.gnosis.io/playground?url=https://card.hfsp.cloud/circles/`
+- Manifest entry goes in `static/miniapps.json` (category: `"garage"`)
+- PR title: `feat: add hfsp-redeem garage app`
+
+---
+
+## Openclaw community manager integration
+
+Every session has two jobs: (1) dev work as usual, (2) maintain `.openclaw/dev-log.md`.
+
+**On session open** — add a new session block with today's date, status at open, and goal. Do this before writing any code.
+
+**On session close** — when the user says "done", "wrap up", "closing", or similar, fill in what was built, tag each item, write status at close. Do this automatically without being asked. End with: "Anything else to log before I close out?"
+
+**Signal tags:**
+- `[USER-FACING]` — visible to users → high priority for content
+- `[MILESTONE]` — first user, launch, first payment, shipped MVP → always flag
+- `[TECHNICAL]` — internal change, refactor → skip unless genuinely clever
+- `[LEARNING]` — insight, pivot, interesting failure → good for dev content
+- `[IDEA]` — not built yet → do not log
+
+**Never log:** secrets, keys, credentials, IPs, package installs, typo fixes, env setup, renames with no behavior change.
+
+**Session open checklist (run silently):**
+1. Read CLAUDE.md
+2. Read `.openclaw/dev-log.md`
+3. Add today's session block
+4. Confirm goal before writing code
+
+**Session close checklist:**
+1. Fill in Built / Changed and Decided / Learned with signal tags
+2. Write status at close
+3. Update Notable features shipped if anything user-facing shipped
+4. Ask "anything else to log before I close out?"
