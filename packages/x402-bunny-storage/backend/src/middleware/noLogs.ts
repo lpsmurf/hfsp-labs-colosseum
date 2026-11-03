@@ -44,6 +44,6 @@ export function noLogs(req: Request, _res: Response, next: NextFunction) {
   if (req.body && typeof req.body === "object") {
     req.body = deepRedact(req.body) as any;
   }
-  console.log(`${req.method} ${redact(req.url).replace(/[\r\n]/g, " ")}`);
+  console.log(`${req.method.replace(/[^A-Z]/g, "").slice(0, 16)} ${redact(req.url).replace(/[\r\n]/g, " ")}`);
   next();
 }
