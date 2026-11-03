@@ -1,0 +1,11 @@
+{
+  "name": "Source of Funds (example)",
+  "applicantType": "individual",
+  "type": "standalone",
+  "docSets": [
+    {
+      "type": "QUESTIONNAIRE",
+      "questionnaireDefId": "source-of-funds-example"
+    }
+  ]
+}

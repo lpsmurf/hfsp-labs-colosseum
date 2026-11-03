@@ -1,0 +1,55 @@
+{
+  "name": "Global PoA with tighter Brazil rules (example)",
+  "desc": "6-month global defaults; Brazil-specific override tightens validity to 3 months and disables the 'other' provider category.",
+  "excludedCountries": ["PRK", "IRN"],
+
+  "settings": {
+    "acceptMultiplePages": true,
+    "acceptDocScreenshot": true,
+    "validMonths": 6,
+    "addressTypes": ["dwelling", "poBox"],
+    "providers": {
+      "bank":                   { "subTypes": ["bankStatement", "bankLetter", "other"] },
+      "utilityProvider":        { "subTypes": ["telecom", "utilityBill", "other"] },
+      "governmentOrganization": { "subTypes": ["statement", "voterRegistration", "taxBill", "other"] },
+      "mobileOperator":         {},
+      "other":                  { "subTypes": ["lease", "other", "universityLetter"] }
+    },
+    "poiAsPoa": {
+      "enabled":     true,
+      "sameDoc":     true,
+      "validMonths": 3,
+      "allowedTypes": ["PASSPORT", "ID_CARD", "RESIDENCE_PERMIT", "DRIVERS"]
+    },
+    "crossValidator": {
+      "nameMode":       "weakContainment",
+      "addressMode":    "fuzzy",
+      "fuzzyThreshold": 0.75
+    }
+  },
+
+  "byCountry": {
+    "BRA": {
+      "acceptMultiplePages": true,
+      "acceptDocScreenshot": true,
+      "validMonths": 3,
+      "addressTypes": ["dwelling"],
+      "providers": {
+        "bank":                   { "subTypes": ["bankStatement", "bankLetter"] },
+        "utilityProvider":        { "subTypes": ["utilityBill", "telecom"] },
+        "governmentOrganization": { "subTypes": ["taxBill", "statement"] }
+      },
+      "poiAsPoa": {
+        "enabled":     true,
+        "sameDoc":     true,
+        "validMonths": 3,
+        "allowedTypes": ["PASSPORT", "ID_CARD", "RESIDENCE_PERMIT", "DRIVERS"]
+      },
+      "crossValidator": {
+        "nameMode":       "strict",
+        "addressMode":    "fuzzy",
+        "fuzzyThreshold": 0.85
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ import env from "./config.js";
 import { noLogs } from "./middleware/noLogs.js";
 import catalogRouter from "./routes/catalog.js";
 import ordersRouter  from "./routes/orders.js";
+import internalRouter from "./routes/internal.js";
 import wellKnownRouter from "./routes/wellKnown.js";
 import healthRouter  from "./routes/health.js";
 import openapiRouter from "./routes/openapi.js";
@@ -36,6 +37,9 @@ app.use("/api", catalogRouter);
 
 // x402-gated orders
 app.use("/api/orders", ordersRouter);
+
+// Internal fulfillment — called by trusted sibling backends only
+app.use("/api/internal", internalRouter);
 
 // Celo rail — mounted only when fully configured, so a missing key cannot
 // half-enable a route that takes payments it cannot fulfil.

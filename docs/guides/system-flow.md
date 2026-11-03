@@ -303,7 +303,7 @@ Polling container status... starting
 
 🎉 Your OpenClaw agent is live!
    Endpoint: http://127.0.0.1:45678
-   Tenant VPS: 187.124.173.69
+   Tenant VPS: 72.62.239.63
 ```
 
 ---
@@ -393,7 +393,7 @@ User can later call pair_agent anytime
                                          ▼
                                 ┌──────────────────┐
                                 │   Tenant VPS     │
-                                │ 187.124.173.69  │
+                                │ 72.62.239.63  │
                                 │                  │
                                 │ ┌──────────────┐ │
                                 │ │ Docker       │ │
@@ -490,16 +490,16 @@ DOCKER_HOST=unix:///var/run/docker.sock
 node wizard-docker.cjs
 
 # Check container on tenant VPS
-ssh root@187.124.173.69 "docker ps | grep hfsp_"
+ssh root@72.62.239.63 "docker ps | grep hfsp_"
 
 # View logs
-ssh root@187.124.173.69 "docker logs hfsp_<agent-id>"
+ssh root@72.62.239.63 "docker logs hfsp_<agent-id>"
 
 # Restart
-ssh root@187.124.173.69 "docker restart hfsp_<agent-id>"
+ssh root@72.62.239.63 "docker restart hfsp_<agent-id>"
 
 # Remove
-ssh root@187.124.173.69 "docker rm -f hfsp_<agent-id>"
+ssh root@72.62.239.63 "docker rm -f hfsp_<agent-id>"
 ```
 
 ---

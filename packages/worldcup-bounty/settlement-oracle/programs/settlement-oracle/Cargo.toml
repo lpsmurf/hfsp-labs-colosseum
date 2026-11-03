@@ -1,0 +1,20 @@
+[package]
+name = "settlement-oracle"
+version = "0.1.0"
+description = "Solana settlement oracle — resolves prediction markets from TxLine score Merkle proofs"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "settlement_oracle"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.30.1"

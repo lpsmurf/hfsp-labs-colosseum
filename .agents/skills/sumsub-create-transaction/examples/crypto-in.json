@@ -1,0 +1,33 @@
+{
+  "_applicantId": "REPLACE_WITH_APPLICANT_ID",
+  "txnId": "crypto-in-eth-0001",
+  "txnDate": "2026-05-21 14:35:00+0000",
+  "type": "finance",
+
+  "amount": 1250.75,
+  "currency": "USDC",
+  "currencyType": "crypto",
+  "direction": "in",
+
+  "crypto": {
+    "chain": "ETH",
+    "contract": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "paymentTxnId": "0x1234abcd5678ef901234abcd5678ef901234abcd5678ef901234abcd5678ef90"
+  },
+
+  "applicant": {
+    "externalUserId": "user-001",
+    "type": "individual",
+    "fullName": "John Smith"
+  },
+
+  "counterparty": {
+    "externalUserId": "wallet:0xabcd0000000000000000000000000000000000ef",
+    "type": "individual",
+    "fullName": "Unknown originator",
+    "paymentMethod": {
+      "type": "unhostedWallet",
+      "accountId": "0xabcd0000000000000000000000000000000000ef"
+    }
+  }
+}

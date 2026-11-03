@@ -1,0 +1,13 @@
+{
+  "name": "Legacy SHA1 webhook (example)",
+  "target": "https://legacy-backend.example.com/sumsub",
+  "targetType": "http",
+  "types": [
+    "applicantCreated",
+    "applicantPending",
+    "applicantReviewed"
+  ],
+  "signatureAlgorithm": "HMAC_SHA1_HEX",
+  "secretKey": "REPLACE_WITH_GENERATED_SECRET",
+  "disabled": false
+}
