@@ -1,0 +1,109 @@
+version: '3.9'
+
+services:
+  # Trial API Backend (Solana agent + tools)
+  trial-api:
+    build:
+      context: packages/trial-api
+      dockerfile: Dockerfile
+    container_name: clawdrop-trial-api
+    ports:
+      - "8787:8787"
+    volumes:
+      - trial-data:/app/data
+    env_file:
+      - .env.trial
+    environment:
+      PORT: "8787"
+      NODE_ENV: production
+      TRUST_PROXY: "1"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Trial Frontend (Chatbox UI + Dashboard)
+  trial-frontend:
+    build:
+      context: packages/trial-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_PLATFORM_WALLET: ALDJCQEjFeSBqd5WbECpYaKcfxfhNvpF4hxrg95x8vRL
+        VITE_SOLANA_RPC_URL: https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}
+    container_name: clawdrop-trial-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      trial-api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Openclaw Platform (subscriptions, payments, agent orchestration)
+  clawdrop-platform:
+    build:
+      context: packages/clawdrop-platform
+      dockerfile: Dockerfile
+    container_name: clawdrop-platform
+    ports:
+      - "8788:8788"
+    volumes:
+      - platform-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock  # needed for docker-deployer
+    env_file:
+      - .env.platform
+    environment:
+      PORT: "8788"
+      NODE_ENV: production
+      SQLITE_PATH: /app/data/clawdrop.sqlite
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8788/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Clawdrop MCP Server (Solana Agent Kit — 93 tools over HTTP/MCP)
+  clawdrop-mcp-server:
+    build:
+      context: packages/clawdrop-mcp-server
+      dockerfile: Dockerfile
+    container_name: clawdrop-mcp-server
+    ports:
+      - "3002:3002"
+      - "3003:3003"
+    env_file:
+      - .env.mcp-server
+    environment:
+      NODE_ENV: production
+      MCP_PORT: "3002"
+      HEALTH_PORT: "3003"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # OpenClaw tenant runtime image (built here, spawned per-user by clawdrop-platform)
+  openclaw-runtime-builder:
+    build:
+      context: packages/agent-provisioning/tenant-runtime-image
+      dockerfile: Dockerfile
+    image: colosseum-openclaw-runtime:latest
+    command: ["echo", "image built"]
+    profiles: ["build-only"]   # never actually runs, just builds the image
+
+volumes:
+  trial-data:
+    driver: local
+  platform-data:
+    driver: local
