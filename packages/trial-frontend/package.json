@@ -24,7 +24,7 @@
     "react-markdown": "^10.1.0",
     "react-query": "^3.39.3",
     "react-router-dom": "^6.20.0",
-    "zod": "^3.22.4"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
@@ -35,6 +35,6 @@
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
-    "vite": "^4.5.1"
+    "vite": "^6.4.5"
   }
 }
