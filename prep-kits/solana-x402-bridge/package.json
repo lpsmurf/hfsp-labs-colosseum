@@ -19,7 +19,7 @@
     "test:clmm": "tsx scripts/clmm-engine.test.ts"
   },
   "dependencies": {
-    "@allbridge/bridge-core-sdk": "3.31.0",
+    "@allbridge/bridge-core-sdk": "3.38.0",
     "@solana/web3.js": "^1.95.0",
     "bs58": "4.0.1",
     "viem": "^2.21.0"
